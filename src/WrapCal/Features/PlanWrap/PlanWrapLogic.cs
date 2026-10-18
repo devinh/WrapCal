@@ -165,14 +165,17 @@ public static class PlanWrapLogic
             double p = dimensions[(axisIndex + 1) % 3];
             double q = dimensions[(axisIndex + 2) % 3];
 
-            // Paper must go around the cross-section (p x q), plus enough to lap the two ends
-            // over each other by the requested overlap.
+            // Each sheet dimension has exactly one overlap to close, so the margin is added
+            // once to each — not once per edge.
+            //
+            //  around the cross-section: the two ends of the wrap lap over each other
+            //  along the box: the flaps folded onto each end face meet in the middle, and
+            //  without the margin they only just meet — there is no lap at all
             double circumference = (2 * (p + q)) + options.OverlapMargin;
 
-            // Along the axis the paper covers the box and folds over each end face (half of
-            // the larger cross-section side per end). No extra allowance here — the margin is
-            // about the seam, and the fold-over already covers the ends.
-            double axisLength = axis + Math.Max(p, q);
+            // The fold-over is half of the larger cross-section side per end: enough to reach
+            // the middle of the end face from both sides.
+            double axisLength = axis + Math.Max(p, q) + options.OverlapMargin;
 
             string label = $"wrapped around the {AxisNames[axisIndex]}-axis";
 

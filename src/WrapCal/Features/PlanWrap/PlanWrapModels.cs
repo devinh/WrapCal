@@ -42,13 +42,10 @@ public sealed record GiftBox(string Name, double Length, double Width, double He
 /// <paramref name="InputUnit"/>. Everything is converted to centimetres for the maths and
 /// converted back to <paramref name="OutputUnit"/> at the end.
 /// <para>
-/// <paramref name="OverlapMargin"/> is how far the two ends of the paper lap over each other
-/// when the wrap goes around the box. It lengthens only the wrap-around dimension; with 0 the
-/// paper would meet exactly and not overlap at all.
-/// </para>
-/// <para>
-/// The along-the-box dimension gets no allowance beyond the fold-over the planner already
-/// adds to cover the end faces.
+/// <paramref name="OverlapMargin"/> is how far the paper laps over itself where it meets. Both
+/// sheet dimensions have exactly one such seam — the wrap-around has one where its two ends
+/// meet, and the along-the-box dimension has one where the two folded end flaps meet — so the
+/// margin is added once to each. With 0 the paper would meet exactly and not overlap at all.
 /// </para>
 /// </summary>
 public sealed record WrapOptions(
