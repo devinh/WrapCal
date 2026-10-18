@@ -1,3 +1,4 @@
+using System.Globalization;
 using Bunit;
 using WrapCal.Features.PlanWrap;
 
@@ -114,6 +115,39 @@ public class WrapPlanDiagramTests : BunitContext
 
         await Assert.That(downParts[2]).IsEqualTo("60");
         await Assert.That(rightParts[3]).IsEqualTo("60");
+    }
+
+    [Test]
+    public async Task Marks_and_labels_the_origin()
+    {
+        var cut = Render<WrapPlanDiagram>(parameters => parameters.Add(p => p.Plan, OneBoxPlan()));
+
+        await Assert.That(cut.FindAll("circle.origin-dot").Count).IsEqualTo(1);
+        await Assert.That(cut.Markup).Contains("0,0");
+    }
+
+    [Test]
+    [Arguments(RollDirection.Down)]
+    [Arguments(RollDirection.Up)]
+    [Arguments(RollDirection.Right)]
+    [Arguments(RollDirection.Left)]
+    public async Task Puts_the_origin_on_the_corner_where_both_axes_are_zero(RollDirection direction)
+    {
+        WrapPlan plan = OneBoxPlan();
+        var cut = Render<WrapPlanDiagram>(parameters => parameters
+            .Add(p => p.Plan, plan)
+            .Add(p => p.Direction, direction));
+
+        var dot = cut.Find("circle.origin-dot");
+        double cx = double.Parse(dot.GetAttribute("cx") ?? "0", CultureInfo.InvariantCulture);
+        double cy = double.Parse(dot.GetAttribute("cy") ?? "0", CultureInfo.InvariantCulture);
+
+        // Mirrored for Up, transposed for Left/Right — the origin moves with the drawing.
+        double expectedX = direction == RollDirection.Left ? plan.RollLengthUsed : 0;
+        double expectedY = direction == RollDirection.Up ? plan.RollLengthUsed : 0;
+
+        await Assert.That(cx).IsEqualTo(expectedX);
+        await Assert.That(cy).IsEqualTo(expectedY);
     }
 
     private static WrapPlan TwoBoxPlan() =>

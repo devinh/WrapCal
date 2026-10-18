@@ -63,6 +63,18 @@ public class PlanWrapPageTests : BunitContext
     }
 
     [Test]
+    public async Task Defaults_to_the_roll_continuing_upwards()
+    {
+        var cut = Render<PlanWrap>();
+
+        await cut.Find("form").SubmitAsync();
+
+        string? diagram = cut.Find("svg[role='img']").TextContent;
+
+        await Assert.That(diagram).Contains("↑ Roll continues");
+    }
+
+    [Test]
     public async Task Adding_and_removing_boxes_changes_the_row_count()
     {
         var cut = Render<PlanWrap>();

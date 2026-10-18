@@ -41,6 +41,16 @@ else
                 Start of roll
             </text>
 
+            @* The plan's origin: the corner where X across the roll and Y along it are both
+               zero. Which corner that is depends on how the drawing is turned. *@
+            <circle class="origin-dot" cx="@N(OriginX)" cy="@N(OriginY)" r="@N(OriginRadius)" />
+
+            <text class="origin-label" x="@N(OriginLabelX)" y="@N(OriginLabelY)"
+                  transform="@LabelTransform(OriginLabelX, OriginLabelY)"
+                  text-anchor="@OriginAnchor" dominant-baseline="middle" font-size="@N(HeadFont)">
+                0,0
+            </text>
+
             @* The paper consumed by this plan. *@
             <rect class="paper" x="0" y="0" width="@N(PaperWidth)" height="@N(PaperHeight)" />
 
@@ -77,7 +87,9 @@ else
 
         <figcaption class="text-muted small mt-1">
             Paper: @F(PaperWidth) @UnitLabel wide × @F(PaperHeight) @UnitLabel long.
-            The roll continues past the @EdgeName edge — the hatched area is paper you still have.
+            The dot marks the origin (0,0), where the distance across the roll and the distance
+            along it are both zero. The roll continues past the @EdgeName edge — the hatched
+            area is paper you still have.
         </figcaption>
     </figure>
 }
@@ -88,7 +100,7 @@ else
 
     /// <summary>Which way the drawing faces. Does not change the plan itself.</summary>
     [Parameter]
-    public RollDirection Direction { get; set; } = RollDirection.Down;
+    public RollDirection Direction { get; set; } = RollDirection.Up;
 
     private readonly record struct Box(double X, double Y, double W, double H);
 
@@ -184,6 +196,34 @@ else
         _ => Plan.RollWidth / 2,
     };
 
+    // The origin sits on the corner where plan X and plan Y are both zero. The mirror (Up) and
+    // the transpose (Left/Right) each move it to a different corner of the paper.
+    private double OriginX => Direction == RollDirection.Left ? Plan.RollLengthUsed : 0;
+
+    private double OriginY => Direction == RollDirection.Up ? Plan.RollLengthUsed : 0;
+
+    private double OriginRadius => Plan.RollWidth * 0.012;
+
+    private double OriginPad => Plan.RollWidth * 0.01;
+
+    // The label sits in the margin beside the origin. Side labels are rotated, so anchoring
+    // them at the "end" keeps them running into the drawing instead of out of the viewBox.
+    private string OriginAnchor => IsHorizontal ? "end" : "start";
+
+    private double OriginLabelX => Direction switch
+    {
+        RollDirection.Right => -HeadThickness * 0.55,
+        RollDirection.Left => Plan.RollLengthUsed + (HeadThickness * 0.55),
+        _ => OriginPad,
+    };
+
+    private double OriginLabelY => Direction switch
+    {
+        RollDirection.Down => -HeadThickness * 0.55,
+        RollDirection.Up => Plan.RollLengthUsed + (HeadThickness * 0.55),
+        _ => OriginPad,
+    };
+
     private string BandLabel => Direction switch
     {
         RollDirection.Down => "↓ Roll continues",
@@ -212,6 +252,7 @@ else
     private string AriaLabel =>
         $"Cut layout for {Plan.Sections.Count} sheet(s) on paper "
         + $"{F(PaperWidth)} by {F(PaperHeight)} {UnitLabel}. "
+        + $"The origin is marked at the corner where both distances are zero. "
         + $"Unused paper continues past the {EdgeName} edge.";
 
     private string HatchId => $"{_uid}-hatch";

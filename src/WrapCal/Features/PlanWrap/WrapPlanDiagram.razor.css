@@ -40,3 +40,16 @@
     fill: #6b6b6b;
     pointer-events: none;
 }
+
+.origin-dot {
+    fill: #1b6ec2;
+    stroke: #fff;
+    stroke-width: 1.5;
+    vector-effect: non-scaling-stroke;
+}
+
+.origin-label {
+    fill: #1b6ec2;
+    font-weight: 600;
+    pointer-events: none;
+}
