@@ -123,6 +123,19 @@ Read this before changing the maths. Every point here has been got wrong once al
   `remove-box`, `unit-select`, `plan-button`, `plan-error`, `roll-direction`, `sections`,
   `roll-length`, `paper-area`, `waste-area`, `efficiency`. The functional suite drives the
   page through these, so renaming one breaks tests rather than the app.
+- **The diagram never scales to fit.** Its scale comes from the roll width, which does not
+  change as boxes are added, so a longer plan draws a longer diagram and the rest is reached
+  by scrolling — the scroll axis follows the roll (`is-vertical` / `is-horizontal` on
+  `.diagram-scroller`). Scaling the whole plan into the figure is what used to make the
+  drawing shrink with every box, and `Layout.feature` measures the overflow to catch its
+  return.
+- **The scroller opens at the origin, with no script.** It is a flex container, and
+  `is-reversed` — set for Up and Left, whose origin is at the far end — lays it out from that
+  end (`column-reverse` / `row-reverse`), which puts the initial scroll there too. Verified
+  in the browser and mutation-checked: forcing `column`/`row` fails the Up and Left examples.
+- **Re-keying the scroller resets the scroll.** It is keyed on `(Plan, Direction)`, so a new
+  plan or a new direction starts at the origin instead of wherever the previous drawing was
+  left. Don't "optimise" the key away.
 - **The origin dot moves with the drawing.** It sits on the corner where plan X and plan Y
   are both zero: top-left going Down, bottom-left going Up and Right, bottom-right going
   Left. The horizontal layouts also flip X downwards so that corner really is the origin.

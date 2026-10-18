@@ -41,6 +41,18 @@ public sealed class FormSteps : StepsBase
         await FillAndLeaveAsync(sides.Nth(2), Inv(height));
     }
 
+    [Given("{int} identical boxes measuring {double} by {double} by {double}")]
+    public async Task GivenIdenticalBoxesAsync(
+        int count, double length, double width, double height)
+    {
+        // Long plans are what the diagram has to cope with; spelling out a dozen near-identical
+        // rows would bury the point of the scenario.
+        for (int i = 1; i <= count; i++)
+        {
+            await GivenABoxAsync($"Box {i}", length, width, height);
+        }
+    }
+
     [When("I remove the last box")]
     public async Task WhenIRemoveTheLastBoxAsync()
     {

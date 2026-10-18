@@ -75,4 +75,66 @@ public sealed class LayoutSteps : StepsBase
         await Assert.That(count).IsEqualTo(3);
         await Assert.That(tops.Max() - tops.Min()).IsLessThan(2.0);
     }
+
+    [Then("the layout should be cut off by its box rather than shrunk to fit it")]
+    public async Task ThenTheLayoutShouldBeCutOffByItsBoxAsync()
+    {
+        // The drawing used to be scaled down until the whole plan fitted its box, so more boxes
+        // meant smaller paper. It now keeps the scale the roll width gives it, and overflows along
+        // the roll — which is the axis the whole diagram is here to be scrolled down.
+        (bool alongRoll, _) = await OverflowAsync();
+
+        await Assert.That(alongRoll).IsTrue();
+    }
+
+    [Then("the origin should be in view")]
+    public async Task ThenTheOriginShouldBeInViewAsync()
+    {
+        // Only meaningful if the drawing really does run off the edge; otherwise the origin being
+        // visible says nothing about where the scroller opens.
+        (bool alongRoll, bool acrossRoll) = await OverflowAsync();
+
+        await Assert.That(alongRoll || acrossRoll).IsTrue();
+
+        // Bounding boxes are in viewport coordinates, so this accounts for the scroll position
+        // however it was arrived at.
+        var origin = (await Ui.Page.Locator(".origin-dot").BoundingBoxAsync())!;
+        var visible = (await Ui.Page.Locator(".diagram-scroller").BoundingBoxAsync())!;
+
+        double originX = origin.X + (origin.Width / 2);
+        double originY = origin.Y + (origin.Height / 2);
+
+        await Assert.That(originX).IsBetween(visible.X, visible.X + visible.Width);
+        await Assert.That(originY).IsBetween(visible.Y, visible.Y + visible.Height);
+    }
+
+    /// <summary>
+    /// Whether the drawing spills out of its scroller, reported as (along the roll, across it).
+    /// The roll's own axis depends on which way the drawing faces, so it is read from the
+    /// scroller's direction class rather than assumed.
+    /// </summary>
+    private async Task<(bool AlongRoll, bool AcrossRoll)> OverflowAsync()
+    {
+        string js =
+            """
+            () => {
+                const scroller = document.querySelector('.diagram-scroller');
+                const horizontal = scroller.classList.contains('is-horizontal');
+                return [
+                    scroller.scrollHeight > scroller.clientHeight + 1,
+                    scroller.scrollWidth > scroller.clientWidth + 1,
+                    horizontal,
+                ];
+            }
+            """;
+
+        bool[] result = await Ui.Page.EvaluateAsync<bool[]>(js);
+        bool overflowingLength = result[0];
+        bool overflowingWidth = result[1];
+        bool horizontal = result[2];
+
+        return horizontal
+            ? (overflowingWidth, overflowingLength)
+            : (overflowingLength, overflowingWidth);
+    }
 }

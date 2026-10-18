@@ -12,78 +12,84 @@ else
            whichever way the roll is actually lying in front of you.
 
            For Left/Right the roll runs horizontally, so a section's width and length swap on
-           screen and the edge labels are rotated to fit the narrow side margins. *@
-        <svg viewBox="@ViewBox"
-             preserveAspectRatio="xMidYMid meet"
-             role="img"
-             aria-label="@AriaLabel">
+           screen and the edge labels are rotated to fit the narrow side margins.
 
-            <defs>
-                <pattern id="@HatchId" width="6" height="6" patternUnits="userSpaceOnUse"
-                         patternTransform="rotate(45)">
-                    <rect width="6" height="6" fill="#fbfaf7" />
-                    <line x1="0" y1="0" x2="0" y2="6" stroke="#dedad0" stroke-width="2" />
-                </pattern>
+           The scroller keeps the drawing at a fixed scale along the roll — more boxes make it
+           longer, never smaller — and opens on the origin. Re-keying the scroller is what puts
+           it back on the origin: a new plan, or a new direction, starts scrolled afresh. *@
+        <div class="@ScrollerClass" tabindex="0" @key="(Plan, Direction)">
+            <svg viewBox="@ViewBox"
+                 preserveAspectRatio="xMidYMid meet"
+                 role="img"
+                 aria-label="@AriaLabel">
+
+                <defs>
+                    <pattern id="@HatchId" width="6" height="6" patternUnits="userSpaceOnUse"
+                             patternTransform="rotate(45)">
+                        <rect width="6" height="6" fill="#fbfaf7" />
+                        <line x1="0" y1="0" x2="0" y2="6" stroke="#dedad0" stroke-width="2" />
+                    </pattern>
+
+                    @for (int i = 0; i < Plan.Sections.Count; i++)
+                    {
+                        Box clipped = Rect(Plan.Sections[i]);
+                        <clipPath id="@ClipId(i)">
+                            <rect x="@N(clipped.X)" y="@N(clipped.Y)"
+                                  width="@N(clipped.W)" height="@N(clipped.H)" />
+                        </clipPath>
+                    }
+                </defs>
+
+                <text class="edge-label" x="@N(StartLabelX)" y="@N(StartLabelY)"
+                      transform="@LabelTransform(StartLabelX, StartLabelY)"
+                      text-anchor="middle" dominant-baseline="middle" font-size="@N(HeadFont)">
+                    Start of roll
+                </text>
+
+                @* The plan's origin: the corner where X across the roll and Y along it are both
+                   zero. Which corner that is depends on how the drawing is turned. *@
+                <circle class="origin-dot" cx="@N(OriginX)" cy="@N(OriginY)" r="@N(OriginRadius)" />
+
+                <text class="origin-label" x="@N(OriginLabelX)" y="@N(OriginLabelY)"
+                      transform="@LabelTransform(OriginLabelX, OriginLabelY)"
+                      text-anchor="start" dominant-baseline="middle" font-size="@N(OriginFont)">
+                    0,0
+                </text>
+
+                @* The paper consumed by this plan. *@
+                <rect class="paper" x="0" y="0" width="@N(PaperWidth)" height="@N(PaperHeight)" />
 
                 @for (int i = 0; i < Plan.Sections.Count; i++)
                 {
-                    Box clipped = Rect(Plan.Sections[i]);
-                    <clipPath id="@ClipId(i)">
-                        <rect x="@N(clipped.X)" y="@N(clipped.Y)"
-                              width="@N(clipped.W)" height="@N(clipped.H)" />
-                    </clipPath>
+                    CutSection section = Plan.Sections[i];
+                    Box box = Rect(section);
+                    double centreX = box.X + (box.W / 2);
+                    double centreY = box.Y + (box.H / 2);
+
+                    <g class="cut">
+                        <rect x="@N(box.X)" y="@N(box.Y)" width="@N(box.W)" height="@N(box.H)" />
+
+                        <text x="@N(centreX)" y="@N(centreY)"
+                              clip-path="url(#@ClipId(i))"
+                              text-anchor="middle" dominant-baseline="middle"
+                              font-size="@N(FontSize(section))">
+                            <tspan x="@N(centreX)" dy="-0.55em">@section.ItemName</tspan>
+                            <tspan x="@N(centreX)" dy="1.15em">@Dimensions(section)</tspan>
+                        </text>
+                    </g>
                 }
-            </defs>
 
-            <text class="edge-label" x="@N(StartLabelX)" y="@N(StartLabelY)"
-                  transform="@LabelTransform(StartLabelX, StartLabelY)"
-                  text-anchor="middle" dominant-baseline="middle" font-size="@N(HeadFont)">
-                Start of roll
-            </text>
+                @* Paper beyond the last cut: the roll is not used up. *@
+                <rect class="continues" x="@N(BandBox.X)" y="@N(BandBox.Y)"
+                      width="@N(BandBox.W)" height="@N(BandBox.H)" fill="url(#@HatchId)" />
 
-            @* The plan's origin: the corner where X across the roll and Y along it are both
-               zero. Which corner that is depends on how the drawing is turned. *@
-            <circle class="origin-dot" cx="@N(OriginX)" cy="@N(OriginY)" r="@N(OriginRadius)" />
-
-            <text class="origin-label" x="@N(OriginLabelX)" y="@N(OriginLabelY)"
-                  transform="@LabelTransform(OriginLabelX, OriginLabelY)"
-                  text-anchor="start" dominant-baseline="middle" font-size="@N(OriginFont)">
-                0,0
-            </text>
-
-            @* The paper consumed by this plan. *@
-            <rect class="paper" x="0" y="0" width="@N(PaperWidth)" height="@N(PaperHeight)" />
-
-            @for (int i = 0; i < Plan.Sections.Count; i++)
-            {
-                CutSection section = Plan.Sections[i];
-                Box box = Rect(section);
-                double centreX = box.X + (box.W / 2);
-                double centreY = box.Y + (box.H / 2);
-
-                <g class="cut">
-                    <rect x="@N(box.X)" y="@N(box.Y)" width="@N(box.W)" height="@N(box.H)" />
-
-                    <text x="@N(centreX)" y="@N(centreY)"
-                          clip-path="url(#@ClipId(i))"
-                          text-anchor="middle" dominant-baseline="middle"
-                          font-size="@N(FontSize(section))">
-                        <tspan x="@N(centreX)" dy="-0.55em">@section.ItemName</tspan>
-                        <tspan x="@N(centreX)" dy="1.15em">@Dimensions(section)</tspan>
-                    </text>
-                </g>
-            }
-
-            @* Paper beyond the last cut: the roll is not used up. *@
-            <rect class="continues" x="@N(BandBox.X)" y="@N(BandBox.Y)"
-                  width="@N(BandBox.W)" height="@N(BandBox.H)" fill="url(#@HatchId)" />
-
-            <text class="edge-label" x="@N(BandLabelX)" y="@N(BandLabelY)"
-                  transform="@LabelTransform(BandLabelX, BandLabelY)"
-                  text-anchor="middle" dominant-baseline="middle" font-size="@N(BandFont)">
-                @BandLabel
-            </text>
-        </svg>
+                <text class="edge-label" x="@N(BandLabelX)" y="@N(BandLabelY)"
+                      transform="@LabelTransform(BandLabelX, BandLabelY)"
+                      text-anchor="middle" dominant-baseline="middle" font-size="@N(BandFont)">
+                    @BandLabel
+                </text>
+            </svg>
+        </div>
 
         <figcaption class="text-muted small mt-1">
             Paper: @F(PaperWidth) @UnitLabel wide × @F(PaperHeight) @UnitLabel long.
@@ -109,6 +115,21 @@ else
     protected override void OnInitialized() => _uid = Guid.NewGuid().ToString("N")[..8];
 
     private bool IsHorizontal => Direction is RollDirection.Left or RollDirection.Right;
+
+    /// <summary>
+    /// The scroll axis follows the roll, and <c>is-reversed</c> marks the directions whose origin
+    /// sits at the far end — laying the scroller out from that end is what makes it open there.
+    /// </summary>
+    private string ScrollerClass
+    {
+        get
+        {
+            string axis = IsHorizontal ? "is-horizontal" : "is-vertical";
+            bool reversed = Direction is RollDirection.Up or RollDirection.Left;
+
+            return reversed ? $"diagram-scroller {axis} is-reversed" : $"diagram-scroller {axis}";
+        }
+    }
 
     // Extents of the paper as drawn, which swap when the roll runs horizontally.
     private double PaperWidth => IsHorizontal ? Plan.RollLengthUsed : Plan.RollWidth;

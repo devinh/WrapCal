@@ -1,13 +1,54 @@
-.wrap-diagram svg {
-    display: block;
-    width: 100%;
-    height: auto;
-    /* Very long rolls would otherwise push everything else off the page; the SVG scales to
-       fit, keeping its aspect ratio. */
-    max-height: 60vh;
+/* The drawing is never scaled to fit. Its scale is set by the roll width, which does not change
+   as boxes are added, so a longer plan makes a longer diagram rather than a smaller one — and
+   the paper beyond the viewport is reached by scrolling, in the direction the roll runs.
+
+   Opening on the origin is done without script: the scroller is a flex container, and laying it
+   out from the far end (column-reverse / row-reverse) puts its initial scroll position there
+   too. Directions whose origin is at the near end need none of that. */
+.diagram-scroller {
+    display: flex;
+    overflow: auto;
     border: 1px solid #d6d5d5;
     border-radius: 4px;
     background: #fff;
+}
+
+.diagram-scroller svg {
+    display: block;
+    /* Without this a column scroller would squeeze the drawing to fit its max-height, which is
+       the shrinking this is here to prevent. */
+    flex: none;
+}
+
+/* Roll drawn up or down the page: the roll's width is the on-screen width, so the diagram fills
+   the figure and grows downwards. */
+.diagram-scroller.is-vertical {
+    flex-direction: column;
+    max-height: 60vh;
+}
+
+.diagram-scroller.is-vertical svg {
+    width: 100%;
+    height: auto;
+}
+
+/* Roll drawn across the page: a fixed height keeps the scale steady, and the length runs off the
+   side. Bounded so it stays a diagram rather than the whole screen. */
+.diagram-scroller.is-horizontal {
+    flex-direction: row;
+}
+
+.diagram-scroller.is-horizontal svg {
+    width: auto;
+    height: clamp(220px, 45vh, 420px);
+}
+
+.diagram-scroller.is-vertical.is-reversed {
+    flex-direction: column-reverse;
+}
+
+.diagram-scroller.is-horizontal.is-reversed {
+    flex-direction: row-reverse;
 }
 
 .paper {

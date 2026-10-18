@@ -159,6 +159,27 @@ public class WrapPlanDiagramTests : BunitContext
         await Assert.That(cy).IsEqualTo(expectedY);
     }
 
+    // The scroller is the element that keeps the drawing at a fixed scale and moves it under the
+    // reader's eye. Its axis follows the roll, and it is laid out from the far end exactly when the
+    // origin is at that end — which is what makes it open on the origin.
+    [Test]
+    [Arguments(RollDirection.Down, "is-vertical", false)]
+    [Arguments(RollDirection.Up, "is-vertical", true)]
+    [Arguments(RollDirection.Right, "is-horizontal", false)]
+    [Arguments(RollDirection.Left, "is-horizontal", true)]
+    public async Task Scrolls_along_the_roll_from_the_end_the_origin_is_on(
+        RollDirection direction, string axis, bool reversed)
+    {
+        var cut = Render<WrapPlanDiagram>(parameters => parameters
+            .Add(p => p.Plan, OneBoxPlan())
+            .Add(p => p.Direction, direction));
+
+        string classes = cut.Find(".diagram-scroller").GetAttribute("class") ?? string.Empty;
+
+        await Assert.That(classes).Contains(axis);
+        await Assert.That(classes.Contains("is-reversed")).IsEqualTo(reversed);
+    }
+
     private static WrapPlan TwoBoxPlan() =>
         PlanWrapLogic.Plan(
             [new GiftBox("Book", 22, 15, 4), new GiftBox("Mug", 12, 12, 12)],

@@ -17,7 +17,9 @@ Enter the roll you have and the boxes you want to wrap:
   efficiency figure.
 - **A paper layout** — an SVG diagram of the sheet with each cut drawn to scale and labelled
   with the box name and its size. The origin is marked, and a hatched band shows which way
-  the unused roll continues — up, down, left or right, your choice.
+  the unused roll continues — up, down, left or right, your choice. A long plan scrolls
+  along the roll rather than shrinking to fit: the more boxes you add, the longer the
+  drawing gets, and it opens at the origin.
 - **A wrapping note per box** — which pair of the box's own sides the paper goes around.
 
 Units switch between inches and centimetres, converting what you have already typed.
@@ -102,7 +104,8 @@ Two test projects, deliberately separate — run either on its own.
 
 `CutPlans.feature` is the readable specification: concrete roll and box inputs, with the
 sheet each box should get back. `PlanWrap.feature` covers behaviour and errors, and
-`Layout.feature` measures where things sit on the page.
+`Layout.feature` measures where things sit on the page, and that the paper layout overflows
+its frame rather than shrinking into it.
 
 Both run on **Microsoft.Testing.Platform**, opted into via `global.json`. Consequences:
 
