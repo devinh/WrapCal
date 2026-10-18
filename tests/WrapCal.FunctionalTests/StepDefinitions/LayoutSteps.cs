@@ -45,10 +45,11 @@ public sealed class LayoutSteps : StepsBase
     [Then("the Remove button should line up with the row's inputs")]
     public async Task ThenTheRemoveButtonShouldLineUpWithTheRowsInputsAsync()
     {
-        // The Mud field wraps its input in a label and a helper line, so alignment is measured
-        // against the control rather than the bare input element.
+        // Measured against the input the user sees. Measuring the whole control looked correct
+        // while the button sat 16px low, because the control is taller than its input at both
+        // ends: the floating label above and the reserved message line below.
         var input = (await Ui.Page.Locator(BoxRowSelector).First
-            .Locator(".mud-input-control").First.BoundingBoxAsync())!;
+            .Locator("[data-testid='box-length']").BoundingBoxAsync())!;
 
         var remove = (await Ui.Page.Locator("[data-testid='remove-box']").First.BoundingBoxAsync())!;
 
@@ -58,6 +59,58 @@ public sealed class LayoutSteps : StepsBase
         // The inputs sit at the top of their cell with the reserved slot beneath, so the button
         // has to line up with the input rather than with the whole cell.
         await Assert.That(Math.Abs(inputCentre - removeCentre)).IsLessThan(2.0);
+    }
+
+    [Then("the box name input should line up with the other inputs")]
+    public async Task ThenTheBoxNameShouldLineUpWithTheOtherInputsAsync()
+    {
+        ILocator row = Ui.Page.Locator(BoxRowSelector).First;
+
+        var name = (await row.Locator("[data-testid='box-name']").BoundingBoxAsync())!;
+        var length = (await row.Locator("[data-testid='box-length']").BoundingBoxAsync())!;
+
+        double nameCentre = name.Y + (name.Height / 2);
+        double lengthCentre = length.Y + (length.Height / 2);
+
+        // The name field and the three dimensions are the same control with the same label and
+        // the same reserved message line, so they must sit on one line. They stopped doing so
+        // once the name field alone was left without a message slot: a shorter control centres
+        // itself in the row and drops below its neighbours.
+        await Assert.That(Math.Abs(nameCentre - lengthCentre)).IsLessThan(2.0);
+    }
+
+    [Then("every roll direction option should fit in its menu")]
+    public async Task ThenEveryRollDirectionOptionShouldFitInItsMenuAsync()
+    {
+        ILocator host = Ui.Page.Locator("[data-testid='roll-direction']");
+
+        // The shortest label on show first: left to size itself, the select takes the width of
+        // whichever option is displayed, and the menu is sized from the anchor — so "Top"
+        // used to leave the longer options clipped.
+        await PickAsync(host, "Top");
+        await host.ClickAsync();
+
+        await Ui.Page.WaitForSelectorAsync(
+            "[role='option']",
+            new PageWaitForSelectorOptions { Timeout = 10_000 });
+
+        // The option boxes are all as wide as the menu, so comparing boxes can never fail. What
+        // gets clipped is the label inside each option: the menu takes the anchor's width, and the
+        // anchor is only as wide as whichever option is showing.
+        bool allFit = await Ui.Page.EvaluateAsync<bool>(
+            """
+            () => {
+                const options = Array.from(document.querySelectorAll("[role='option']"));
+                if (options.length === 0) return false;
+
+                return options.every(option => {
+                    const text = option.querySelector('.mud-list-item-text') ?? option;
+                    return text.scrollWidth <= text.clientWidth + 1;
+                });
+            }
+            """);
+
+        await Assert.That(allFit).IsTrue();
     }
 
     [Then("the option descriptions should all line up")]

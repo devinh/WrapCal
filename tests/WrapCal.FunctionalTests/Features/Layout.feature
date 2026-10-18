@@ -15,6 +15,16 @@ Feature: Layout stability
     Given the plan page
     Then the Remove button should line up with the row's inputs
 
+  Scenario: The box name lines up with the other box inputs
+    Given the plan page
+    Then the box name input should line up with the other inputs
+
+  Scenario: The roll direction menu fits its longest option
+    Given a roll 30 cm wide with an overlap of 0.5
+    And a box "Book" measuring 9 by 6 by 1.5
+    When I plan the wrap
+    Then every roll direction option should fit in its menu
+
   Scenario: The option descriptions line up across the row
     Given the plan page
     Then the option descriptions should all line up
@@ -23,13 +33,13 @@ Feature: Layout stability
     Given a roll 30 cm wide with an overlap of 0.5
     And 12 identical boxes measuring 8 by 6 by 4
     When I plan the wrap
-    And I set the roll to continue <Direction>
+    And I set the roll orientation to <Direction>
     Then the layout should be cut off by its box rather than shrunk to fit it
     And the origin should be in view
 
     Examples:
       | Direction  |
-      | Upwards    |
-      | Downwards  |
-      | Leftwards  |
-      | Rightwards |
+      | Top        |
+      | Bottom     |
+      | Left       |
+      | Right      |

@@ -64,7 +64,8 @@
                                   @bind-Value="box.Name"
                                   For="() => box.Name"
                                   Validation="NameValidation"
-                                  data-testid="box-name" />
+                                  data-testid="box-name"
+                                  HelperText=" " Class="wrapcal-message-slot" />
                 </MudItem>
 
                 <MudItem xs="4" sm="2" md="2">
@@ -94,7 +95,11 @@
                                      HelperText=" " Class="wrapcal-message-slot" />
                 </MudItem>
 
-                <MudItem xs="12" sm="12" md="2" Class="d-flex justify-end">
+                @* Sits on the line of the inputs rather than the centre of the field: a Mud field is
+                   taller than its input by the floating label above it and the reserved message line
+                   below, so a button centred on the control hangs about 16px below the inputs. *@
+                <MudItem xs="12" sm="12" md="2" Class="d-flex justify-end"
+                         Style="align-self: flex-start; margin-top: 0.5rem">
                     <MudIconButton Icon="@Icons.Material.Filled.Delete"
                                    Color="Color.Error"
                                    aria-label="Remove this box"
@@ -137,12 +142,17 @@
 
             @* Presentation only — it changes which way the drawing faces, not the plan. *@
             <div data-testid="roll-direction">
-                <MudSelect T="RollDirection" Label="Roll Continues" Dense="true"
+                @* A width of its own: left to size itself the select takes the width of whichever
+                   option is showing, and Mud sizes the popover from the anchor — so picking "Top"
+                   left "Bottom" clipped in the menu. *@
+                <MudSelect T="RollDirection" Label="Roll Orientation" Dense="true"
+                           Style="min-width: 11rem"
                            @bind-Value="_rollDirection">
-                    <MudSelectItem Value="RollDirection.Up">Upwards</MudSelectItem>
-                    <MudSelectItem Value="RollDirection.Down">Downwards</MudSelectItem>
-                    <MudSelectItem Value="RollDirection.Right">Rightwards</MudSelectItem>
-                    <MudSelectItem Value="RollDirection.Left">Leftwards</MudSelectItem>
+                    @* Named for the side the roll is on, which is what it says on the drawing. *@
+                    <MudSelectItem Value="RollDirection.Up">Top</MudSelectItem>
+                    <MudSelectItem Value="RollDirection.Down">Bottom</MudSelectItem>
+                    <MudSelectItem Value="RollDirection.Left">Left</MudSelectItem>
+                    <MudSelectItem Value="RollDirection.Right">Right</MudSelectItem>
                 </MudSelect>
             </div>
         </MudStack>

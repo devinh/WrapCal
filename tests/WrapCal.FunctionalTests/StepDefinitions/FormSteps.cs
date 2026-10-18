@@ -66,11 +66,11 @@ public sealed class FormSteps : StepsBase
         _rowsFilled--;
     }
 
-    [When("I set the roll to continue {word}")]
-    public async Task WhenISetTheRollToContinueAsync(string direction)
+    [When("I set the roll orientation to {word}")]
+    public async Task WhenISetTheRollOrientationAsync(string direction)
     {
-        bool horizontal = direction is "Leftwards" or "Rightwards";
-        bool reversed = direction is "Upwards" or "Leftwards";
+        bool horizontal = direction is "Left" or "Right";
+        bool reversed = direction is "Top" or "Left";
 
         // Selected by label: the option values are the enum names (Down, Up, ...), which read
         // badly in a feature file.
