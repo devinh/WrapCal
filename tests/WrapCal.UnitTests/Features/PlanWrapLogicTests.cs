@@ -126,6 +126,28 @@ public class PlanWrapLogicTests
     }
 
     [Test]
+    public async Task Reports_the_roll_width_in_the_plan()
+    {
+        var result = PlanWrapLogic.Plan([Box()], Options(rollWidth: 30));
+
+        await Assert.That(result.IsSuccess).IsTrue();
+        await Assert.That(result.Value.RollWidth).IsEqualTo(30.0);
+    }
+
+    [Test]
+    public async Task Converts_the_reported_roll_width_to_the_output_unit()
+    {
+        // A 30 cm roll, reported in inches: 30 / 2.54 = 11.811...
+        var result = PlanWrapLogic.Plan(
+            [new GiftBox("B", 8, 4, 2)],
+            new WrapOptions(30, 0.5, InputUnit: LengthUnit.Centimeters, OutputUnit: LengthUnit.Inches,
+                RandomRestarts: 0));
+
+        await Assert.That(result.IsSuccess).IsTrue();
+        await Assert.That(Math.Round(result.Value.RollWidth, 3)).IsEqualTo(11.811);
+    }
+
+    [Test]
     public async Task Efficiency_stays_within_zero_and_one()
     {
         var result = PlanWrapLogic.Plan([Box()], Options());

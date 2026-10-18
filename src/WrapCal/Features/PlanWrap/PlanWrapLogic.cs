@@ -68,7 +68,14 @@ public static class PlanWrapLogic
 
         if (boxes.Count == 0)
         {
-            return Result<WrapPlan>.Success(new WrapPlan([], 0, 0, 0, 1, inputOptions.OutputUnit));
+            return Result<WrapPlan>.Success(new WrapPlan(
+                [],
+                UnitConverter.FromCm(options.RollWidth, inputOptions.OutputUnit),
+                0,
+                0,
+                0,
+                1,
+                inputOptions.OutputUnit));
         }
 
         List<List<SheetOption>> optionsPerBox = [.. boxes.Select(box => SheetOptions(box, options))];
@@ -140,6 +147,7 @@ public static class PlanWrapLogic
 
         return Result<WrapPlan>.Success(new WrapPlan(
             converted,
+            ToOutput(options.RollWidth),
             ToOutput(bestLength),
             AreaToOutput(paperCut),
             AreaToOutput(rollArea - paperCut),

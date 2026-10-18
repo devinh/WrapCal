@@ -1,0 +1,96 @@
+@using System.Globalization
+
+@if (Plan.Sections.Count == 0 || Plan.RollWidth <= 0 || Plan.RollLengthUsed <= 0)
+{
+    <p class="text-muted mb-0">Nothing to draw — no boxes to wrap.</p>
+}
+else
+{
+    <figure class="wrap-diagram mb-0">
+        @* Drawn in the plan's own coordinates: X across the roll, Y down its length, so the
+           picture matches the model with no mental rotation. Units are plan units; the SVG
+           scales to the container. *@
+        <svg viewBox="0 0 @N(Plan.RollWidth) @N(Plan.RollLengthUsed)"
+             preserveAspectRatio="xMidYMid meet"
+             role="img"
+             aria-label="@AriaLabel">
+
+            <defs>
+                @for (int i = 0; i < Plan.Sections.Count; i++)
+                {
+                    CutSection clipped = Plan.Sections[i];
+                    <clipPath id="@ClipId(i)">
+                        <rect x="@N(clipped.X)" y="@N(clipped.Y)"
+                              width="@N(clipped.Width)" height="@N(clipped.Length)" />
+                    </clipPath>
+                }
+            </defs>
+
+            <rect class="paper" x="0" y="0"
+                  width="@N(Plan.RollWidth)" height="@N(Plan.RollLengthUsed)" />
+
+            @for (int i = 0; i < Plan.Sections.Count; i++)
+            {
+                CutSection section = Plan.Sections[i];
+                double centreX = section.X + (section.Width / 2);
+                double centreY = section.Y + (section.Length / 2);
+
+                <g class="cut">
+                    <rect x="@N(section.X)" y="@N(section.Y)"
+                          width="@N(section.Width)" height="@N(section.Length)" />
+
+                    <text x="@N(centreX)" y="@N(centreY)"
+                          clip-path="url(#@ClipId(i))"
+                          text-anchor="middle" dominant-baseline="middle"
+                          font-size="@N(FontSize(section))">
+                        <tspan x="@N(centreX)" dy="-0.55em">@section.ItemName</tspan>
+                        <tspan x="@N(centreX)" dy="1.15em">@Dimensions(section)</tspan>
+                    </text>
+                </g>
+            }
+        </svg>
+
+        <figcaption class="text-muted small mt-1">
+            Paper: @F(Plan.RollWidth) @UnitLabel wide × @F(Plan.RollLengthUsed) @UnitLabel long
+        </figcaption>
+    </figure>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public WrapPlan Plan { get; set; } = default!;
+
+    private string _uid = string.Empty;
+
+    protected override void OnInitialized() => _uid = Guid.NewGuid().ToString("N")[..8];
+
+    private string UnitLabel => Plan.Unit == LengthUnit.Centimeters ? "cm" : "in";
+
+    private string AriaLabel =>
+        $"Cut layout for {Plan.Sections.Count} sheet(s) on paper "
+        + $"{F(Plan.RollWidth)} by {F(Plan.RollLengthUsed)} {UnitLabel}.";
+
+    private string Dimensions(CutSection section) =>
+        $"{F(section.Width)} × {F(section.Length)} {UnitLabel}";
+
+    private string ClipId(int index) => $"{_uid}-{index}";
+
+    /// <summary>
+    /// Sized so two lines fit the rectangle: bounded by its height (two lines of text) and by
+    /// its width (the longer of the two strings). A very small cut cannot show a label
+    /// legibly — the clip path stops it spilling outside the rectangle.
+    /// </summary>
+    private double FontSize(CutSection section)
+    {
+        int longest = Math.Max(section.ItemName.Length, Dimensions(section).Length);
+        double byWidth = longest > 0 ? section.Width / (longest * 0.62) : section.Width;
+        double byHeight = Math.Min(section.Width, section.Length) * 0.30;
+        double floor = Plan.RollWidth * 0.005;
+
+        return Math.Max(Math.Min(byWidth, byHeight), floor);
+    }
+
+    private static string N(double value) => value.ToString("0.###", CultureInfo.InvariantCulture);
+
+    private static string F(double value) => value.ToString("F1", CultureInfo.InvariantCulture);
+}

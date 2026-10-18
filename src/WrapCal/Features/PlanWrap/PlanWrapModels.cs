@@ -54,6 +54,7 @@ public sealed record CutSection(
 /// <summary>Lengths are in <paramref name="Unit"/>; areas are in that unit squared.</summary>
 public sealed record WrapPlan(
     IReadOnlyList<CutSection> Sections,
+    double RollWidth,
     double RollLengthUsed,
     double PaperAreaCut,
     double WasteArea,

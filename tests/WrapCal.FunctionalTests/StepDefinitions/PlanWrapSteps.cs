@@ -30,6 +30,20 @@ public sealed class PlanWrapSteps
             new PageWaitForSelectorOptions { Timeout = 20_000 });
     }
 
+    [Then("I should see the paper layout")]
+    public async Task ThenIShouldSeeThePaperLayoutAsync()
+    {
+        ILocator diagram = _ui.Page.Locator("svg[role='img']");
+        await diagram.WaitForAsync(new LocatorWaitForOptions { Timeout = 10_000 });
+
+        await Assert.That(await diagram.CountAsync()).IsEqualTo(1);
+
+        // The label lives inside the SVG, so reading it back proves the diagram was drawn and
+        // not merely an empty <svg> element.
+        string? label = await diagram.TextContentAsync();
+        await Assert.That(label).Contains("Box 1");
+    }
+
     [Then("I should see a cut plan")]
     public async Task ThenIShouldSeeACutPlanAsync()
     {

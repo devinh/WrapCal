@@ -102,6 +102,13 @@
 
 @if (_plan is not null)
 {
+    <div class="card mt-4">
+        <div class="card-body">
+            <h2 class="h5 card-title">Paper layout</h2>
+            <WrapPlanDiagram Plan="_plan" />
+        </div>
+    </div>
+
     <WrapPlanView Plan="_plan" />
 }
 

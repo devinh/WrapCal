@@ -51,7 +51,8 @@ src/
         PlanWrapLogic.cs        # slice logic → Result<WrapPlan>
         PlanWrapModels.cs       # domain records
         PlanWrapInput.cs        # form model (DataAnnotations live here, not on domain)
-        WrapPlanView.razor      # display component
+        WrapPlanView.razor      # summary table
+        WrapPlanDiagram.razor   # SVG cut layout — needs WrapPlan.RollWidth
     Program.cs
 tests/
   WrapCal.UnitTests/

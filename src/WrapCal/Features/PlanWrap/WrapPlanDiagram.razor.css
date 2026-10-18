@@ -1,0 +1,28 @@
+.wrap-diagram svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    /* Very long rolls would otherwise push everything else off the page; the SVG scales to
+       fit, keeping its aspect ratio. */
+    max-height: 60vh;
+    border: 1px solid #d6d5d5;
+    border-radius: 4px;
+    background: #fff;
+}
+
+.paper {
+    fill: #f8f5ef;
+}
+
+.cut rect {
+    fill: #e7f0fb;
+    stroke: #1b6ec2;
+    /* Keep hairlines crisp however far the drawing is scaled down. */
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+}
+
+.cut text {
+    fill: #1a1a1a;
+    pointer-events: none;
+}
