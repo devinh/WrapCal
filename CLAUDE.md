@@ -252,7 +252,29 @@ dotnet format
 
 # Format check (CI)
 dotnet format --verify-no-changes
+
+# Cake — Clean → Build → Tests (the default target), or publish to ./output
+./cake.sh
+./cake.sh --target=Publish
+
+# One suite at a time
+./cake.sh --target=UnitTests
+./cake.sh --target=FunctionalTests
 ```
+
+The Cake project in `cake/` is deliberately **not in `WrapCal.slnx`**, so `dotnet build` at
+the root never builds the build script itself. It targets `net10.0` via `Cake.Sdk`, and its
+script runs with the repository root as the working directory (`RunWorkingDirectory`), which
+is why every path inside `cake.cs` is relative to the root.
+
+`Tests` is not a `dotnet test` of the solution — it depends on `UnitTests` and
+`FunctionalTests`, one target per test project, so a suite runs the same way alone as it does
+in the pair. Both depend on `Build`, which Cake runs once. Add a third suite as another task
+and a third dependency, not as a branch inside `Tests`.
+
+`cake.csproj` pins `System.Security.Cryptography.Pkcs` forward: `Cake.Sdk` pulls 10.0.12
+transitively, which trips NU1902 and NU1903. Without the pin the Cake build reports four
+vulnerability warnings, so keep it until `Cake.Sdk` moves to a fixed version.
 
 ### Test runner note
 

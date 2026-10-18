@@ -51,6 +51,25 @@ dotnet test --project tests/WrapCal.UnitTests
 dotnet test --project tests/WrapCal.FunctionalTests
 ```
 
+### Build automation
+
+`cake/` holds a [Cake](https://cakebuild.net/) build script using the Cake SDK, kept beside
+the solution rather than inside it — a plain `dotnet build` at the root builds the app and
+the tests, never the build script.
+
+```bash
+./cake.sh                          # Clean → Build → Tests (the default)
+./cake.sh --target=UnitTests       # just the unit + component suite
+./cake.sh --target=FunctionalTests # just the browser suite
+./cake.sh --target=Publish         # also publish the site to ./output
+./cake.sh --target=Build --configuration=Debug
+```
+
+`Tests` is both suites — it runs each as a target of its own, so running them together and
+running one alone share a single definition. On Windows use `.\cake.ps1` with the same
+arguments. Publishing is a placeholder for now: it drops the site in `./output` and nothing
+more.
+
 ## Project layout
 
 ```
@@ -59,6 +78,9 @@ global.json                  # opts dotnet test into Microsoft.Testing.Platform 
 Directory.Build.props        # shared compiler + analyzer settings
 .editorconfig                # code style, enforced at build time
 CLAUDE.md                    # conventions and architecture notes
+
+cake/                        # Cake build (Cake SDK, net10.0) — not in the solution
+cake.sh / cake.ps1           # run it: ./cake.sh --target=Tests
 
 src/
   WrapCal/                   # the app (Blazor Web App, styled with MudBlazor)

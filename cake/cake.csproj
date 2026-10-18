@@ -1,0 +1,15 @@
+<Project Sdk="Cake.Sdk/6.3.0">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <!-- The script addresses paths relative to the repository root, not to cake/. -->
+    <RunWorkingDirectory>$(MSBuildProjectDirectory)/..</RunWorkingDirectory>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Transitive through Cake.Sdk, which pins 10.0.12 — a version flagged by NU1902/NU1903.
+         Pin it forward so the build stays warning-free. Drop this once Cake.Sdk moves. -->
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
+  </ItemGroup>
+
+</Project>

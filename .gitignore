@@ -32,6 +32,7 @@ packages/
 
 ## Build artifacts
 artifacts/
+output/
 *.binlog
 *.deps.json
 *.runtimeconfig.json
