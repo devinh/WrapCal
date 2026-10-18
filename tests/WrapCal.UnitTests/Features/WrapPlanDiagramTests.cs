@@ -40,11 +40,34 @@ public class WrapPlanDiagramTests : BunitContext
         WrapPlan plan = OneBoxPlan();
         var cut = Render<WrapPlanDiagram>(parameters => parameters.Add(p => p.Plan, plan));
 
-        // viewBox is "0 -head rollWidth height" — the width still comes straight from the plan.
-        string viewBox = cut.Find("svg").GetAttribute("viewBox") ?? string.Empty;
-        string[] parts = viewBox.Split(' ');
+        // Read off the paper rect rather than the viewBox: the viewBox also carries the margins
+        // that annotate the ends and frame the drawing.
+        string width = cut.Find("rect.paper").GetAttribute("width") ?? string.Empty;
 
-        await Assert.That(parts[2]).IsEqualTo("30");
+        await Assert.That(width).IsEqualTo("30");
+    }
+
+    [Test]
+    public async Task Leaves_a_margin_either_side_of_the_roll()
+    {
+        WrapPlan plan = OneBoxPlan();
+        var cut = Render<WrapPlanDiagram>(parameters => parameters.Add(p => p.Plan, plan));
+
+        string[] viewBox = (cut.Find("svg").GetAttribute("viewBox") ?? string.Empty).Split(' ');
+        double paper = double.Parse(cut.Find("rect.paper").GetAttribute("width") ?? "0",
+            CultureInfo.InvariantCulture);
+        double framed = double.Parse(viewBox[2], CultureInfo.InvariantCulture);
+
+        // The roll spans the width here, so the extra is the gutter, split evenly between the
+        // two sides. Without it the paper sits flush against the diagram's border.
+        double gutter = (framed - paper) / 2;
+
+        await Assert.That(gutter).IsGreaterThan(paper * 0.02);
+
+        // The viewBox is written to three decimals, so compare the left edge to the computed
+        // gutter with a tolerance rather than exactly.
+        double left = double.Parse(viewBox[0], CultureInfo.InvariantCulture);
+        await Assert.That(Math.Abs(left + gutter)).IsLessThan(0.01);
     }
 
     [Test]
@@ -113,11 +136,8 @@ public class WrapPlanDiagramTests : BunitContext
             .Add(p => p.Plan, plan).Add(p => p.Direction, RollDirection.Right));
 
         // Down: the paper is as wide as the roll. Right: as tall as the roll.
-        string[] downParts = (down.Find("svg").GetAttribute("viewBox") ?? "").Split(' ');
-        string[] rightParts = (right.Find("svg").GetAttribute("viewBox") ?? "").Split(' ');
-
-        await Assert.That(downParts[2]).IsEqualTo("60");
-        await Assert.That(rightParts[3]).IsEqualTo("60");
+        await Assert.That(down.Find("rect.paper").GetAttribute("width")).IsEqualTo("60");
+        await Assert.That(right.Find("rect.paper").GetAttribute("height")).IsEqualTo("60");
     }
 
     [Test]

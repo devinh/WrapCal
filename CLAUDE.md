@@ -129,6 +129,10 @@ Read this before changing the maths. Every point here has been got wrong once al
   `.diagram-scroller`). Scaling the whole plan into the figure is what used to make the
   drawing shrink with every box, and `Layout.feature` measures the overflow to catch its
   return.
+- **The roll never touches the diagram's frame.** A gutter of 8% of the roll width frames the
+  paper on whichever axis the roll spans — the margins on the other axis already carry the two
+  end annotations. Without it the drawing reads as zoomed in too far, since the paper sits flush
+  against the border.
 - **The scroller opens at the origin, with no script.** It is a flex container, and
   `is-reversed` — set for Up and Left, whose origin is at the far end — lays it out from that
   end (`column-reverse` / `row-reverse`), which puts the initial scroll there too. Verified

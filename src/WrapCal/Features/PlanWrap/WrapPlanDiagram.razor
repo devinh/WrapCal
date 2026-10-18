@@ -146,17 +146,28 @@ else
 
     private double BandFont => BandThickness * 0.32;
 
-    private double LeftMargin =>
-        IsHorizontal ? (Direction == RollDirection.Left ? BandThickness : HeadThickness) : 0;
+    // Breathing room between the paper and the frame, measured from the roll's width so it scales
+    // with the drawing. Without it the roll's edges sit flush against the diagram's border, which
+    // reads as being zoomed in too far.
+    private double Gutter => Plan.RollWidth * 0.08;
 
-    private double RightMargin =>
-        IsHorizontal ? (Direction == RollDirection.Right ? BandThickness : HeadThickness) : 0;
+    // The margins carry the two end annotations. They run along the roll, so the other axis — the
+    // one the roll spans — is free for the gutter.
+    private double LeftMargin => IsHorizontal
+        ? (Direction == RollDirection.Left ? BandThickness : HeadThickness)
+        : Gutter;
 
-    private double TopMargin =>
-        IsHorizontal ? 0 : (Direction == RollDirection.Up ? BandThickness : HeadThickness);
+    private double RightMargin => IsHorizontal
+        ? (Direction == RollDirection.Right ? BandThickness : HeadThickness)
+        : Gutter;
 
-    private double BottomMargin =>
-        IsHorizontal ? 0 : (Direction == RollDirection.Down ? BandThickness : HeadThickness);
+    private double TopMargin => IsHorizontal
+        ? Gutter
+        : (Direction == RollDirection.Up ? BandThickness : HeadThickness);
+
+    private double BottomMargin => IsHorizontal
+        ? Gutter
+        : (Direction == RollDirection.Down ? BandThickness : HeadThickness);
 
     private string ViewBox =>
         $"{N(-LeftMargin)} {N(-TopMargin)} "

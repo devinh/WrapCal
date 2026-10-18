@@ -72,10 +72,29 @@ public sealed class FormSteps : StepsBase
     [When("I set the roll to continue {word}")]
     public async Task WhenISetTheRollToContinueAsync(string direction)
     {
+        bool horizontal = direction is "Leftwards" or "Rightwards";
+        bool reversed = direction is "Upwards" or "Leftwards";
+
         // Selected by label: the option values are the enum names (Down, Up, ...), which read
         // badly in a feature file.
         await Ui.Page.Locator("[data-testid='roll-direction']")
             .SelectOptionAsync(new SelectOptionValue { Label = direction });
+
+        // Changing direction redraws the diagram, and the scroller is re-keyed, so the previous
+        // drawing's elements are detached for a moment. Waiting for the new scroller to carry this
+        // direction's classes means the next step measures the drawing it means to — reading a
+        // bounding box in between comes back null.
+        await Ui.Page.WaitForFunctionAsync(
+            """
+            ([horizontal, reversed]) => {
+                const scroller = document.querySelector('.diagram-scroller');
+                return scroller !== null
+                    && scroller.classList.contains('is-horizontal') === horizontal
+                    && scroller.classList.contains('is-reversed') === reversed;
+            }
+            """,
+            new object[] { horizontal, reversed },
+            new PageWaitForFunctionOptions { Timeout = 10_000 });
     }
 
     /// <summary>
