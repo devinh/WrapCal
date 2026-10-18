@@ -29,6 +29,16 @@ Feature: Layout stability
     Given the plan page
     Then the option descriptions should all line up
 
+  @phone
+  Scenario: A phone keeps the box row and the cut plan inside their cards
+    Given a phone's width
+    And a roll 80 cm wide with an overlap of 0.5
+    And 3 identical boxes measuring 30 by 20 by 15
+    Then the Remove button should share a line with the box's dimensions
+    When I plan the wrap
+    Then the cut plan table should fit inside its card
+    And the page should not scroll sideways
+
   Scenario Outline: A long plan scrolls along the roll instead of shrinking to fit
     Given a roll 30 cm wide with an overlap of 0.5
     And 12 identical boxes measuring 8 by 6 by 4

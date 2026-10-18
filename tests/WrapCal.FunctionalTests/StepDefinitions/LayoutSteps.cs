@@ -79,6 +79,62 @@ public sealed class LayoutSteps : StepsBase
         await Assert.That(Math.Abs(nameCentre - lengthCentre)).IsLessThan(2.0);
     }
 
+    [Given("a phone's width")]
+    public async Task GivenAPhonesWidthAsync() =>
+        // Narrow enough to drop below every breakpoint the page uses, and the case the row and the
+        // table were both broken at. Everything after this runs on the same page, so the width
+        // survives the navigations the later steps do.
+        await Ui.Page.SetViewportSizeAsync(390, 844);
+
+    [Then("the Remove button should share a line with the box's dimensions")]
+    public async Task ThenTheRemoveButtonShouldShareALineWithTheDimensionsAsync()
+    {
+        ILocator row = Ui.Page.Locator(BoxRowSelector).First;
+
+        var height = (await row.Locator("[data-testid='box-height']").BoundingBoxAsync())!;
+        var remove = (await row.Locator("[data-testid='remove-box']").BoundingBoxAsync())!;
+
+        // Given a line to itself at a phone's width, the button read as a stray control in the
+        // whitespace under the row rather than part of it.
+        double heightCentre = height.Y + (height.Height / 2);
+        double removeCentre = remove.Y + (remove.Height / 2);
+
+        await Assert.That(Math.Abs(heightCentre - removeCentre)).IsLessThan(2.0);
+    }
+
+    [Then("the cut plan table should fit inside its card")]
+    public async Task ThenTheCutPlanTableShouldFitInsideItsCardAsync()
+    {
+        // A table cannot shrink below its content, and six numeric columns plus a prose Note come
+        // to more than a phone's width — left to itself it grew past the card's right edge.
+        double overflow = await Ui.Page.EvaluateAsync<double>(
+            """
+            () => {
+                const table = document.querySelector(".wrapcal-sections");
+                const card = table.closest(".mud-paper");
+                return table.getBoundingClientRect().right - card.getBoundingClientRect().right;
+            }
+            """);
+
+        await Assert.That(overflow).IsLessThanOrEqualTo(0.5);
+    }
+
+    [Then("the page should not scroll sideways")]
+    public async Task ThenThePageShouldNotScrollSidewaysAsync()
+    {
+        // The table spilling out of its card widened the document itself, so the whole page slid
+        // sideways under the reader.
+        bool overflows = await Ui.Page.EvaluateAsync<bool>(
+            """
+            () => {
+                const root = document.documentElement;
+                return root.scrollWidth > root.clientWidth + 1;
+            }
+            """);
+
+        await Assert.That(overflows).IsFalse();
+    }
+
     [Then("every roll direction option should fit in its menu")]
     public async Task ThenEveryRollDirectionOptionShouldFitInItsMenuAsync()
     {

@@ -33,31 +33,36 @@
         </MudItem>
     </MudGrid>
 
-    <table class="wrapcal-sections" data-testid="sections">
-        <thead>
-            <tr>
-                <th scope="col">Item</th>
-                <th scope="col">X</th>
-                <th scope="col">Y</th>
-                <th scope="col">Width</th>
-                <th scope="col">Length</th>
-                <th scope="col">Note</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (CutSection section in Plan.Sections)
-            {
+    @* The scroller keeps the table inside the card. Six columns of numbers plus a prose Note
+       have a minimum content width wider than a phone, and a table cannot shrink below it — it
+       spilled out over the card's edge instead. *@
+    <div class="wrapcal-table-scroll">
+        <table class="wrapcal-sections" data-testid="sections">
+            <thead>
                 <tr>
-                    <td>@section.ItemName</td>
-                    <td>@Format(section.X)</td>
-                    <td>@Format(section.Y)</td>
-                    <td>@Format(section.Width)</td>
-                    <td>@Format(section.Length)</td>
-                    <td class="wrapcal-note">@section.Note</td>
+                    <th scope="col">Item</th>
+                    <th scope="col">X</th>
+                    <th scope="col">Y</th>
+                    <th scope="col">Width</th>
+                    <th scope="col">Length</th>
+                    <th scope="col">Note</th>
                 </tr>
-            }
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                @foreach (CutSection section in Plan.Sections)
+                {
+                    <tr>
+                        <td>@section.ItemName</td>
+                        <td>@Format(section.X)</td>
+                        <td>@Format(section.Y)</td>
+                        <td>@Format(section.Width)</td>
+                        <td>@Format(section.Length)</td>
+                        <td class="wrapcal-note">@section.Note</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
 </MudPaper>
 
 @code {

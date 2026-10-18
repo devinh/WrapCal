@@ -61,7 +61,7 @@
             string placeholder = $"Box {index + 1}";
 
             <MudGrid Spacing="2" Class="align-center mb-2" data-testid="box-row">
-                <MudItem xs="12" sm="6" md="4">
+                <MudItem xs="12" sm="4" md="4">
                     <MudTextField T="string" Label="Name" Placeholder="@placeholder"
                                   @bind-Value="box.Name"
                                   @bind-Value:after="DiscardPlan"
@@ -71,7 +71,7 @@
                                   HelperText=" " Class="wrapcal-message-slot" />
                 </MudItem>
 
-                <MudItem xs="4" sm="2" md="2">
+                <MudItem xs="3" sm="2" md="2">
                     <MudNumericField T="double" Label="Length"
                                      @bind-Value="box.Length"
                                      @bind-Value:after="DiscardPlan"
@@ -81,7 +81,7 @@
                                      HelperText=" " Class="wrapcal-message-slot" />
                 </MudItem>
 
-                <MudItem xs="4" sm="2" md="2">
+                <MudItem xs="3" sm="2" md="2">
                     <MudNumericField T="double" Label="Width"
                                      @bind-Value="box.Width"
                                      @bind-Value:after="DiscardPlan"
@@ -91,7 +91,7 @@
                                      HelperText=" " Class="wrapcal-message-slot" />
                 </MudItem>
 
-                <MudItem xs="4" sm="2" md="2">
+                <MudItem xs="3" sm="2" md="2">
                     <MudNumericField T="double" Label="Height"
                                      @bind-Value="box.Height"
                                      @bind-Value:after="DiscardPlan"
@@ -103,8 +103,13 @@
 
                 @* Sits on the line of the inputs rather than the centre of the field: a Mud field is
                    taller than its input by the floating label above it and the reserved message line
-                   below, so a button centred on the control hangs about 16px below the inputs. *@
-                <MudItem xs="12" sm="12" md="2" Class="d-flex justify-end"
+                   below, so a button centred on the control hangs about 16px below the inputs.
+
+                   Full width on a phone gave it a line of its own under the row, which read as a
+                   stray button floating in whitespace. It now sits at the end of the dimensions
+                   instead: the Name takes the first line by itself and the three fields plus the
+                   button share the second, and from sm up all five share one. *@
+                <MudItem xs="3" sm="2" md="2" Class="d-flex justify-end"
                          Style="align-self: flex-start; margin-top: 0.5rem">
                     @* Named for its row: every button saying "Remove this box" gives a screen
                        reader no way to tell one row's button from another's. *@

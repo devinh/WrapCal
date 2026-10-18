@@ -1,6 +1,14 @@
 /* Read-only output, so this stays a semantic table rather than a MudTable — there is nothing to
    sort, page or edit, and screen readers get the real row/column relationships. The styling
    borrows MudBlazor's palette variables so it follows the theme in light and dark. */
+/* The table cannot be narrower than its content, and six columns of numbers plus a prose Note
+   come to more than a phone's width — left alone it grew past the card's right edge and dragged
+   the whole page sideways. Scrolling the table inside the card keeps the card the widest thing
+   on the page; on a wide screen it still fits and nothing scrolls. */
+.wrapcal-table-scroll {
+    overflow-x: auto;
+}
+
 .wrapcal-sections {
     width: 100%;
     border-collapse: collapse;
@@ -21,4 +29,14 @@
 
 .wrapcal-note {
     color: var(--mud-palette-text-secondary, #6f6f6f);
+}
+
+/* Tightens the cells enough that six columns and the Note fit a phone outright rather than
+   needing the scroll above — reading a note that is half off the edge is no better than
+   reading one that is off the card. */
+@media (max-width: 600px) {
+    .wrapcal-sections th,
+    .wrapcal-sections td {
+        padding: 0.5rem 0.4rem;
+    }
 }
