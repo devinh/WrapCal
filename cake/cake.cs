@@ -64,12 +64,17 @@ Task("Publish")
     .IsDependentOn("Build")
     .Does(() =>
     {
+        // Deliberately no --no-build, even though Build has just run. The #[.{fingerprint}]
+        // placeholders in index.html are rewritten during publish and not during build, so
+        // publishing a build that already happened leaves them literal — and a literal one is a
+        // 404 for the boot script, which means a site that never starts.
         DotNetPublish(appProject, new DotNetPublishSettings
         {
             Configuration = configuration,
-            OutputDirectory = output,
-            NoBuild = true
+            OutputDirectory = output
         });
+
+        AssertSiteIsBootable($"{output}/wwwroot/index.html");
     });
 
 // What the deploy workflow asks for: the fast suite has to pass, then the site is published.
@@ -87,3 +92,26 @@ Task("Default")
 //////////////////////////////////////////////////////////////////////
 
 RunTarget(target);
+
+//////////////////////////////////////////////////////////////////////
+// HELPERS
+//////////////////////////////////////////////////////////////////////
+
+// The published index.html is the one file that can be wrong while every exit code is zero:
+// an unresolved #[.{fingerprint}] placeholder still deploys and still serves, and the only
+// symptom is a page that never boots. Checked here rather than discovered in a browser.
+void AssertSiteIsBootable(string indexPath)
+{
+    if (!FileExists(indexPath))
+    {
+        throw new CakeException("The publish produced no site: " + indexPath + " does not exist.");
+    }
+
+    if (System.IO.File.ReadAllText(indexPath).Contains("#[.{fingerprint}]", StringComparison.Ordinal))
+    {
+        throw new CakeException(
+            indexPath + " still contains an unresolved #[.{fingerprint}] placeholder, so the boot "
+            + "script would 404 and the site would never start. Publishing with --no-build skips "
+            + "the rewrite that resolves it.");
+    }
+}
