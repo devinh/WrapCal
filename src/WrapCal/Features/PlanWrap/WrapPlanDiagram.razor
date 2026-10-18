@@ -47,7 +47,7 @@ else
 
             <text class="origin-label" x="@N(OriginLabelX)" y="@N(OriginLabelY)"
                   transform="@LabelTransform(OriginLabelX, OriginLabelY)"
-                  text-anchor="@OriginAnchor" dominant-baseline="middle" font-size="@N(HeadFont)">
+                  text-anchor="start" dominant-baseline="middle" font-size="@N(OriginFont)">
                 0,0
             </text>
 
@@ -150,10 +150,16 @@ else
             Plan.RollLengthUsed - (section.Y + section.Length),
             section.Width,
             section.Length),
-        RollDirection.Right => new Box(section.Y, section.X, section.Length, section.Width),
+        // Horizontal layouts also flip X to Y downwards, so plan X = 0 sits along the bottom
+        // edge and the origin lands at a bottom corner.
+        RollDirection.Right => new Box(
+            section.Y,
+            Plan.RollWidth - (section.X + section.Width),
+            section.Length,
+            section.Width),
         RollDirection.Left => new Box(
             Plan.RollLengthUsed - (section.Y + section.Length),
-            section.X,
+            Plan.RollWidth - (section.X + section.Width),
             section.Length,
             section.Width),
         _ => throw new ArgumentOutOfRangeException(nameof(Direction)),
@@ -200,15 +206,19 @@ else
     // the transpose (Left/Right) each move it to a different corner of the paper.
     private double OriginX => Direction == RollDirection.Left ? Plan.RollLengthUsed : 0;
 
-    private double OriginY => Direction == RollDirection.Up ? Plan.RollLengthUsed : 0;
+    private double OriginY => Direction switch
+    {
+        RollDirection.Up => Plan.RollLengthUsed,
+        RollDirection.Left or RollDirection.Right => Plan.RollWidth,
+        _ => 0,
+    };
 
     private double OriginRadius => Plan.RollWidth * 0.012;
 
     private double OriginPad => Plan.RollWidth * 0.01;
 
-    // The label sits in the margin beside the origin. Side labels are rotated, so anchoring
-    // them at the "end" keeps them running into the drawing instead of out of the viewBox.
-    private string OriginAnchor => IsHorizontal ? "end" : "start";
+    // Smaller than the edge labels: it is a marker, not a caption.
+    private double OriginFont => HeadThickness * 0.40;
 
     private double OriginLabelX => Direction switch
     {
@@ -217,11 +227,13 @@ else
         _ => OriginPad,
     };
 
+    // Anchored "start" in every direction: on the rotated side labels that makes the text run
+    // up into the drawing from the bottom corner, instead of out of the viewBox.
     private double OriginLabelY => Direction switch
     {
         RollDirection.Down => -HeadThickness * 0.55,
         RollDirection.Up => Plan.RollLengthUsed + (HeadThickness * 0.55),
-        _ => OriginPad,
+        _ => Plan.RollWidth - OriginPad,
     };
 
     private string BandLabel => Direction switch

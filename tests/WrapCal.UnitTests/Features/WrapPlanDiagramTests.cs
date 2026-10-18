@@ -142,9 +142,15 @@ public class WrapPlanDiagramTests : BunitContext
         double cx = double.Parse(dot.GetAttribute("cx") ?? "0", CultureInfo.InvariantCulture);
         double cy = double.Parse(dot.GetAttribute("cy") ?? "0", CultureInfo.InvariantCulture);
 
-        // Mirrored for Up, transposed for Left/Right — the origin moves with the drawing.
+        // The origin moves with the drawing: left for Up, bottom for the horizontal layouts.
         double expectedX = direction == RollDirection.Left ? plan.RollLengthUsed : 0;
-        double expectedY = direction == RollDirection.Up ? plan.RollLengthUsed : 0;
+
+        double expectedY = direction switch
+        {
+            RollDirection.Up => plan.RollLengthUsed,
+            RollDirection.Left or RollDirection.Right => plan.RollWidth,
+            _ => 0,
+        };
 
         await Assert.That(cx).IsEqualTo(expectedX);
         await Assert.That(cy).IsEqualTo(expectedY);
