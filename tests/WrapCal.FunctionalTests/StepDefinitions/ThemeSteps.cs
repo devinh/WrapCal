@@ -76,6 +76,41 @@ public sealed class ThemeSteps : StepsBase
             new PageWaitForFunctionOptions { Timeout = 10_000 });
     }
 
+    /// <summary>
+    /// Opens the page with the runtime held back, which leaves it exactly as a reader sees it
+    /// while the WebAssembly is still downloading — the state the boot background exists for.
+    /// </summary>
+    [When("the plan page is opened without letting the app load")]
+    public async Task WhenThePlanPageIsOpenedWithoutLettingTheAppLoadAsync()
+    {
+        await Ui.Page.RouteAsync("**/_framework/**", route => route.AbortAsync());
+        await Ui.Page.GotoAsync(Ui.Url("/"));
+    }
+
+    [Then("the loading page should be in the {word} theme")]
+    public async Task ThenTheLoadingPageShouldBeInTheThemeAsync(string theme)
+    {
+        // Read from the painted background rather than MudBlazor's palette variable: that
+        // variable does not exist until the app has rendered, which is the whole point here.
+        double luminance = await Ui.Page.EvaluateAsync<double>(
+            """
+            () => {
+                const [red, green, blue] = getComputedStyle(document.documentElement).backgroundColor
+                    .match(/[\d.]+/g).map(Number);
+                return ((red + green + blue) / 3) / 255;
+            }
+            """);
+
+        bool isDark = luminance < 0.5;
+
+        if (isDark != (theme == "dark"))
+        {
+            Assert.Fail(
+                $"The loading page is in the {(isDark ? "dark" : "light")} theme "
+                + $"but the {theme} theme was expected.");
+        }
+    }
+
     [When("I reload the page")]
     public async Task WhenIReloadThePageAsync()
     {

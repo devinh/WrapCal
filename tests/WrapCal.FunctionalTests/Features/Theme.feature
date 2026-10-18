@@ -29,6 +29,11 @@ Feature: Theme
     When I choose the light theme
     Then the page should be in the light theme
 
+  Scenario: The page is already in the right theme while the app is loading
+    Given the visitor last chose the dark theme
+    When the plan page is opened without letting the app load
+    Then the loading page should be in the dark theme
+
   Scenario: The theme the cookie remembers is drawn from the first frame
     Given the visitor last chose the dark theme
     And the plan page

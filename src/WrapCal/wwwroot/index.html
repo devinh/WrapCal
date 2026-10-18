@@ -21,6 +21,36 @@
             }
         })();
     </script>
+
+    <!--
+      Here rather than at the end of the body, because the shell below has to be drawn in the
+      reader's theme before the runtime has downloaded — and that means reading its cookies
+      before anything renders. Kept ahead of the stylesheets so the theme is chosen first.
+    -->
+    <script src="theme.js"></script>
+
+    <!--
+      The app is a blank shell until the WebAssembly runtime has downloaded, rendered, and had
+      MudBlazor paint its palette. Without this the shell is white whatever theme the reader
+      chose, which is a white flash on every load for anyone in dark mode.
+
+      This mirrors MainLayout's rule exactly, including its fallbacks: an explicit choice wins,
+      otherwise the system preference the browser reported last time, otherwise light. It
+      deliberately does not consult `prefers-color-scheme`, because the app does not either —
+      agreeing with the app matters more here than being independently right, and a shell that
+      disagreed would flash twice instead of once.
+    -->
+    <script>
+        (function () {
+            var preferences = window.wrapcalTheme && window.wrapcalTheme.load();
+            var choice = (preferences && preferences.choice) || "system";
+            var isDark = choice === "dark"
+                || (choice !== "light" && !!preferences && preferences.system === "dark");
+
+            document.documentElement.dataset.bootTheme = isDark ? "dark" : "light";
+        })();
+    </script>
+
     <link rel="preload" id="webassembly" />
     <link rel="stylesheet" href="app.css" />
     <link rel="stylesheet" href="WrapCal.styles.css" />
@@ -41,8 +71,6 @@
         <span class="dismiss">🗙</span>
     </div>
 
-    <!-- Loaded before the runtime: MainLayout reads the theme cookies on its first render. -->
-    <script src="theme.js"></script>
     <script src="_content/MudBlazor/MudBlazor.min.js"></script>
     <script src="_framework/blazor.webassembly#[.{fingerprint}].js"></script>
 </body>

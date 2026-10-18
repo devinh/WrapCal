@@ -44,6 +44,15 @@ orthogonal features, accounts, saved plans, or a database.
   flashes light once, because no cookie exists yet and `MudThemeProvider` cannot ask the
   browser until it has rendered. `GetSystemDarkModeAsync` and `WatchSystemDarkModeAsync` then
   keep a page left open following the system as it changes.
+- **The shell before the app boots is themed too.** `index.html` reads the same two cookies and
+  sets `data-boot-theme` on `<html>`; `app.css` paints that from `--mud-palette-background` with
+  a fallback of MudBlazor's default (#ffffff / #32333d). Using the palette variable first means
+  the rule keeps following the theme once the app is up, including a runtime switch, instead of
+  going stale. The boot script **mirrors `MainLayout` and deliberately ignores
+  `prefers-color-scheme`**: on a first visit the app has no remembered system preference and
+  draws light, so a shell that were independently "right" would be dark and the page would flash
+  twice instead of once. `Theme.feature` holds it there by aborting `_framework/**` so the page
+  stays in its loading state.
 - **`theme.js` is the only owner of the theme cookies** — it reads them (`load`), writes the
   choice (`set`) and records what the browser last reported (`rememberSystem`). A component
   cannot write a cookie itself, and there is no request for one to arrive on, so nothing in C#

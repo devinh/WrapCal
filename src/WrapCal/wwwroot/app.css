@@ -12,11 +12,34 @@ html, body {
     font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif;
 }
 
+/* The background of the shell that stands in for the page while the runtime downloads. index.html
+   picks one of these from the reader's theme cookies, so the page opens in the right colour
+   rather than flashing white. The values are MudBlazor's defaults for the theme the app uses.
+
+   Once the app has rendered, MudBlazor sets --mud-palette-background on the root and the first
+   of these wins — so this does not go stale when the reader switches theme at runtime. */
+html[data-boot-theme="light"] {
+    --wrapcal-boot-background: #ffffff;
+    --wrapcal-boot-foreground: #424242;
+    color-scheme: light;
+}
+
+html[data-boot-theme="dark"] {
+    --wrapcal-boot-background: #32333d;
+    --wrapcal-boot-foreground: rgba(255, 255, 255, 0.7);
+    color-scheme: dark;
+}
+
+html[data-boot-theme] {
+    background-color: var(--mud-palette-background, var(--wrapcal-boot-background));
+}
+
 /* What stands in for the page while the runtime downloads. There is no server here to render
    anything earlier, so the first paint is this and nothing else. */
 .loading-indicator {
     padding: 4rem 1rem;
     text-align: center;
+    color: var(--wrapcal-boot-foreground);
     opacity: 0.6;
 }
 
