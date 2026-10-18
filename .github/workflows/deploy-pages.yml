@@ -1,0 +1,50 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time. A queued run is not cancelled, so a deployment that has already
+# started is never killed halfway through.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      # One target, because the build lives in Cake and not here: `Release` builds, runs the fast
+      # suite, and publishes the site to ./output. What the artifact is, and where it lands, is
+      # cake/cake.cs's business — this file only moves it.
+      - name: Build, test and publish
+        run: ./cake.sh --target=Release
+
+      # Pages is already pointed at GitHub Actions for this repository, so this only reads its
+      # configuration — it is not asked to enable anything.
+      - uses: actions/configure-pages@v5
+
+      # output/wwwroot, not output: publish also writes host files beside it that a static host
+      # ignores. Deploying through Actions means no Jekyll, so _framework/ is served as-is and
+      # no .nojekyll is needed. A branch-based deployment would need one.
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: output/wwwroot
+
+      - id: deployment
+        uses: actions/deploy-pages@v4

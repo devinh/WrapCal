@@ -6,6 +6,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>WrapCal</title>
     <base href="/" />
+    <!--
+      A GitHub project page serves the site from /<repository>/, so the base every relative URL
+      is resolved against has to follow wherever index.html actually sits. Raised here, and
+      before the links and scripts below, because a relative URL is resolved against the base in
+      force when its element is parsed — not when it is fetched. Served from the root this does
+      nothing, which is why local development and the tests need no configuration of their own.
+    -->
+    <script>
+        (function () {
+            var directory = location.pathname.replace(/[^/]*$/, "");
+            if (directory && directory !== "/") {
+                document.querySelector("base").href = directory;
+            }
+        })();
+    </script>
     <link rel="preload" id="webassembly" />
     <link rel="stylesheet" href="app.css" />
     <link rel="stylesheet" href="WrapCal.styles.css" />

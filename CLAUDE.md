@@ -23,6 +23,14 @@ orthogonal features, accounts, saved plans, or a database.
   only because `WebAssembly.DevServer` serves those files locally.
 - **Everything is interactive, always.** There is no render-mode directive anywhere, and
   `@rendermode` should never appear — a second render mode has nothing to mean here.
+- **Hosted as a GitHub project page**, `https://devinh.github.io/WrapCal/`, deployed by
+  `.github/workflows/deploy-pages.yml` on every push to `main`. The site therefore lives under
+  a subpath rather than at an origin root, so `wwwroot/index.html` raises its own `<base href>`
+  to the directory it was loaded from. That script is the one piece of the deployment that is
+  app code, and it has to run **before** the links and scripts below it — a relative URL is
+  resolved against the base in force when its element is parsed, not when it is fetched.
+  Deploying through Actions skips Jekyll, which is why `_framework/` needs no `.nojekyll`;
+  switching to a branch-based deployment would need one.
 - **MudBlazor 9.11** — the entire UI. Bootstrap was removed; there is one styling system and
   no second one to fight it. Its providers (`MudThemeProvider`, `MudPopoverProvider`,
   `MudDialogProvider`, `MudSnackbarProvider`) live in `MainLayout`, which wraps the whole page
@@ -263,6 +271,9 @@ dotnet format --verify-no-changes
 # One suite at a time
 ./cake.sh --target=UnitTests
 ./cake.sh --target=FunctionalTests
+
+# What the deploy workflow runs: unit suite, then publish
+./cake.sh --target=Release
 ```
 
 The Cake project in `cake/` is deliberately **not in `WrapCal.slnx`**, so `dotnet build` at
@@ -274,6 +285,12 @@ is why every path inside `cake.cs` is relative to the root.
 `FunctionalTests`, one target per test project, so a suite runs the same way alone as it does
 in the pair. Both depend on `Build`, which Cake runs once. Add a third suite as another task
 and a third dependency, not as a branch inside `Tests`.
+
+**The deploy workflow calls Cake and nothing else.** `Release` is the target it asks for —
+`UnitTests` then `Publish` — so what the artifact is, where it lands and what gates it are all
+`cake/cake.cs`'s business. `.github/workflows/deploy-pages.yml` only moves the result onto
+Pages. Do not add `dotnet` steps there: a workflow that rebuilds the way it remembers is a
+second build definition that drifts from the first.
 
 `cake.csproj` pins `System.Security.Cryptography.Pkcs` forward: `Cake.Sdk` pulls 10.0.12
 transitively, which trips NU1902 and NU1903. Without the pin the Cake build reports four
@@ -352,6 +369,11 @@ Reqnroll (Gherkin) driving Playwright against the app running for real.
   (`ReqnrollUseIntermediateOutputPathForCodeBehind`).
 - **Reqnroll maps `@tags` to TUnit `[Category]` attributes automatically** — verified in
   the generated code, despite Reqnroll's docs only documenting NUnit/MSTest/xUnit.
+- **The suite serves the app from `/WrapCal`, never the root.** That is the only shape it is
+  ever deployed in — a GitHub project page — and serving the root as well would let the suite
+  pass while `index.html` was failing to raise its base href, which is the one part of the
+  deployment that can break silently. `Hosting.feature` does not exist for this: every
+  scenario is the proof.
 - **`Support/AppHost.cs` publishes the app and serves the output as static files.** Publish,
   not build: a build leaves the app's own assets out of the output folder — only `_framework/`
   lands there — so a built app is not servable, while publish flattens everything into one

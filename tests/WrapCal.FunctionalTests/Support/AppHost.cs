@@ -22,6 +22,12 @@ public sealed class AppHost : IAsyncDisposable
 {
     private const int PublishTimeoutSeconds = 300;
 
+    /// <summary>
+    /// Where GitHub serves the site from, given the repository is not a user page and has no
+    /// custom domain. Kept in step with the deployment workflow.
+    /// </summary>
+    public const string PublishSubpath = "/WrapCal";
+
     private readonly WebApplication _server;
 
     private AppHost(WebApplication server, string baseUrl)
@@ -30,18 +36,22 @@ public sealed class AppHost : IAsyncDisposable
         BaseUrl = baseUrl;
     }
 
-    /// <summary>Origin of the app under test, e.g. <c>http://127.0.0.1:53124</c>.</summary>
+    /// <summary>
+    /// Where the site is served, e.g. <c>http://127.0.0.1:53124/WrapCal</c> — the subpath
+    /// included, because that is where every page actually lives.
+    /// </summary>
     public string BaseUrl { get; }
 
     public static async Task<AppHost> StartAsync()
     {
         string published = await PublishAsync();
         string siteRoot = ResolveSiteRoot(published);
-        string baseUrl = $"http://127.0.0.1:{GetFreePort()}";
+        string origin = $"http://127.0.0.1:{GetFreePort()}";
+        string baseUrl = $"{origin}{PublishSubpath}";
 
         WebApplicationBuilder builder = WebApplication.CreateBuilder();
         builder.Logging.ClearProviders();
-        builder.WebHost.UseUrls(baseUrl);
+        builder.WebHost.UseUrls(origin);
 
         WebApplication server = builder.Build();
 
@@ -55,16 +65,25 @@ public sealed class AppHost : IAsyncDisposable
 
         var files = new PhysicalFileProvider(siteRoot);
 
-        server.UseDefaultFiles(new DefaultFilesOptions { FileProvider = files });
+        // Served only at the subpath a GitHub project page uses, because that is the only shape
+        // the site is ever deployed in — and because serving it at the root as well would make
+        // the suite pass even when index.html had failed to raise its base href to the subpath,
+        // which is the one thing about the deployment that can silently break.
+        server.UseDefaultFiles(new DefaultFilesOptions
+        {
+            FileProvider = files,
+            RequestPath = PublishSubpath,
+        });
 
-        // Deliberately uncompressed. Each scenario gets a fresh browser context, so the runtime is
-        // fetched again for every one of them, but the transfer is over loopback where it is
+        // Deliberately uncompressed. Each scenario gets a fresh browser context, so the runtime
+        // is fetched again for every one of them, but the transfer is over loopback where it is
         // nearly free — compressing 19 MB per scenario costs more in CPU than it saves, measured
         // at 65s against 49s for the whole suite.
         server.UseStaticFiles(new StaticFileOptions
         {
             FileProvider = files,
             ContentTypeProvider = contentTypes,
+            RequestPath = PublishSubpath,
         });
 
         await server.StartAsync();

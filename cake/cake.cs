@@ -59,8 +59,7 @@ Task("Tests")
     .IsDependentOn("UnitTests")
     .IsDependentOn("FunctionalTests");
 
-// Publishing is deliberately a placeholder: it drops the site into ./output and nothing
-// more. Whatever the real release needs — versioning, packaging, a host — belongs here.
+// Publishes the site into ./output, where the deploy workflow uploads output/wwwroot from.
 Task("Publish")
     .IsDependentOn("Build")
     .Does(() =>
@@ -72,6 +71,13 @@ Task("Publish")
             NoBuild = true
         });
     });
+
+// What the deploy workflow asks for: the fast suite has to pass, then the site is published.
+// The functional suite is not in this path — it needs a browser and a WebAssembly boot per
+// scenario, and a deployment is not the place to discover it is broken.
+Task("Release")
+    .IsDependentOn("UnitTests")
+    .IsDependentOn("Publish");
 
 Task("Default")
     .IsDependentOn("Tests");

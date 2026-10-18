@@ -61,7 +61,8 @@ the tests, never the build script.
 ./cake.sh                          # Clean → Build → Tests (the default)
 ./cake.sh --target=UnitTests       # just the unit + component suite
 ./cake.sh --target=FunctionalTests # just the browser suite
-./cake.sh --target=Publish         # also publish the site to ./output
+./cake.sh --target=Release         # unit suite, then the site to ./output (what CI runs)
+./cake.sh --target=Publish         # just publish the site to ./output
 ./cake.sh --target=Build --configuration=Debug
 ```
 
@@ -74,12 +75,17 @@ more.
 
 `./cake.sh --target=Publish` leaves a folder of static files in `./output/wwwroot` — no
 server, no runtime to install. (The publish also writes a few host files beside it that a
-static host ignores; `wwwroot` is the site.) Any static host will do, GitHub Pages included.
+static host ignores; `wwwroot` is the site.)
 
-`index.html` declares `<base href="/" />`, so the site must be served from the root of an
-origin: a user page (`devinh.github.io`) or a custom domain. A GitHub *project* page lives
-under `/WrapCal/` and would need the base href changed to match — and the dev server, which
-serves at the root, would then need adjusting too.
+Pushing to `main` deploys that folder to GitHub Pages through
+`.github/workflows/deploy-pages.yml`, at **https://devinh.github.io/WrapCal/**. Pages has to
+be turned on for the repository once, with *GitHub Actions* as the source, under
+Settings → Pages.
+
+A project page is served from a subpath, so `index.html` raises its own `<base href>` to the
+directory it was actually loaded from — `/WrapCal/` on Pages, `/` from the dev server. Nothing
+else in the app mentions the path, and no `.nojekyll` is needed: deploying through Actions
+skips Jekyll, which only processes branch-based deployments.
 
 Because everything runs in the browser, the page is blank for a moment while the runtime
 downloads. That is the one thing server rendering did better.
