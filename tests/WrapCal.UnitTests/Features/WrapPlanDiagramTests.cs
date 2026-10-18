@@ -4,7 +4,7 @@ using WrapCal.Features.PlanWrap;
 
 namespace WrapCal.UnitTests;
 
-public class WrapPlanDiagramTests : BunitContext
+public class WrapPlanDiagramTests : WrapCalBunitContext
 {
     private static WrapPlan OneBoxPlan() =>
         PlanWrapLogic.Plan(

@@ -47,7 +47,7 @@ public sealed class PlanningSteps : StepsBase
     [Then("I should see the paper layout")]
     public async Task ThenIShouldSeeThePaperLayoutAsync()
     {
-        ILocator diagram = Ui.Page.Locator("svg[role='img']");
+        ILocator diagram = Ui.Page.Locator("[data-testid='diagram']");
         await diagram.WaitForAsync(new LocatorWaitForOptions { Timeout = PageTimeout });
 
         await Assert.That(await diagram.CountAsync()).IsEqualTo(1);
@@ -62,7 +62,7 @@ public sealed class PlanningSteps : StepsBase
     [Then("I should not see the paper layout")]
     public async Task ThenIShouldNotSeeThePaperLayoutAsync()
     {
-        await Assert.That(await Ui.Page.Locator("svg[role='img']").CountAsync()).IsEqualTo(0);
+        await Assert.That(await Ui.Page.Locator("[data-testid='diagram']").CountAsync()).IsEqualTo(0);
     }
 
     [Then("I should see an error instead of a plan")]

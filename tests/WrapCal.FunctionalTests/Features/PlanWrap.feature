@@ -48,16 +48,16 @@ Feature: Wrap planning
     And I plan the wrap
     Then I should see a cut plan with 1 section
 
-  Scenario Outline: The roll direction can point each way
+  Scenario Outline: The roll orientation can point each way
     Given a roll 30 in wide with an overlap of 0.5
     And a box "Book" measuring 8 by 6 by 2
     When I plan the wrap
-    And I set the roll to continue <direction>
+    And I set the roll orientation to <direction>
     Then the paper layout should say the roll continues past the <edge> edge
 
     Examples:
       | direction  | edge   |
-      | Upwards    | top    |
-      | Downwards  | bottom |
-      | Rightwards | right  |
-      | Leftwards  | left   |
+      | Top        | top    |
+      | Bottom     | bottom |
+      | Right      | right  |
+      | Left       | left   |

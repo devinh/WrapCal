@@ -3,7 +3,7 @@ using WrapCal.Features.PlanWrap;
 
 namespace WrapCal.UnitTests;
 
-public class WrapPlanViewTests : BunitContext
+public class WrapPlanViewTests : WrapCalBunitContext
 {
     private static WrapPlan Plan(LengthUnit unit = LengthUnit.Centimeters) =>
         PlanWrapLogic.Plan(

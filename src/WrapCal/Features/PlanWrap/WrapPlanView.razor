@@ -1,58 +1,64 @@
 @using System.Globalization
 
-<div class="card mt-4">
-    <div class="card-body">
-        <h2 class="h5 card-title">Cut Plan</h2>
+<MudPaper Elevation="2" Class="pa-4 mt-4">
+    <MudText Typo="Typo.h6" Class="mb-3">Cut Plan</MudText>
 
-        <dl class="row mb-3">
-            <dt class="col-sm-4">Roll Length Used</dt>
-            <dd class="col-sm-8">
+    <MudGrid Spacing="3" Class="mb-4">
+        <MudItem xs="6" md="3">
+            <MudText Typo="Typo.caption">Roll Length Used</MudText>
+            <MudText Typo="Typo.h5">
                 <span data-testid="roll-length">@Format(Plan.RollLengthUsed)</span> @UnitLabel
-            </dd>
+            </MudText>
+        </MudItem>
 
-            <dt class="col-sm-4">Paper Cut</dt>
-            <dd class="col-sm-8">
+        <MudItem xs="6" md="3">
+            <MudText Typo="Typo.caption">Paper Cut</MudText>
+            <MudText Typo="Typo.h5">
                 <span data-testid="paper-area">@Format(Plan.PaperAreaCut)</span> @AreaLabel
-            </dd>
+            </MudText>
+        </MudItem>
 
-            <dt class="col-sm-4">Waste</dt>
-            <dd class="col-sm-8">
+        <MudItem xs="6" md="3">
+            <MudText Typo="Typo.caption">Waste</MudText>
+            <MudText Typo="Typo.h5">
                 <span data-testid="waste-area">@Format(Plan.WasteArea)</span> @AreaLabel
-            </dd>
+            </MudText>
+        </MudItem>
 
-            <dt class="col-sm-4">Efficiency</dt>
-            <dd class="col-sm-8">
+        <MudItem xs="6" md="3">
+            <MudText Typo="Typo.caption">Efficiency</MudText>
+            <MudText Typo="Typo.h5">
                 <span data-testid="efficiency">@Plan.Efficiency.ToString("P1", CultureInfo.InvariantCulture)</span>
-            </dd>
-        </dl>
+            </MudText>
+        </MudItem>
+    </MudGrid>
 
-        <table class="table table-sm" data-testid="sections">
-            <thead>
+    <table class="wrapcal-sections" data-testid="sections">
+        <thead>
+            <tr>
+                <th scope="col">Item</th>
+                <th scope="col">X</th>
+                <th scope="col">Y</th>
+                <th scope="col">Width</th>
+                <th scope="col">Length</th>
+                <th scope="col">Note</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (CutSection section in Plan.Sections)
+            {
                 <tr>
-                    <th scope="col">Item</th>
-                    <th scope="col">X</th>
-                    <th scope="col">Y</th>
-                    <th scope="col">Width</th>
-                    <th scope="col">Length</th>
-                    <th scope="col">Note</th>
+                    <td>@section.ItemName</td>
+                    <td>@Format(section.X)</td>
+                    <td>@Format(section.Y)</td>
+                    <td>@Format(section.Width)</td>
+                    <td>@Format(section.Length)</td>
+                    <td class="wrapcal-note">@section.Note</td>
                 </tr>
-            </thead>
-            <tbody>
-                @foreach (CutSection section in Plan.Sections)
-                {
-                    <tr>
-                        <td>@section.ItemName</td>
-                        <td>@Format(section.X)</td>
-                        <td>@Format(section.Y)</td>
-                        <td>@Format(section.Width)</td>
-                        <td>@Format(section.Length)</td>
-                        <td class="text-muted">@section.Note</td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    </div>
-</div>
+            }
+        </tbody>
+    </table>
+</MudPaper>
 
 @code {
     [Parameter, EditorRequired]

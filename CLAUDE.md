@@ -16,11 +16,18 @@ orthogonal features, accounts, saved plans, or a database.
 ## Tech Stack
 
 - **.NET 10** / C# 14 — SDK `10.0.402`
-- **Blazor Web App** — static SSR by default; `InteractiveServer` is registered in
-  `Program.cs` (`AddInteractiveServerRenderMode`) and opted into per component with
-  `@rendermode InteractiveServer`
+- **Blazor Web App** — `InteractiveServer` is registered in `Program.cs`
+  (`AddInteractiveServerRenderMode`) and declared **once**, on `<Routes>` in `App.razor`.
+  Every route is interactive; a page must not add its own `@rendermode`, which cannot nest
+  inside an interactive root.
+- **MudBlazor 9.11** — the entire UI. Bootstrap was removed; there is one styling system and
+  no second one to fight it. Its providers (`MudThemeProvider`, `MudPopoverProvider`,
+  `MudDialogProvider`, `MudSnackbarProvider`) live in `MainLayout`, which is inside the
+  interactive tree — a provider rendered statically outside it leaves `MudSelect` unable to
+  open its overlay.
 - **No persistence** — the app is stateless. No database, no EF Core, no Identity.
-  Wrap planning is a pure function of user input.
+  Wrap planning is a pure function of user input. The one exception is a `wrapcal-theme`
+  cookie, which is a display preference rather than application state.
 - **No logging library** — the built-in `Microsoft.Extensions.Logging` from the
   template is all that is configured.
 - **TUnit** + **bUnit** — unit and component testing
@@ -36,7 +43,7 @@ owns its page, its logic, and its models in one folder. There is no shared
 src/
   WrapCal/                      # the only production project
     Components/
-      Layout/                   # MainLayout — header + content, deliberately no nav
+      Layout/                   # MainLayout — app bar + content, deliberately no nav
       Pages/
         Error.razor
         NotFound.razor
@@ -48,15 +55,19 @@ src/
     Features/                   # vertical slices
       _Imports.razor            # REQUIRED — Components/_Imports.razor does NOT reach here
       PlanWrap/
-        PlanWrap.razor          # the routable page — "/" — InteractiveServer
-        PlanWrap.razor.css      # reserved validation slots, Remove-button alignment
+        PlanWrap.razor          # the routable page — "/"
+        PlanWrap.razor.cs       # form state, field rules, unit conversion
         PlanWrapLogic.cs        # the planner → Result<WrapPlan>
         PlanWrapModels.cs       # domain records
-        PlanWrapInput.cs        # form model + box validation
+        PlanWrapInput.cs        # form model + the field limits
         WrapPlanView.razor      # summary figures + cut sections table
+        WrapPlanView.razor.css  # that table's styling
         WrapPlanDiagram.razor   # SVG cut layout — needs WrapPlan.RollWidth
         WrapPlanDiagram.razor.css
     Program.cs
+    wwwroot/
+      app.css                 # Roboto @font-face, framework furniture, message slot
+      theme.js                # writes the theme cookie (the only JS we own)
 tests/
   WrapCal.UnitTests/
     Common/ResultTests.cs
@@ -99,29 +110,40 @@ Read this before changing the maths. Every point here has been got wrong once al
 - **Keep `@code` blocks small.** Past ~30 lines, extract to a code-behind
   (`.razor.cs`) or a slice logic class.
 - **Shared state goes in a scoped DI service**, not cascading parameters.
-- **Render mode is chosen per component**, not globally. Static SSR first; add
-  `@rendermode InteractiveServer` only where the component genuinely needs
-  interactivity, since it changes the hosting and lifetime model.
+- **Render mode is declared once, at the root** — see the tech-stack note above. Do not add
+  `@rendermode` to a page or layout; it cannot nest inside the interactive root.
 - **`Features/_Imports.razor` is load-bearing.** `_Imports.razor` only applies to its own
   folder and below, and the one in `Components/` is a sibling — without the one in
   `Features/`, `EditForm`, `InputText`, `PageTitle` and the render-mode directive are all
   unresolved in slices.
 - **Never name a component after a domain record.** Component names derive from the file,
   so `WrapPlan.razor` beside the `WrapPlan` record collides. Hence `WrapPlanView.razor`.
-- **Interactive pages expose a `data-interactive` marker.** Set from
-  `OnAfterRenderAsync` when `RendererInfo.IsInteractive` is true. Before the circuit
-  attaches, a `type="submit"` button performs a native POST and navigates the page away —
-  which makes naive Playwright clicks flaky. Tests wait for `form[data-interactive='true']`.
-- **Roll options validate through DataAnnotations; box rows cannot.** `DataAnnotationsValidator`
-  does not recurse into a collection, so attributes on `BoxInput` are silently ignored —
-  verified, not assumed: a `Range(0.1, 1000)` on the item type still let a zero length
-  through to the planner. Box rules live in `PlanWrapInput.ValidateBoxes()` and the page feeds
-  them into its own `ValidationMessageStore`, keyed `FieldIdentifier(box, nameof(box.Length))`
-  so each message lands under its own input. `PlanWrapLogic` keeps its own guards for callers
-  that bypass the form.
-- **Every interactive control carries a `data-testid`**: `boxes`, `box-name`, `add-box`,
-  `remove-box`, `unit-select`, `plan-button`, `plan-error`, `roll-direction`, `sections`,
-  `roll-length`, `paper-area`, `waste-area`, `efficiency`. The functional suite drives the
+- **Controls are disabled until the circuit is live.** `Plan`, `Add box` and `Remove` render
+  disabled while `RendererInfo.IsInteractive` is false, then enable. That is a user-facing
+  guarantee, not a test hook: before the circuit attaches a click would either vanish or
+  POST the form and navigate away. Read `RendererInfo` during render rather than latching it
+  in `OnAfterRenderAsync` — the prerendered markup is replaced by the interactive render,
+  which already knows the answer. The suite waits for
+  `[data-testid='plan-button']:not([disabled])`.
+- **Field rules live in the page's MudForm validation funcs, and only there.** Each field
+  carries a `For` expression plus a `Validation` delegate; returning an empty string means
+  valid. MudBlazor declares `Validation` as `object`, so the delegate type has to come from a
+  typed property on the code-behind — a method group or lambda in markup cannot be inferred.
+  The bounds themselves are the `const`s on `PlanWrapInput`, shared with nothing else: there is
+  deliberately no second copy to drift. `PlanWrapLogic` keeps its own guards for callers that
+  bypass the form.
+- **Validation reports when a field is left, not on every keystroke.** That is Mud's timing,
+  chosen over the old on-change behaviour. Box fields carry `HelperText=" "` and the global
+  `.wrapcal-message-slot` rule so the message line is always reserved — without it, reporting a
+  problem grows the row and pushes the Plan button down. That rule is global because the class
+  lands on markup MudBlazor renders, which a component's scoped CSS cannot reach.
+- **Every interactive control carries a `data-testid`**: `roll-width`, `overlap-margin`,
+  `roll-options`, `unit-select`, `boxes`, `box-row`, `box-name`, `box-length`, `box-width`,
+  `box-height`, `add-box`, `remove-box`, `plan-button`, `plan-error`, `roll-direction`,
+  `diagram`, `sections`, `roll-length`, `paper-area`, `waste-area`, `efficiency`,
+  `theme-toggle`. MudBlazor puts unmatched attributes on the element it renders — for an input
+  that is the `<input>` itself, but for `MudSelect` it is a hidden input that cannot be
+  clicked, so the two selects are wrapped in a `<div>` carrying the id. The functional suite drives the
   page through these, so renaming one breaks tests rather than the app.
 - **The diagram never scales to fit.** Its scale comes from the roll width, which does not
   change as boxes are added, so a longer plan draws a longer diagram and the rest is reached
@@ -138,6 +160,14 @@ Read this before changing the maths. Every point here has been got wrong once al
   `is-reversed` — set for Up and Left, whose origin is at the far end — lays it out from that
   end (`column-reverse` / `row-reverse`), which puts the initial scroll there too. Verified
   in the browser and mutation-checked: forcing `column`/`row` fails the Up and Left examples.
+- **The drawing fills the frame and its content hugs the top-left.** The SVG takes
+  `min-width`/`min-height: 100%` of the scroller and `preserveAspectRatio="xMinYMin meet"`, so a
+  short plan has no dead space beside it for a reversed scroller to pack it against. Without this
+  a Left or Up diagram that fits sat against the far edge — right or bottom — with a large empty
+  gap, which reads as the drawing being shoved out of place. Do not "restore" `xMidYMid`: that
+  re-centres the content in the filled frame. `justify-content: flex-end` and auto margins were
+  both tried first and both push overflowing content towards a start the scrollbar cannot reach,
+  taking the origin out of view; `safe flex-end` is the right idea but WebKit does not honour it.
 - **Re-keying the scroller resets the scroll.** It is keyed on `(Plan, Direction)`, so a new
   plan or a new direction starts at the origin instead of wherever the previous drawing was
   left. Don't "optimise" the key away.
