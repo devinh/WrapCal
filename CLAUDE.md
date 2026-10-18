@@ -8,8 +8,9 @@ WrapCal is a .NET 10 Blazor Web App that plans how much wrapping paper a set of 
 boxes needs — given box dimensions and a paper roll's width, it produces a cut plan:
 where to cut the roll, how much length is consumed, and how much paper is wasted.
 
-The app is currently a **greenfield shell**: the Blazor template with sample pages
-removed. No wrapping-domain code has been written yet. See *Reference material* below.
+**The whole site is that calculator.** There is no navigation, no second feature, and none
+planned — this is a single-purpose tool, not a platform. Keep it that way: resist adding
+orthogonal features, accounts, saved plans, or a database.
 
 ## Tech Stack
 
@@ -34,10 +35,8 @@ owns its page, its logic, and its models in one folder. There is no shared
 src/
   WrapCal/                      # the only production project
     Components/
-      Layout/                   # MainLayout, NavMenu
-      Shared/                   # cross-feature reusable UI
+      Layout/                   # MainLayout — header + content, deliberately no nav
       Pages/
-        Home.razor              # the only page so far
         Error.razor
         NotFound.razor
       App.razor
@@ -48,7 +47,7 @@ src/
     Features/                   # vertical slices
       _Imports.razor            # REQUIRED — Components/_Imports.razor does NOT reach here
       PlanWrap/
-        PlanWrap.razor          # the routable page, /plan, InteractiveServer
+        PlanWrap.razor          # the routable page — "/" — InteractiveServer
         PlanWrapLogic.cs        # slice logic → Result<WrapPlan>
         PlanWrapModels.cs       # domain records
         PlanWrapInput.cs        # form model (DataAnnotations live here, not on domain)
@@ -103,23 +102,6 @@ tests/
 
 These are backed by `.editorconfig` and enforced during build via
 `EnforceCodeStyleInBuild`.
-
-## Reference material — `WrappingPaperOptimizer.cs`
-
-`WrappingPaperOptimizer.cs` sits at the **repository root and is deliberately not part
-of any project — it is never compiled.** The web project only globs `src/WrapCal/**/*.cs`.
-
-It is a standalone, working implementation (namespace `GiftWrapOptimizer`) of the
-wrapping domain: `GiftBox`, `WrapOptions`, `UnitConverter`, `CutSection`, `WrapPlan`,
-and a shelf-based packing optimizer with randomised restarts.
-
-Treat it as a **specification and reference**, not as source to build on:
-
-- Do **not** assume its types are available to the app — they aren't.
-- When implementing wrap planning for real, port the relevant logic into a slice under
-  `Features/`, adapting it to the app's needs.
-- If it ever becomes part of the build, that is a deliberate decision — move it into a
-  project (or add a `<Compile Include>` link) and update this section.
 
 ## Commands
 
@@ -184,7 +166,9 @@ Two test projects, deliberately separate. Run either on its own, or `dotnet test
   `.razor` test components, which additionally needs `Microsoft.NET.Sdk.Razor`.
   (If you go fully reflection, `<EnableTUnitSourceGeneration>false</EnableTUnitSourceGeneration>`
   skips generation entirely for faster builds.)
-- `HomePageTests.cs` is the working baseline example.
+- `PlanWrapLogicTests.cs` and `PlanWrapPageTests.cs` are the working examples. Component
+  tests that render an interactive page must call `SetRendererInfo` — see the slice
+  conventions above.
 
 ### Functional — `tests/WrapCal.FunctionalTests`
 
@@ -269,15 +253,16 @@ Use it to save tokens:
 
 The workspace loads through `MSBuildWorkspace`, which **does not execute source
 generators**. Razor compiles components with the Razor source generator (there are no
-`.razor.g.cs` files on disk), so `Home`, `App`, `Routes`, and the `WrapCal.Components`
-namespace **do not exist in the tool's view**. This is expected, not broken config:
+`.razor.g.cs` files on disk), so `App`, `Routes`, `PlanWrap`, `WrapPlanView`, and the
+`WrapCal.Components` / `WrapCal.Features.PlanWrap` namespaces **do not exist in the
+tool's view**. This is expected, not broken config:
 
 - `get_diagnostics` reports phantom `CS0246`/`CS0234` errors for every reference to a
-  Razor-generated type. Currently 4: `Program.cs` lines 1 and 24, plus
-  `HomePageTests.cs` lines 2 and 11. **`dotnet build` is the source of truth** — it
-  reports 0 errors. Ignore these and never "fix" them.
-- Any test that references a component (`Home`, `App`, …) inherits the same phantom
-  errors. Unavoidable, and not a defect in the test.
+  Razor-generated type — `Program.cs`, and any test that renders a component.
+  **`dotnet build` is the source of truth** — it reports 0 errors. Ignore these and
+  never "fix" them. (Do not cite specific line numbers here; they drift constantly.)
+- Any test that references a component inherits the same phantom errors. Unavoidable,
+  and not a defect in the test.
 - `find_symbol`, `find_references`, and `get_public_api` return nothing for Razor
   components. Use `grep` or read the `.razor` file directly.
 - `get_test_coverage_map` counts only non-Razor types, so its percentage is meaningless

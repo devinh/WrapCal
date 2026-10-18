@@ -2,24 +2,12 @@
 
 Plan how much wrapping paper a set of gift boxes needs.
 
-Given box dimensions and the usable width of a paper roll, WrapCal aims to produce a
-cut plan: where to cut the roll, how much roll length the boxes consume, and how much
-paper is left as waste.
+Given box dimensions and the usable width of a paper roll, WrapCal produces a cut plan:
+where to cut the roll, how much roll length the boxes consume, and how much paper is left
+as waste.
 
-> **Status: early scaffold.** The Blazor shell, build config, and test setup exist.
-> No wrap-planning logic is implemented and the only page is a placeholder.
-
-## Status
-
-| | |
-|---|---|
-| Blazor shell (.NET 10, static SSR) | ✅ Done |
-| Build, test, and lint config | ✅ Done |
-| Wrap-planning domain logic | ❌ Not started |
-| Planning UI | ❌ Not started |
-| Persistence | None by design — the app is stateless |
-
-Nothing in the app currently reads or produces wrap plans.
+It is a **single-purpose calculator** — that page is the whole site. There is no
+navigation, and no plan to add other features.
 
 ## Requirements
 
@@ -33,7 +21,7 @@ Nothing in the app currently reads or produces wrap plans.
 # Build
 dotnet build
 
-# Run — serves http://localhost:5127 and https://localhost:7002
+# Run — the calculator is at http://localhost:5127
 dotnet run --project src/WrapCal
 
 # Run with hot reload
@@ -57,21 +45,22 @@ Directory.Build.props        # shared compiler + analyzer settings
 .editorconfig                # code style, enforced at build time
 CLAUDE.md                    # conventions and architecture notes
 
-WrappingPaperOptimizer.cs    # domain reference — NOT compiled (see below)
-
 src/
   WrapCal/                   # the app (Blazor Web App)
     Components/
-      Layout/                # MainLayout, NavMenu, ReconnectModal
-      Pages/                 # Home, Error, NotFound
+      Layout/                # MainLayout — header only, no navigation
+      Pages/                 # Error, NotFound
       App.razor, Routes.razor, _Imports.razor
+    Common/
+      Result.cs              # Result<T>
+    Features/
+      PlanWrap/              # the calculator: page, logic, models, display
     wwwroot/                 # static assets (Bootstrap, app.css)
     Program.cs
     WrapCal.csproj
 
 tests/
   WrapCal.UnitTests/         # TUnit + bUnit — unit and component tests
-    HomePageTests.cs
 
   WrapCal.FunctionalTests/   # TUnit + Reqnroll + Playwright — BDD against a real browser
     Features/                #   Gherkin .feature files
@@ -79,6 +68,14 @@ tests/
     Hooks/                   #   app + browser lifecycle
     Support/                 #   AppHost, UiContext
 ```
+
+## Architecture
+
+WrapCal uses **vertical slice architecture** — code is organized by feature, not by
+technical layer. The calculator lives in `src/WrapCal/Features/PlanWrap/`, holding its page,
+logic, models, and display component together.
+
+See [CLAUDE.md](CLAUDE.md) for conventions, coding standards, and anti-patterns.
 
 ## Testing
 
@@ -129,24 +126,3 @@ Set `HEADED=1` to run with a visible browser — the fastest way to debug a fail
 > folder"* — the profile directory is created fine. This is upstream in Firefox;
 > microsoft/playwright#42082 was closed as *not planned*. Chromium and WebKit are unaffected,
 > which is why macOS defaults to WebKit.
-
-## Domain reference: `WrappingPaperOptimizer.cs`
-
-The repository root holds a standalone, working implementation of the wrapping domain
-(namespace `GiftWrapOptimizer`) covering box/roll models, unit conversion, and a
-shelf-based packing optimizer with randomised restarts.
-
-**It is not part of the build and is never compiled** — the web project only globs
-`src/WrapCal/**/*.cs`. The build will not fail if you break it.
-
-Treat it as a **specification**: port what you need into a feature slice and adapt it,
-rather than assuming its types are available.
-
-## Architecture
-
-WrapCal uses **vertical slice architecture** — code is organized by feature, not by
-technical layer, and there is no shared `Services/` or `Models/` folder. New work goes
-in `src/WrapCal/Features/<FeatureName>/`, containing that feature's page, logic, and
-models together.
-
-See [CLAUDE.md](CLAUDE.md) for the full conventions, coding standards, and anti-patterns.

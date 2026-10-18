@@ -14,7 +14,7 @@ public sealed class PlanWrapSteps
     [When("I plan a single box")]
     public async Task WhenIPlanASingleBoxAsync()
     {
-        await _ui.Page.GotoAsync(_ui.Url("/plan"));
+        await _ui.Page.GotoAsync(_ui.Url("/"));
 
         // The page is InteractiveServer. Until the SignalR circuit attaches, the submit button
         // is a plain HTML submit and clicking it POSTs and navigates away — so wait for the
