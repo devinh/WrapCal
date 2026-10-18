@@ -27,11 +27,11 @@ Feature: Wrap planning
 
   Scenario Outline: The roll direction can point each way
     When I plan and set the roll to continue <direction>
-    Then the paper layout should show "<arrow> Roll continues"
+    Then the paper layout should say the roll continues past the <edge> edge
 
     Examples:
-      | direction  | arrow |
-      | Downwards  | ↓     |
-      | Upwards    | ↑     |
-      | Rightwards | →     |
-      | Leftwards  | ←     |
+      | direction  | edge   |
+      | Upwards    | top    |
+      | Downwards  | bottom |
+      | Rightwards | right  |
+      | Leftwards  | left   |

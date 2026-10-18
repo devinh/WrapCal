@@ -68,11 +68,14 @@ public class WrapPlanDiagramTests : BunitContext
         await Assert.That(cut.Markup).Contains("Nothing to draw");
     }
 
+    // The expected glyph is the one that ends up in the markup, which is NOT the one that ends
+    // up on screen for Left/Right: those labels are rotated, and the arrow turns with them. A
+    // "down" glyph renders pointing right; an "up" glyph renders pointing left.
     [Test]
     [Arguments(RollDirection.Down, "↓ Roll continues")]
     [Arguments(RollDirection.Up, "↑ Roll continues")]
-    [Arguments(RollDirection.Right, "→ Roll continues")]
-    [Arguments(RollDirection.Left, "← Roll continues")]
+    [Arguments(RollDirection.Right, "↓ Roll continues")]
+    [Arguments(RollDirection.Left, "↑ Roll continues")]
     public async Task Points_the_continues_label_the_right_way(RollDirection direction, string expected)
     {
         var cut = Render<WrapPlanDiagram>(parameters => parameters

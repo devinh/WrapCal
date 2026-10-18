@@ -139,12 +139,15 @@ public sealed class PlanWrapSteps
         await Assert.That(caption).Contains(unit);
     }
 
-    [Then("the paper layout should show {string}")]
-    public async Task ThenThePaperLayoutShouldShowAsync(string expected)
+    [Then("the paper layout should say the roll continues past the {word} edge")]
+    public async Task ThenThePaperLayoutShouldSayTheRollContinuesPastTheEdgeAsync(string edge)
     {
-        // Blazor re-renders when the select changes, so poll rather than reading immediately.
+        // Asserted through the caption rather than the on-diagram arrow: the side labels are
+        // rotated, so the glyph in the markup is not the one that ends up on screen.
+        string expected = $"past the {edge} edge";
+
         await _ui.Page.WaitForFunctionAsync(
-            "expected => (document.querySelector(\"svg[role='img']\")?.textContent || '').includes(expected)",
+            "expected => (document.querySelector('figcaption')?.textContent || '').includes(expected)",
             expected,
             new PageWaitForFunctionOptions { Timeout = 10_000 });
     }

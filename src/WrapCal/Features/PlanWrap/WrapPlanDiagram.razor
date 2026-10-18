@@ -236,12 +236,15 @@ else
         _ => Plan.RollWidth - OriginPad,
     };
 
+    // The side labels are rotated -90 degrees, and an arrow glyph turns a quarter turn with the
+    // text it sits in. So a "down" glyph renders pointing right, and an "up" glyph renders
+    // pointing left — the glyphs below are chosen for how they end up, not how they read here.
     private string BandLabel => Direction switch
     {
         RollDirection.Down => "↓ Roll continues",
         RollDirection.Up => "↑ Roll continues",
-        RollDirection.Right => "→ Roll continues",
-        _ => "← Roll continues",
+        RollDirection.Right => "↓ Roll continues",
+        _ => "↑ Roll continues",
     };
 
     private string EdgeName => Direction switch
