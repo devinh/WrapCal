@@ -1,9 +1,9 @@
 @page "/"
 @rendermode InteractiveServer
 
-<PageTitle>Plan a wrap</PageTitle>
+<PageTitle>Plan a Wrap</PageTitle>
 
-<h1>Plan a wrap</h1>
+<h1>Plan a Wrap</h1>
 
 <p class="text-muted">
     Enter the roll you have and the boxes you want to wrap. The plan shows where to cut.
@@ -14,25 +14,25 @@
 
     <div class="row g-3 mb-3">
         <div class="col-md-3">
-            <label class="form-label" for="rollWidth">Roll width</label>
+            <label class="form-label" for="rollWidth">Roll Width</label>
             <InputNumber id="rollWidth" @bind-Value="_input.RollWidth" class="form-control"
                          title="The usable width of your paper roll — the distance across it, not its length." />
             <ValidationMessage For="() => _input.RollWidth" />
-            <div class="form-text">Usable width of the roll.</div>
+            <div class="form-text">Usable width of the roll — across it, not its length.</div>
         </div>
 
         <div class="col-md-3">
-            <label class="form-label" for="overlapMargin">Overlap margin</label>
+            <label class="form-label" for="overlapMargin">Overlap Margin</label>
             <InputNumber id="overlapMargin" @bind-Value="_input.OverlapMargin" class="form-control"
-                         title="Extra paper added around the box so the two ends of the wrap overlap at the seam." />
+                         title="Extra paper in the wrap-around direction, so the two edges overlap at the seam. Adds to the sheet's width." />
             <ValidationMessage For="() => _input.OverlapMargin" />
-            <div class="form-text">Extra paper so the seam overlaps.</div>
+            <div class="form-text">Extra paper around the box, so the seam overlaps.</div>
         </div>
 
         <div class="col-md-3">
-            <label class="form-label" for="endAllowance">End allowance</label>
+            <label class="form-label" for="endAllowance">End Allowance</label>
             <InputNumber id="endAllowance" @bind-Value="_input.EndAllowance" class="form-control"
-                         title="Extra paper added to each end, on top of the fold-over the planner already includes. Use it for tucking in or taping down." />
+                         title="Extra paper added to each end, on top of the fold-over the planner already includes. Use it for tucking in or taping down. Adds to the sheet's length." />
             <ValidationMessage For="() => _input.EndAllowance" />
             <div class="form-text">Extra paper at each end, for tucking or taping.</div>
         </div>
@@ -40,11 +40,11 @@
         <div class="col-md-3">
             <label class="form-label" for="inputUnit">Units</label>
             <InputSelect id="inputUnit" @bind-Value="_input.InputUnit" class="form-select"
-                         title="Applies to every length you type in below.">
-                <option value="@LengthUnit.Centimeters">Centimetres</option>
+                         title="Applies to every length you type in, and to the results.">
                 <option value="@LengthUnit.Inches">Inches</option>
+                <option value="@LengthUnit.Centimeters">Centimetres</option>
             </InputSelect>
-            <div class="form-text">Applies to every length below.</div>
+            <div class="form-text">Used for what you type in and what you get back.</div>
         </div>
     </div>
 
@@ -116,8 +116,23 @@
 {
     <div class="card mt-4">
         <div class="card-body">
-            <h2 class="h5 card-title">Paper layout</h2>
-            <WrapPlanDiagram Plan="_plan" />
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                <h2 class="h5 card-title mb-0">Paper Layout</h2>
+
+                @* Presentation only — it changes which way the drawing faces, not the plan. *@
+                <div class="d-flex align-items-center gap-2">
+                    <label class="form-label mb-0 small text-nowrap" for="rollDirection">
+                        Roll Continues
+                    </label>
+                    <select id="rollDirection" class="form-select form-select-sm w-auto"
+                            @bind="_continuesDown" data-testid="roll-direction">
+                        <option value="true">Downwards</option>
+                        <option value="false">Upwards</option>
+                    </select>
+                </div>
+            </div>
+
+            <WrapPlanDiagram Plan="_plan" ContinuesDown="_continuesDown" />
         </div>
     </div>
 
@@ -129,6 +144,7 @@
     private WrapPlan? _plan;
     private string? _error;
     private bool _interactive;
+    private bool _continuesDown = true;
 
     /// <summary>
     /// Null until the SignalR circuit is live, then "true". Exposed to the DOM so an automated

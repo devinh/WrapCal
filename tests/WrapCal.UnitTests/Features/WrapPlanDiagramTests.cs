@@ -66,4 +66,36 @@ public class WrapPlanDiagramTests : BunitContext
         await Assert.That(cut.FindAll("svg").Count).IsEqualTo(0);
         await Assert.That(cut.Markup).Contains("Nothing to draw");
     }
+
+    [Test]
+    public async Task Draws_the_surplus_above_when_the_roll_continues_upwards()
+    {
+        var cut = Render<WrapPlanDiagram>(parameters => parameters
+            .Add(p => p.Plan, OneBoxPlan())
+            .Add(p => p.ContinuesDown, false));
+
+        string markup = cut.Markup;
+
+        await Assert.That(markup).Contains("↑ Roll continues");
+        await Assert.That(markup.Contains("↓ Roll continues")).IsFalse();
+    }
+
+    [Test]
+    public async Task Mirrors_the_cuts_when_the_roll_continues_upwards()
+    {
+        // One box would not distinguish the two: a single section starts at Y=0 either way.
+        WrapPlan plan = PlanWrapLogic.Plan(
+            [new GiftBox("Book", 22, 15, 4), new GiftBox("Mug", 12, 12, 12)],
+            new WrapOptions(60, 0.5, RandomRestarts: 0)).Value;
+
+        var down = Render<WrapPlanDiagram>(parameters => parameters
+            .Add(p => p.Plan, plan).Add(p => p.ContinuesDown, true));
+        var up = Render<WrapPlanDiagram>(parameters => parameters
+            .Add(p => p.Plan, plan).Add(p => p.ContinuesDown, false));
+
+        string firstYDown = down.FindAll("g.cut rect")[0].GetAttribute("y") ?? string.Empty;
+        string firstYUp = up.FindAll("g.cut rect")[0].GetAttribute("y") ?? string.Empty;
+
+        await Assert.That(firstYUp).IsNotEqualTo(firstYDown);
+    }
 }

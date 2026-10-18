@@ -7,13 +7,12 @@
 else
 {
     <figure class="wrap-diagram mb-0">
-        @* Drawn in the plan's own coordinates: X across the roll, Y down its length, so the
-           picture matches the model with no mental rotation. Units are plan units; the SVG
-           scales to the container.
+        @* Drawn in the plan's own coordinates: X across the roll, Y down its length. Units are
+           plan units; the SVG scales to the container.
 
-           Y=0 is the starting end of the roll — a full, uncut, straight edge. The roll carries
-           on past the last cut, so the used paper is followed by a hatched band showing that
-           there is more paper below. *@
+           Y=0 is the starting end of the roll — a full, uncut, straight edge — and the roll
+           carries on past the last cut. ContinuesDown picks which way that surplus is drawn,
+           so the picture can match how the roll is actually lying in front of you. *@
         <svg viewBox="@ViewBox"
              preserveAspectRatio="xMidYMid meet"
              role="img"
@@ -30,13 +29,13 @@ else
                 {
                     CutSection clipped = Plan.Sections[i];
                     <clipPath id="@ClipId(i)">
-                        <rect x="@N(clipped.X)" y="@N(clipped.Y)"
+                        <rect x="@N(clipped.X)" y="@N(DisplayY(clipped))"
                               width="@N(clipped.Width)" height="@N(clipped.Length)" />
                     </clipPath>
                 }
             </defs>
 
-            <text class="edge-label" x="@N(Plan.RollWidth / 2)" y="@N(-Head / 2)"
+            <text class="edge-label" x="@N(Plan.RollWidth / 2)" y="@N(StartLabelY)"
                   text-anchor="middle" dominant-baseline="middle" font-size="@N(HeadFont)">
                 Start of roll
             </text>
@@ -49,10 +48,10 @@ else
             {
                 CutSection section = Plan.Sections[i];
                 double centreX = section.X + (section.Width / 2);
-                double centreY = section.Y + (section.Length / 2);
+                double centreY = DisplayY(section) + (section.Length / 2);
 
                 <g class="cut">
-                    <rect x="@N(section.X)" y="@N(section.Y)"
+                    <rect x="@N(section.X)" y="@N(DisplayY(section))"
                           width="@N(section.Width)" height="@N(section.Length)" />
 
                     <text x="@N(centreX)" y="@N(centreY)"
@@ -66,19 +65,19 @@ else
             }
 
             @* Paper beyond the last cut: the roll is not used up. *@
-            <rect class="continues" x="0" y="@N(Plan.RollLengthUsed)"
+            <rect class="continues" x="0" y="@N(BandY)"
                   width="@N(Plan.RollWidth)" height="@N(Band)" fill="url(#@HatchId)" />
 
-            <text class="edge-label" x="@N(Plan.RollWidth / 2)"
-                  y="@N(Plan.RollLengthUsed + (Band / 2))"
+            <text class="edge-label" x="@N(Plan.RollWidth / 2)" y="@N(BandY + (Band / 2))"
                   text-anchor="middle" dominant-baseline="middle" font-size="@N(BandFont)">
-                ↓ Roll continues
+                @BandLabel
             </text>
         </svg>
 
         <figcaption class="text-muted small mt-1">
             Paper: @F(Plan.RollWidth) @UnitLabel wide × @F(Plan.RollLengthUsed) @UnitLabel long.
-            The roll continues past the bottom edge — the hatched area is paper you still have.
+            The roll continues past the @(ContinuesDown ? "bottom" : "top") edge — the hatched
+            area is paper you still have.
         </figcaption>
     </figure>
 }
@@ -86,6 +85,10 @@ else
 @code {
     [Parameter, EditorRequired]
     public WrapPlan Plan { get; set; } = default!;
+
+    /// <summary>Which way the unused paper is drawn. Does not change the plan itself.</summary>
+    [Parameter]
+    public bool ContinuesDown { get; set; } = true;
 
     private string _uid = string.Empty;
 
@@ -101,15 +104,33 @@ else
 
     private double BandFont => Band * 0.32;
 
+    private double TopMargin => ContinuesDown ? Head : Band;
+
+    private double BottomMargin => ContinuesDown ? Band : Head;
+
+    private double BandY => ContinuesDown ? Plan.RollLengthUsed : -Band;
+
+    private double StartLabelY => ContinuesDown ? -Head / 2 : Plan.RollLengthUsed + (Head / 2);
+
+    private string BandLabel => ContinuesDown ? "↓ Roll continues" : "↑ Roll continues";
+
     private string ViewBox =>
-        $"0 {@N(-Head)} {@N(Plan.RollWidth)} {@N(Head + Plan.RollLengthUsed + Band)}";
+        $"0 {@N(-TopMargin)} {@N(Plan.RollWidth)} {@N(TopMargin + Plan.RollLengthUsed + BottomMargin)}";
+
+    /// <summary>
+    /// Vertical position of a section in the drawing. The plan always measures Y from the
+    /// starting end; when the surplus is drawn above, the used paper is mirrored so the
+    /// starting edge stays adjacent to the "start" label.
+    /// </summary>
+    private double DisplayY(CutSection section) =>
+        ContinuesDown ? section.Y : Plan.RollLengthUsed - (section.Y + section.Length);
 
     private string UnitLabel => Plan.Unit == LengthUnit.Centimeters ? "cm" : "in";
 
     private string AriaLabel =>
         $"Cut layout for {Plan.Sections.Count} sheet(s) on paper "
         + $"{F(Plan.RollWidth)} by {F(Plan.RollLengthUsed)} {UnitLabel}. "
-        + "The top edge is the start of the roll; unused paper continues below the last cut.";
+        + $"Unused paper continues {(ContinuesDown ? "below" : "above")} the last cut.";
 
     private string HatchId => $"{_uid}-hatch";
 
