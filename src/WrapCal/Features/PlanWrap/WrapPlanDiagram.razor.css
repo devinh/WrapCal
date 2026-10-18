@@ -12,17 +12,31 @@
 
 .paper {
     fill: #f8f5ef;
+    stroke: #b9b2a6;
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
 }
 
 .cut rect {
     fill: #e7f0fb;
     stroke: #1b6ec2;
-    /* Keep hairlines crisp however far the drawing is scaled down. */
+    /* Keep hairlines crisp however far the drawing is scaled. */
     stroke-width: 1;
     vector-effect: non-scaling-stroke;
 }
 
 .cut text {
     fill: #1a1a1a;
+    pointer-events: none;
+}
+
+.continues {
+    stroke: #b9b2a6;
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+}
+
+.edge-label {
+    fill: #6b6b6b;
     pointer-events: none;
 }

@@ -39,8 +39,22 @@ public class WrapPlanDiagramTests : BunitContext
         WrapPlan plan = OneBoxPlan();
         var cut = Render<WrapPlanDiagram>(parameters => parameters.Add(p => p.Plan, plan));
 
-        // viewBox is "0 0 rollWidth rollLengthUsed" — the canvas comes straight from the plan.
-        await Assert.That(cut.Find("svg").GetAttribute("viewBox")).StartsWith("0 0 30");
+        // viewBox is "0 -head rollWidth height" — the width still comes straight from the plan.
+        string viewBox = cut.Find("svg").GetAttribute("viewBox") ?? string.Empty;
+        string[] parts = viewBox.Split(' ');
+
+        await Assert.That(parts[2]).IsEqualTo("30");
+    }
+
+    [Test]
+    public async Task Marks_both_ends_so_it_is_clear_which_way_the_roll_runs()
+    {
+        var cut = Render<WrapPlanDiagram>(parameters => parameters.Add(p => p.Plan, OneBoxPlan()));
+
+        string markup = cut.Markup;
+
+        await Assert.That(markup).Contains("Start of roll");
+        await Assert.That(markup).Contains("Roll continues");
     }
 
     [Test]

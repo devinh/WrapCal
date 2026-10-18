@@ -15,32 +15,44 @@
     <div class="row g-3 mb-3">
         <div class="col-md-3">
             <label class="form-label" for="rollWidth">Roll width</label>
-            <InputNumber id="rollWidth" @bind-Value="_input.RollWidth" class="form-control" />
+            <InputNumber id="rollWidth" @bind-Value="_input.RollWidth" class="form-control"
+                         title="The usable width of your paper roll — the distance across it, not its length." />
             <ValidationMessage For="() => _input.RollWidth" />
+            <div class="form-text">Usable width of the roll.</div>
         </div>
 
         <div class="col-md-3">
             <label class="form-label" for="overlapMargin">Overlap margin</label>
-            <InputNumber id="overlapMargin" @bind-Value="_input.OverlapMargin" class="form-control" />
+            <InputNumber id="overlapMargin" @bind-Value="_input.OverlapMargin" class="form-control"
+                         title="Extra paper added around the box so the two ends of the wrap overlap at the seam." />
             <ValidationMessage For="() => _input.OverlapMargin" />
+            <div class="form-text">Extra paper so the seam overlaps.</div>
         </div>
 
         <div class="col-md-3">
             <label class="form-label" for="endAllowance">End allowance</label>
-            <InputNumber id="endAllowance" @bind-Value="_input.EndAllowance" class="form-control" />
+            <InputNumber id="endAllowance" @bind-Value="_input.EndAllowance" class="form-control"
+                         title="Extra paper added to each end, on top of the fold-over the planner already includes. Use it for tucking in or taping down." />
             <ValidationMessage For="() => _input.EndAllowance" />
+            <div class="form-text">Extra paper at each end, for tucking or taping.</div>
         </div>
 
         <div class="col-md-3">
             <label class="form-label" for="inputUnit">Units</label>
-            <InputSelect id="inputUnit" @bind-Value="_input.InputUnit" class="form-select">
+            <InputSelect id="inputUnit" @bind-Value="_input.InputUnit" class="form-select"
+                         title="Applies to every length you type in below.">
                 <option value="@LengthUnit.Centimeters">Centimetres</option>
                 <option value="@LengthUnit.Inches">Inches</option>
             </InputSelect>
+            <div class="form-text">Applies to every length below.</div>
         </div>
     </div>
 
     <h2 class="h5">Boxes</h2>
+    <div class="form-text mb-2">
+        Length, width and height of each box, in the units selected above. The planner wraps
+        each box in a single sheet, folding the paper over both ends.
+    </div>
 
     <table class="table align-middle">
         <thead>

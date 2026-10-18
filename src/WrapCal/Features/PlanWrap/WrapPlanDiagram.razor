@@ -9,13 +9,23 @@ else
     <figure class="wrap-diagram mb-0">
         @* Drawn in the plan's own coordinates: X across the roll, Y down its length, so the
            picture matches the model with no mental rotation. Units are plan units; the SVG
-           scales to the container. *@
-        <svg viewBox="0 0 @N(Plan.RollWidth) @N(Plan.RollLengthUsed)"
+           scales to the container.
+
+           Y=0 is the starting end of the roll — a full, uncut, straight edge. The roll carries
+           on past the last cut, so the used paper is followed by a hatched band showing that
+           there is more paper below. *@
+        <svg viewBox="@ViewBox"
              preserveAspectRatio="xMidYMid meet"
              role="img"
              aria-label="@AriaLabel">
 
             <defs>
+                <pattern id="@HatchId" width="6" height="6" patternUnits="userSpaceOnUse"
+                         patternTransform="rotate(45)">
+                    <rect width="6" height="6" fill="#fbfaf7" />
+                    <line x1="0" y1="0" x2="0" y2="6" stroke="#dedad0" stroke-width="2" />
+                </pattern>
+
                 @for (int i = 0; i < Plan.Sections.Count; i++)
                 {
                     CutSection clipped = Plan.Sections[i];
@@ -26,6 +36,12 @@ else
                 }
             </defs>
 
+            <text class="edge-label" x="@N(Plan.RollWidth / 2)" y="@N(-Head / 2)"
+                  text-anchor="middle" dominant-baseline="middle" font-size="@N(HeadFont)">
+                Start of roll
+            </text>
+
+            @* The paper consumed by this plan. *@
             <rect class="paper" x="0" y="0"
                   width="@N(Plan.RollWidth)" height="@N(Plan.RollLengthUsed)" />
 
@@ -48,10 +64,21 @@ else
                     </text>
                 </g>
             }
+
+            @* Paper beyond the last cut: the roll is not used up. *@
+            <rect class="continues" x="0" y="@N(Plan.RollLengthUsed)"
+                  width="@N(Plan.RollWidth)" height="@N(Band)" fill="url(#@HatchId)" />
+
+            <text class="edge-label" x="@N(Plan.RollWidth / 2)"
+                  y="@N(Plan.RollLengthUsed + (Band / 2))"
+                  text-anchor="middle" dominant-baseline="middle" font-size="@N(BandFont)">
+                ↓ Roll continues
+            </text>
         </svg>
 
         <figcaption class="text-muted small mt-1">
-            Paper: @F(Plan.RollWidth) @UnitLabel wide × @F(Plan.RollLengthUsed) @UnitLabel long
+            Paper: @F(Plan.RollWidth) @UnitLabel wide × @F(Plan.RollLengthUsed) @UnitLabel long.
+            The roll continues past the bottom edge — the hatched area is paper you still have.
         </figcaption>
     </figure>
 }
@@ -64,11 +91,27 @@ else
 
     protected override void OnInitialized() => _uid = Guid.NewGuid().ToString("N")[..8];
 
+    // Margins for the two annotations, sized relative to the roll so they scale with the
+    // drawing rather than being fixed pixel amounts.
+    private double Head => Plan.RollWidth * 0.10;
+
+    private double Band => Plan.RollWidth * 0.18;
+
+    private double HeadFont => Head * 0.55;
+
+    private double BandFont => Band * 0.32;
+
+    private string ViewBox =>
+        $"0 {@N(-Head)} {@N(Plan.RollWidth)} {@N(Head + Plan.RollLengthUsed + Band)}";
+
     private string UnitLabel => Plan.Unit == LengthUnit.Centimeters ? "cm" : "in";
 
     private string AriaLabel =>
         $"Cut layout for {Plan.Sections.Count} sheet(s) on paper "
-        + $"{F(Plan.RollWidth)} by {F(Plan.RollLengthUsed)} {UnitLabel}.";
+        + $"{F(Plan.RollWidth)} by {F(Plan.RollLengthUsed)} {UnitLabel}. "
+        + "The top edge is the start of the roll; unused paper continues below the last cut.";
+
+    private string HatchId => $"{_uid}-hatch";
 
     private string Dimensions(CutSection section) =>
         $"{F(section.Width)} × {F(section.Length)} {UnitLabel}";
