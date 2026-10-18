@@ -3,6 +3,7 @@
     <Project Path="src/WrapCal/WrapCal.csproj" />
   </Folder>
   <Folder Name="/tests/">
-    <Project Path="tests/WrapCal.Tests/WrapCal.Tests.csproj" />
+    <Project Path="tests/WrapCal.FunctionalTests/WrapCal.FunctionalTests.csproj" />
+    <Project Path="tests/WrapCal.UnitTests/WrapCal.UnitTests.csproj" />
   </Folder>
 </Solution>

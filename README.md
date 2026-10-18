@@ -25,6 +25,7 @@ Nothing in the app currently reads or produces wrap plans.
 
 - **.NET SDK 10.0.x** — developed against `10.0.402`
 - No database, no external services, no secrets
+- Playwright browsers for the functional suite — see [Testing](#testing)
 
 ## Getting started
 
@@ -38,8 +39,13 @@ dotnet run --project src/WrapCal
 # Run with hot reload
 dotnet watch --project src/WrapCal
 
-# Test
+# Test everything
 dotnet test
+
+# Test one project at a time (the usual way to work — the functional suite
+# starts a real server and browser, so it takes seconds not milliseconds)
+dotnet test --project tests/WrapCal.UnitTests
+dotnet test --project tests/WrapCal.FunctionalTests
 ```
 
 ## Project layout
@@ -64,21 +70,62 @@ src/
     WrapCal.csproj
 
 tests/
-  WrapCal.Tests/             # xUnit v3 + bUnit, references src/WrapCal
+  WrapCal.UnitTests/         # TUnit + bUnit — unit and component tests
     HomePageTests.cs
+
+  WrapCal.FunctionalTests/   # TUnit + Reqnroll + Playwright — BDD against a real browser
+    Features/                #   Gherkin .feature files
+    StepDefinitions/         #   bindings
+    Hooks/                   #   app + browser lifecycle
+    Support/                 #   AppHost, UiContext
 ```
 
 ## Testing
 
-Tests use **xUnit v3** with **bUnit** for component rendering. `global.json` opts
-`dotnet test` into .NET 10's **Microsoft.Testing.Platform** mode, which has two
-consequences worth knowing before you edit the test project:
+Two test projects, deliberately separate — run either on its own.
 
-- Test projects are **executables** (`<OutputType>Exe</OutputType>`) — that is expected,
-  not a mistake.
-- `Microsoft.NET.Test.Sdk` is **not** used. Don't add it back, or the test host will
-  refuse to run.
-- Arguments meant for the test app go after a `--` separator, e.g. `dotnet test -- --report-trx`.
+| Project | Stack | Covers |
+|---|---|---|
+| `tests/WrapCal.UnitTests` | TUnit + bUnit | Unit tests and Blazor component rendering |
+| `tests/WrapCal.FunctionalTests` | TUnit + Reqnroll + Playwright | Gherkin scenarios against a real browser |
+
+Both run on **Microsoft.Testing.Platform**, opted into via `global.json`. Consequences:
+
+- Test projects are **executables** (`<OutputType>Exe</OutputType>`) — expected, not a mistake.
+- `Microsoft.NET.Test.Sdk` is **not** used. Don't add it back.
+- **`dotnet test --filter` does not work.** TUnit runs on MTP, not VSTest, so the flag is
+  silently rejected and the run reports "Zero tests ran". Use `--treenode-filter`:
+  `--treenode-filter "/*/*/*/*[Category=Smoke]"`.
+
+### Functional tests
+
+The functional suite starts the app as a real process on a free port and drives it with a
+real browser. An in-memory test server can't work here: Playwright talks TCP, and Blazor
+Server needs a real SignalR circuit. Startup costs a few seconds, hence the separate project.
+
+**Install browsers once.** Playwright ships an install script as `playwright.ps1`, which is
+useless without PowerShell — invoke the bundled driver instead (exactly what the script does):
+
+```bash
+BIN=tests/WrapCal.FunctionalTests/bin/Debug/net10.0
+"$BIN/.playwright/node/darwin-arm64/node" "$BIN/.playwright/package/cli.js" install webkit firefox
+```
+
+**Browser selection** follows the OS, overridable with `BROWSER=webkit|firefox|chromium`:
+
+| OS | Default | Why |
+|---|---|---|
+| macOS | `webkit` (Safari's engine) | Firefox cannot launch on macOS 27 — see below |
+| Linux / Windows | `firefox` | |
+
+Set `HEADED=1` to run with a visible browser — the fastest way to debug a failure.
+
+> **Firefox is broken on macOS 27.** It cannot start at all, sandboxed or not, with or
+> without Playwright. The macOS sandbox denies Firefox's `plugin-container` a sandbox
+> extension and startup never completes, surfacing misleadingly as *"Could not find profile
+> folder"* — the profile directory is created fine. This is upstream in Firefox;
+> microsoft/playwright#42082 was closed as *not planned*. Chromium and WebKit are unaffected,
+> which is why macOS defaults to WebKit.
 
 ## Domain reference: `WrappingPaperOptimizer.cs`
 

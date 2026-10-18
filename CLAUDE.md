@@ -21,7 +21,8 @@ removed. No wrapping-domain code has been written yet. See *Reference material* 
   Wrap planning is a pure function of user input.
 - **No logging library** — the built-in `Microsoft.Extensions.Logging` from the
   template is all that is configured.
-- **xUnit v3** + **bUnit** — component and unit testing
+- **TUnit** + **bUnit** — unit and component testing
+- **Reqnroll** (Gherkin BDD) + **Playwright** — functional tests against a real browser
 
 ## Architecture
 
@@ -49,8 +50,13 @@ src/
         <FeatureName>Models.cs  # slice-local records/DTOs
     Program.cs
 tests/
-  WrapCal.Tests/
+  WrapCal.UnitTests/
     <FeatureName>Tests.cs       # mirrors the slice it tests
+  WrapCal.FunctionalTests/      # Reqnroll + Playwright — separate project, own runner
+    Features/*.feature
+    StepDefinitions/
+    Hooks/
+    Support/
 ```
 
 ### Slice conventions
@@ -109,8 +115,13 @@ dotnet watch --project src/WrapCal
 # Run
 dotnet run --project src/WrapCal
 
-# Test — runs in Microsoft.Testing.Platform mode (see note below)
+# Test everything (unit + component + functional)
 dotnet test
+
+# Test one project at a time — the normal way to work, since the functional
+# suite starts a server and a browser and takes seconds rather than milliseconds
+dotnet test --project tests/WrapCal.UnitTests
+dotnet test --project tests/WrapCal.FunctionalTests
 
 # Format
 dotnet format
@@ -124,7 +135,10 @@ dotnet format --verify-no-changes
 `global.json` opts `dotnet test` into .NET 10's **MTP mode**
 (`"test": { "runner": "Microsoft.Testing.Platform" }`). Consequences:
 
-- xUnit v3 test projects are **executables** (`<OutputType>Exe</OutputType>`).
+- TUnit test projects are **executables** (`<OutputType>Exe</OutputType>`).
+- `dotnet test --filter` does **not** work — TUnit runs on MTP, not VSTest, and the flag
+  is silently rejected (the run exits with "Zero tests ran"). Use `--treenode-filter`
+  instead, e.g. `--treenode-filter "/*/*/*/*[Category=Smoke]"`.
 - `Microsoft.NET.Test.Sdk` and `TestingPlatformDotnetTestSupport` are **not** used —
   don't add them back.
 - Arguments for the test app go after `--`, e.g. `dotnet test -- --report-trx`.
@@ -132,12 +146,68 @@ dotnet format --verify-no-changes
 
 ## Testing
 
-- **xUnit v3** (`4.0.2`) for all tests; **bUnit** (`2.11.3`) for component tests.
-- bUnit v2's context class is **`BunitContext`** — inherit from it and call
-  `Render<T>()`. (It still exposes `TestContext`, but `BunitContext` avoids a future
-  name clash with xUnit v3's own `TestContext`.)
-- `tests/WrapCal.Tests/HomePageTests.cs` is the working baseline example.
-- Prefer testing behaviour over markup where possible.
+Two test projects, deliberately separate. Run either on its own, or `dotnet test` for both.
+
+### Unit + component — `tests/WrapCal.UnitTests`
+
+- **TUnit** (`1.75.0`); **bUnit** (`2.11.3`) for component rendering.
+- bUnit v2's context class is **`BunitContext`** — inherit and call `Render<T>()`.
+  (It still exposes `TestContext`, but `BunitContext` avoids a clash with TUnit's own.)
+- TUnit auto-configures global usings, so `[Test]` and `Assert.That(...)` need no `using`.
+- TUnit assertions are **awaited**: `await Assert.That(cut.Markup).Contains("WrapCal");`
+- **TUnit cannot use `.razor` test files.** TUnit and the Razor SDK are both source
+  generators, and generators cannot see each other's output. Write test components in `.cs`.
+- `HomePageTests.cs` is the working baseline example.
+
+### Functional — `tests/WrapCal.FunctionalTests`
+
+Reqnroll (Gherkin) driving Playwright against the app running for real.
+
+- `Features/*.feature` bind to step definitions in `StepDefinitions/`.
+- Generated `*.feature.cs` goes to `obj/`, never source control
+  (`ReqnrollUseIntermediateOutputPathForCodeBehind`).
+- **Reqnroll maps `@tags` to TUnit `[Category]` attributes automatically** — verified in
+  the generated code, despite Reqnroll's docs only documenting NUnit/MSTest/xUnit.
+- `Support/AppHost.cs` runs the real app as a child process on a free port. Playwright
+  drives a real socket, so an in-memory `TestServer` is impossible, and Blazor Server
+  needs a real SignalR circuit. `--no-launch-profile` keeps `launchSettings.json` from
+  injecting an HTTPS port; with no HTTPS endpoint the `UseHttpsRedirection()` in
+  `Program.cs` is a no-op.
+- `Hooks/TestRunHooks.cs` starts the app and browser once per run.
+  `Hooks/ScenarioHooks.cs` gives each scenario a fresh context and screenshots failures
+  to `bin/.../playwright-artifacts/`.
+- Steps receive browser state by Reqnroll context injection: `[BeforeScenario]` puts a
+  `UiContext` into `ScenarioContext`; step constructors resolve it.
+
+#### Browser selection
+
+Override with `BROWSER=webkit|firefox|chromium`; `HEADED=1` makes the run visible.
+
+| OS | Default | Why |
+|----|---------|-----|
+| macOS | `webkit` | Firefox cannot launch on macOS 27 — see below |
+| Linux / Windows | `firefox` | |
+
+#### Installing browsers without PowerShell
+
+Playwright .NET ships `playwright.ps1`, which is useless without `pwsh`. Invoke the
+bundled driver directly — this is exactly what the script does internally:
+
+```bash
+BIN=tests/WrapCal.FunctionalTests/bin/Debug/net10.0
+"$BIN/.playwright/node/darwin-arm64/node" "$BIN/.playwright/package/cli.js" install webkit firefox
+```
+
+### Known blocker: Firefox on macOS 27
+
+Firefox **cannot start** on macOS 27, with or without Playwright. The macOS sandbox denies
+Firefox's `plugin-container` a sandbox extension, the child is killed on signal 9, and
+startup never completes — surfacing as `Could not find profile folder`, which is a red
+herring (the profile directory *is* created). Confirmed against stock Firefox Nightly from
+mozilla.org with Playwright uninvolved; microsoft/playwright#42082 was closed as *not
+planned*, being upstream in Firefox. Chromium and WebKit are unaffected — hence the macOS
+default above. Firefox is already the non-macOS default, so nothing needs changing when
+this is fixed.
 
 ## MCP Tools
 
