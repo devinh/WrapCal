@@ -41,6 +41,11 @@ artifacts/
 Thumbs.db
 desktop.ini
 
+## Editors
+*.swp
+*.swo
+*~
+
 ## Secrets / local overrides
 appsettings.*.local.json
 *.pfx
