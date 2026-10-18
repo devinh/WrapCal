@@ -103,12 +103,15 @@ The functional suite starts the app as a real process on a free port and drives 
 real browser. An in-memory test server can't work here: Playwright talks TCP, and Blazor
 Server needs a real SignalR circuit. Startup costs a few seconds, hence the separate project.
 
-**Install browsers once.** Playwright ships an install script as `playwright.ps1`, which is
-useless without PowerShell — invoke the bundled driver instead (exactly what the script does):
+**Install browsers once.** Playwright .NET ships its installer as `playwright.ps1`, which
+needs PowerShell — not available by default here. The script just calls
+`Microsoft.Playwright.Program.Main`, so invoke the DLL directly:
 
 ```bash
+# Run `dotnet build` first — the DLL lives in the build output.
 BIN=tests/WrapCal.FunctionalTests/bin/Debug/net10.0
-"$BIN/.playwright/node/darwin-arm64/node" "$BIN/.playwright/package/cli.js" install webkit firefox
+dotnet exec --runtimeconfig "$BIN/WrapCal.FunctionalTests.runtimeconfig.json" \
+  "$BIN/Microsoft.Playwright.dll" install webkit firefox
 ```
 
 **Browser selection** follows the OS, overridable with `BROWSER=webkit|firefox|chromium`:

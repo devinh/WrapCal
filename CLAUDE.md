@@ -190,13 +190,24 @@ Override with `BROWSER=webkit|firefox|chromium`; `HEADED=1` makes the run visibl
 
 #### Installing browsers without PowerShell
 
-Playwright .NET ships `playwright.ps1`, which is useless without `pwsh`. Invoke the
-bundled driver directly — this is exactly what the script does internally:
+Playwright .NET ships its installer as `playwright.ps1`, which needs PowerShell — not
+available here. That script's entire job is to load `Microsoft.Playwright.dll` and call
+`Microsoft.Playwright.Program.Main(args)`, so invoke the DLL directly:
 
 ```bash
+# Requires a prior `dotnet build` — the DLL lives in the build output.
 BIN=tests/WrapCal.FunctionalTests/bin/Debug/net10.0
-"$BIN/.playwright/node/darwin-arm64/node" "$BIN/.playwright/package/cli.js" install webkit firefox
+dotnet exec --runtimeconfig "$BIN/WrapCal.FunctionalTests.runtimeconfig.json" \
+  "$BIN/Microsoft.Playwright.dll" install webkit firefox
 ```
+
+Platform-agnostic — no RID-specific paths. Two dead ends worth not repeating:
+
+- The `Microsoft.Playwright.CLI` global tool fails here with *"Couldn't find project
+  using Playwright"*, even with `-p` pointing at the project.
+- Reaching past `Program.Main` to the bundled Node driver (`$BIN/.playwright/node/...`)
+  also works, but only if you hardcode the RID directory (`darwin-arm64`), so it breaks
+  on Intel macOS. Prefer the form above.
 
 ### Known blocker: Firefox on macOS 27
 
