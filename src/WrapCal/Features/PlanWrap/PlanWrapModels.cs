@@ -1,11 +1,16 @@
 namespace WrapCal.Features.PlanWrap;
 
+/// <summary>The unit a roll width, box dimension, or reported length is expressed in.</summary>
 public enum LengthUnit
 {
     Centimeters,
     Inches
 }
 
+/// <summary>
+/// Converts between centimetres and inches. The planner does all its arithmetic in
+/// centimetres, converting once on the way in and once on the way out.
+/// </summary>
 public static class UnitConverter
 {
     public const double CmPerInch = 2.54;
