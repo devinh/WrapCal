@@ -154,13 +154,31 @@
         _editContext = new EditContext(_input);
         _messages = new ValidationMessageStore(_editContext);
 
-        // Clearing on field change makes a corrected box row drop its message immediately,
-        // the way the roll options already do via DataAnnotationsValidator.
-        _editContext.OnFieldChanged += (_, args) =>
+        // Box rules are re-checked whenever a field changes, so a bad dimension reports as soon
+        // as the field is left — the same timing the roll options already get for free from
+        // DataAnnotationsValidator, which also revalidates the whole model on every change.
+        _editContext.OnFieldChanged += (_, _) =>
         {
-            _messages.Clear(args.FieldIdentifier);
+            RefreshBoxMessages();
             _editContext.NotifyValidationStateChanged();
         };
+    }
+
+    /// <summary>
+    /// Repopulates the box-row messages and reports whether any problems remain.
+    /// </summary>
+    private bool RefreshBoxMessages()
+    {
+        _messages.Clear();
+
+        IReadOnlyList<BoxProblem> problems = _input.ValidateBoxes();
+
+        foreach (BoxProblem problem in problems)
+        {
+            _messages.Add(new FieldIdentifier(problem.Box, problem.Field), problem.Message);
+        }
+
+        return problems.Count > 0;
     }
 
     /// <summary>
@@ -196,16 +214,11 @@
         // Roll options validate through DataAnnotations; the box rows cannot, so their rules
         // are applied here and attached to the offending fields.
         bool fieldsValid = context.Validate();
-
-        foreach (BoxProblem problem in _input.ValidateBoxes())
-        {
-            _messages.Add(new FieldIdentifier(problem.Box, problem.Field), problem.Message);
-            fieldsValid = false;
-        }
+        bool boxesInvalid = RefreshBoxMessages();
 
         context.NotifyValidationStateChanged();
 
-        if (!fieldsValid)
+        if (!fieldsValid || boxesInvalid)
         {
             _plan = null;
             _error = null;

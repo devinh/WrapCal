@@ -63,6 +63,40 @@ public class PlanWrapPageTests : BunitContext
     }
 
     [Test]
+    public async Task Reports_a_bad_box_dimension_as_soon_as_the_field_changes()
+    {
+        var cut = Render<PlanWrap>();
+
+        // No submit: box rows should report on blur, the same as the roll options.
+        await cut.FindAll("tbody tr input[type='number']")[0].ChangeAsync("0");
+
+        await Assert.That(cut.Markup).Contains("Length must be between 0.1 and 1000.");
+    }
+
+    [Test]
+    public async Task Clears_the_box_message_once_the_dimension_is_fixed()
+    {
+        var cut = Render<PlanWrap>();
+
+        await cut.FindAll("tbody tr input[type='number']")[0].ChangeAsync("0");
+        await Assert.That(cut.Markup).Contains("Length must be between 0.1 and 1000.");
+
+        await cut.FindAll("tbody tr input[type='number']")[0].ChangeAsync("9");
+        await Assert.That(cut.Markup.Contains("Length must be between 0.1 and 1000.")).IsFalse();
+    }
+
+    [Test]
+    public async Task Reports_roll_option_problems_on_change_too()
+    {
+        // The behaviour being matched: a roll option reports without submitting.
+        var cut = Render<PlanWrap>();
+
+        await cut.Find("#rollWidth").ChangeAsync("0");
+
+        await Assert.That(cut.Markup).Contains("Roll Width must be between 1 and 1000.");
+    }
+
+    [Test]
     public async Task Rejects_a_box_with_a_non_positive_dimension_before_planning()
     {
         var cut = Render<PlanWrap>();
