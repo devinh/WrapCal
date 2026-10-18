@@ -17,7 +17,9 @@
             <label class="form-label" for="rollWidth">Roll Width</label>
             <InputNumber id="rollWidth" @bind-Value="_input.RollWidth" class="form-control"
                          title="The usable width of your paper roll — the distance across it, not its length." />
-            <ValidationMessage For="() => _input.RollWidth" />
+            <div class="validation-slot">
+                <ValidationMessage For="() => _input.RollWidth" />
+            </div>
             <div class="form-text">Usable width of the roll — across it, not its length.</div>
         </div>
 
@@ -25,7 +27,9 @@
             <label class="form-label" for="overlapMargin">Overlap Margin</label>
             <InputNumber id="overlapMargin" @bind-Value="_input.OverlapMargin" class="form-control"
                          title="How far the two ends of the paper lap over each other when wrapped around the box. 0 means the paper meets exactly but does not overlap." />
-            <ValidationMessage For="() => _input.OverlapMargin" />
+            <div class="validation-slot">
+                <ValidationMessage For="() => _input.OverlapMargin" />
+            </div>
             <div class="form-text">How far the two paper ends overlap at the seam.</div>
         </div>
 
@@ -70,19 +74,27 @@
                     <td>
                         <InputText @bind-Value="box.Name" class="form-control"
                                    placeholder="@placeholder" />
-                        <ValidationMessage For="() => box.Name" />
+                        <div class="validation-slot">
+                            <ValidationMessage For="() => box.Name" />
+                        </div>
                     </td>
                     <td>
                         <InputNumber @bind-Value="box.Length" class="form-control" />
-                        <ValidationMessage For="() => box.Length" />
+                        <div class="validation-slot">
+                            <ValidationMessage For="() => box.Length" />
+                        </div>
                     </td>
                     <td>
                         <InputNumber @bind-Value="box.Width" class="form-control" />
-                        <ValidationMessage For="() => box.Width" />
+                        <div class="validation-slot">
+                            <ValidationMessage For="() => box.Width" />
+                        </div>
                     </td>
                     <td>
                         <InputNumber @bind-Value="box.Height" class="form-control" />
-                        <ValidationMessage For="() => box.Height" />
+                        <div class="validation-slot">
+                            <ValidationMessage For="() => box.Height" />
+                        </div>
                     </td>
                     <td>
                         <button type="button" class="btn btn-outline-danger btn-sm"

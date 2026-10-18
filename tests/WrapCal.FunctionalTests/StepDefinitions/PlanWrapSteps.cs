@@ -10,8 +10,13 @@ public sealed class PlanWrapSteps
     private const int PageTimeout = 20_000;
 
     private readonly UiContext _ui;
+    private readonly ScenarioContext _context;
 
-    public PlanWrapSteps(ScenarioContext scenarioContext) => _ui = scenarioContext.Get<UiContext>();
+    public PlanWrapSteps(ScenarioContext scenarioContext)
+    {
+        _ui = scenarioContext.Get<UiContext>();
+        _context = scenarioContext;
+    }
 
     [When("I plan the default box")]
     public async Task WhenIPlanTheDefaultBoxAsync()
@@ -46,6 +51,37 @@ public sealed class PlanWrapSteps
         }
 
         await ClickPlanAsync();
+    }
+
+    [When("I break a box dimension")]
+    public async Task WhenIBreakABoxDimensionAsync()
+    {
+        await OpenPlanPageAsync();
+
+        double before = (await _ui.Page.Locator("[data-testid='plan-button']").BoundingBoxAsync())!.Y;
+        _context.Set(before, "planButtonTop");
+
+        ILocator length = _ui.Page.Locator("tbody tr").First.Locator("input[type='number']").First;
+        await length.FillAsync("0");
+
+        // Blazor's InputNumber binds on change, not input, so validation fires when the field is
+        // left. Leaving it is the behaviour under test, so the blur is deliberate.
+        await length.PressAsync("Tab");
+
+        await _ui.Page.WaitForSelectorAsync(
+            "text=Length must be between",
+            new PageWaitForSelectorOptions { Timeout = 10_000 });
+    }
+
+    [Then("the Plan button should not have moved")]
+    public async Task ThenThePlanButtonShouldNotHaveMovedAsync()
+    {
+        double before = _context.Get<double>("planButtonTop");
+        double after = (await _ui.Page.Locator("[data-testid='plan-button']").BoundingBoxAsync())!.Y;
+
+        // A validation message must not reflow the page: the reserved slot keeps the row height
+        // constant whether or not a message is showing.
+        await Assert.That(Math.Abs(after - before)).IsLessThan(1.0);
     }
 
     [When("I plan a box with zero length")]

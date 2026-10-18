@@ -22,6 +22,10 @@ Feature: Wrap planning
     Then I should see a validation message about the length
     And I should not see the paper layout
 
+  Scenario: Showing a validation message does not move the page around
+    When I break a box dimension
+    Then the Plan button should not have moved
+
   Scenario: Results follow the selected units
     When I plan using centimetres
     Then the results should be reported in "cm"

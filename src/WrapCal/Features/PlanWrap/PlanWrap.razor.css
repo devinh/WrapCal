@@ -1,0 +1,10 @@
+/* Reserved space for a validation message, so showing one does not reflow the page. Sized for
+   two lines — the longest message wrapping in the narrowest box-table column — and it simply
+   grows on the rare screen where three are needed. */
+.validation-slot {
+    display: block;
+    min-height: 2.3rem;
+    font-size: 0.85rem;
+    line-height: 1.15rem;
+    color: #b02a37;
+}
