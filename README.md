@@ -16,8 +16,8 @@ Enter the roll you have and the boxes you want to wrap:
 - **A cut plan** — the roll length the boxes consume, the paper cut, the waste, and an
   efficiency figure.
 - **A paper layout** — an SVG diagram of the sheet with each cut drawn to scale and labelled
-  with the box name and its size. The origin is marked, and a hatched band shows which way
-  the unused roll continues — up, down, left or right, your choice. A long plan scrolls
+  with the box name and its size. The origin is marked, and a hatched band shows which side
+  the unused roll is on — top, bottom, left or right, your choice. A long plan scrolls
   along the roll rather than shrinking to fit: the more boxes you add, the longer the
   drawing gets, and it opens at the origin.
 - **A wrapping note per box** — which pair of the box's own sides the paper goes around.
@@ -61,16 +61,16 @@ Directory.Build.props        # shared compiler + analyzer settings
 CLAUDE.md                    # conventions and architecture notes
 
 src/
-  WrapCal/                   # the app (Blazor Web App)
+  WrapCal/                   # the app (Blazor Web App, styled with MudBlazor)
     Components/
-      Layout/                # MainLayout — header only, no navigation
+      Layout/                # MainLayout — app bar and content, no navigation
       Pages/                 # Error, NotFound
       App.razor, Routes.razor, _Imports.razor
     Common/
       Result.cs              # Result<T>
     Features/
       PlanWrap/              # the calculator: page, logic, models, summary view, SVG diagram
-    wwwroot/                 # static assets (Bootstrap, app.css)
+    wwwroot/                 # Roboto, app.css, theme.js; MudBlazor ships its own assets
     Program.cs
     WrapCal.csproj
 
@@ -103,9 +103,11 @@ Two test projects, deliberately separate — run either on its own.
 | `tests/WrapCal.FunctionalTests` | TUnit + Reqnroll + Playwright | The real page in a real browser | a few seconds |
 
 `CutPlans.feature` is the readable specification: concrete roll and box inputs, with the
-sheet each box should get back. `PlanWrap.feature` covers behaviour and errors, and
+sheet each box should get back. `PlanWrap.feature` covers behaviour and errors.
 `Layout.feature` measures where things sit on the page, and that the paper layout overflows
-its frame rather than shrinking into it.
+its frame rather than shrinking into it. `Assets.feature` checks what a browser cannot
+show but a diff can hide: that Bootstrap is neither linked nor served, and that MudBlazor
+is doing the styling.
 
 Both run on **Microsoft.Testing.Platform**, opted into via `global.json`. Consequences:
 

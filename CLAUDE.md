@@ -74,8 +74,8 @@ tests/
     Components/MainLayoutTests.cs
     Features/                   # one file per production concern
   WrapCal.FunctionalTests/      # Reqnroll + Playwright — separate project, own runner
-    Features/                   # PlanWrap (behaviour), CutPlans (spec tables), Layout
-    StepDefinitions/            # StepsBase + Form / Planning / Layout
+    Features/                   # PlanWrap (behaviour), CutPlans (spec tables), Layout, Assets
+    StepDefinitions/            # StepsBase + Form / Planning / Layout / Asset
     Hooks/
     Support/
 ```
