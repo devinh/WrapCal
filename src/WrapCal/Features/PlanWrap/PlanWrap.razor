@@ -1,11 +1,14 @@
 @page "/"
 
-<PageTitle>Plan a Wrap</PageTitle>
+<PageTitle>Wrapping Paper Planner</PageTitle>
 
-<MudText Typo="Typo.h4" Class="mb-2">Plan a Wrap</MudText>
+@* HtmlTag makes this a real h1 rather than a styled p — the page had no heading element at
+   all, so Router's FocusOnNavigate had nothing to move focus to. *@
+<MudText Typo="Typo.h4" HtmlTag="h1" Class="mb-2">Wrapping Paper Planner</MudText>
 
 <MudText Typo="Typo.body1" Class="mb-6">
-    Enter the roll you have and the boxes you want to wrap. The plan shows where to cut.
+    Tell it the roll you have and the boxes you want to wrap. It works out the sheet each box
+    needs, where to cut, and how much of the roll is left over.
 </MudText>
 
 <MudForm @ref="_form" Model="_input">

@@ -32,6 +32,20 @@ public class PlanWrapPageTests : WrapCalBunitContext
     }
 
     [Test]
+    public async Task Plan_page_has_one_level_one_heading()
+    {
+        var cut = Render<PlanWrap>();
+
+        // Router's FocusOnNavigate targets h1, and a page with no heading element is one a
+        // screen reader cannot skim. MudText renders a <p> unless HtmlTag says otherwise, which
+        // is exactly how this page ended up with no heading at all.
+        var headings = cut.FindAll("h1");
+
+        await Assert.That(headings.Count).IsEqualTo(1);
+        await Assert.That(headings[0].TextContent).IsEqualTo("Wrapping Paper Planner");
+    }
+
+    [Test]
     public async Task Plan_page_starts_with_a_single_box_row()
     {
         var cut = Render<PlanWrap>();
