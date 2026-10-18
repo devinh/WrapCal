@@ -52,4 +52,27 @@ public class PlanWrapInputTests
         await Assert.That(boxes[0].Name).IsEqualTo("Box 1");
         await Assert.That(boxes[1].Name).IsEqualTo("Mug");
     }
+
+    [Test]
+    public async Task Maps_box_dimensions_through_untouched()
+    {
+        var input = new PlanWrapInput
+        {
+            Boxes = [new BoxInput { Name = "Mug", Length = 12, Width = 9, Height = 7 }],
+        };
+
+        GiftBox box = input.ToBoxes()[0];
+
+        await Assert.That(box.Length).IsEqualTo(12.0);
+        await Assert.That(box.Width).IsEqualTo(9.0);
+        await Assert.That(box.Height).IsEqualTo(7.0);
+    }
+
+    [Test]
+    public async Task Trims_whitespace_around_box_names()
+    {
+        var input = new PlanWrapInput { Boxes = [new BoxInput { Name = "  Mug  " }] };
+
+        await Assert.That(input.ToBoxes()[0].Name).IsEqualTo("Mug");
+    }
 }
