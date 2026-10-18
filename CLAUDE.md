@@ -160,6 +160,14 @@ Read this before changing the maths. Every point here has been got wrong once al
   `is-reversed` — set for Up and Left, whose origin is at the far end — lays it out from that
   end (`column-reverse` / `row-reverse`), which puts the initial scroll there too. Verified
   in the browser and mutation-checked: forcing `column`/`row` fails the Up and Left examples.
+- **The drawing fills the frame and its content hugs the top-left.** The SVG takes
+  `min-width`/`min-height: 100%` of the scroller and `preserveAspectRatio="xMinYMin meet"`, so a
+  short plan has no dead space beside it for a reversed scroller to pack it against. Without this
+  a Left or Up diagram that fits sat against the far edge — right or bottom — with a large empty
+  gap, which reads as the drawing being shoved out of place. Do not "restore" `xMidYMid`: that
+  re-centres the content in the filled frame. `justify-content: flex-end` and auto margins were
+  both tried first and both push overflowing content towards a start the scrollbar cannot reach,
+  taking the origin out of view; `safe flex-end` is the right idea but WebKit does not honour it.
 - **Re-keying the scroller resets the scroll.** It is keyed on `(Plan, Direction)`, so a new
   plan or a new direction starts at the origin instead of wherever the previous drawing was
   left. Don't "optimise" the key away.

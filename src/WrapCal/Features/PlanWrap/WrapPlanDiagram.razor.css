@@ -30,6 +30,10 @@
 .diagram-scroller.is-vertical svg {
     width: 100%;
     height: auto;
+    /* Fills the frame rather than shrinking to the drawing, so there is never dead space above a
+       short plan for a reversed column to pack it against. The drawing itself stays at its own
+       scale and sits at the top-left of that space (see preserveAspectRatio). */
+    min-height: 100%;
 }
 
 /* Roll drawn across the page: a fixed height keeps the scale steady, and the length runs off the
@@ -41,6 +45,7 @@
 .diagram-scroller.is-horizontal svg {
     width: auto;
     height: clamp(220px, 45vh, 420px);
+    min-width: 100%;
 }
 
 .diagram-scroller.is-vertical.is-reversed {
