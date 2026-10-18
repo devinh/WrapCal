@@ -250,25 +250,36 @@ public sealed class PlanWrapSteps
             new PageWaitForFunctionOptions { Timeout = 10_000 });
     }
 
-    [When("I plan a roll of {double} {word} wide with an overlap of {double}")]
-    public async Task WhenIPlanARollAsync(double rollWidth, string unit, double overlap)
+    [Given("a roll {double} {word} wide with an overlap of {double}")]
+    public async Task GivenARollAsync(double rollWidth, string unit, double overlap)
     {
         await OpenPlanPageAsync();
 
-        await _ui.Page.Locator("[data-testid='unit-select']").SelectOptionAsync(
-            unit.Equals("in", StringComparison.OrdinalIgnoreCase) ? "Inches" : "Centimeters");
+        string target = unit.Equals("in", StringComparison.OrdinalIgnoreCase) ? "Inches" : "Centimeters";
+        ILocator unitSelect = _ui.Page.Locator("[data-testid='unit-select']");
 
-        // Changing the unit re-expresses everything already in the form, and that lands over the
-        // circuit. Typing before it arrives gets overwritten by the conversion — which produced
-        // plans computed from 30in-as-76.2cm instead of the values this step set.
-        await Task.Delay(300);
+        if (await unitSelect.InputValueAsync() != target)
+        {
+            // Changing the unit re-expresses everything already in the form, and that lands over
+            // the circuit. Wait for the converted value rather than for a fixed delay: typing
+            // before it arrives gets overwritten, and a delay would behave differently on a
+            // faster or slower machine.
+            string before = await _ui.Page.Locator("#rollWidth").InputValueAsync();
+
+            await unitSelect.SelectOptionAsync(target);
+
+            await _ui.Page.WaitForFunctionAsync(
+                "([selector, previous]) => document.querySelector(selector)?.value !== previous",
+                new[] { "#rollWidth", before },
+                new PageWaitForFunctionOptions { Timeout = 10_000 });
+        }
 
         await FillAndLeaveAsync(_ui.Page.Locator("#rollWidth"), Inv(rollWidth));
         await FillAndLeaveAsync(_ui.Page.Locator("#overlapMargin"), Inv(overlap));
     }
 
-    [When("I enter a box {string} measuring {double} by {double} by {double}")]
-    public async Task WhenIEnterABoxAsync(string name, double length, double width, double height)
+    [Given("a box {string} measuring {double} by {double} by {double}")]
+    public async Task GivenABoxAsync(string name, double length, double width, double height)
     {
         ILocator row = await NextBoxRowAsync();
 
@@ -304,56 +315,69 @@ public sealed class PlanWrapSteps
         return rows.Nth(_rowsFilled++);
     }
 
-    [When("I calculate the plan")]
-    public async Task WhenICalculateThePlanAsync() => await ClickPlanAsync();
+    [When("I plan the wrap")]
+    public async Task WhenIPlanTheWrapAsync() => await ClickPlanAsync();
 
-    [Then("the plan should need {double} of roll")]
-    public async Task ThenThePlanShouldNeedOfRollAsync(double expected)
+    [Then("the cuts should be:")]
+    public async Task ThenTheCutsShouldBeAsync(DataTable expected)
+    {
+        ILocator rows = _ui.Page.Locator("[data-testid='sections'] tbody tr");
+        int count = await rows.CountAsync();
+
+        var actual = new Dictionary<string, (string Width, string Length)>(StringComparer.Ordinal);
+
+        for (int i = 0; i < count; i++)
+        {
+            ILocator cells = rows.Nth(i).Locator("td");
+            string name = (await cells.Nth(0).TextContentAsync())?.Trim() ?? string.Empty;
+
+            actual[name] = (
+                (await cells.Nth(3).TextContentAsync())?.Trim() ?? string.Empty,
+                (await cells.Nth(4).TextContentAsync())?.Trim() ?? string.Empty);
+        }
+
+        await Assert.That(count).IsEqualTo(expected.RowCount);
+
+        foreach (DataTableRow row in expected.Rows)
+        {
+            string name = row["name"];
+
+            if (!actual.TryGetValue(name, out (string Width, string Length) got))
+            {
+                Assert.Fail($"The plan has no cut for '{name}'.");
+                return;
+            }
+
+            await Assert.That(got.Width).IsEqualTo(row["width"]);
+            await Assert.That(got.Length).IsEqualTo(row["length"]);
+        }
+    }
+
+    [Then("the cut plan should use {double} of roll")]
+    public async Task ThenTheCutPlanShouldUseOfRollAsync(double expected)
     {
         string? text = await _ui.Page.Locator("[data-testid='roll-length']").TextContentAsync();
         double actual = double.Parse(text?.Trim() ?? "NaN", CultureInfo.InvariantCulture);
 
-        // The page reports one decimal place, so compare at that precision. Stated this way
-        // round rather than with IsLessThan so a failure says what the plan actually used.
+        // The page reports one decimal place; stated this way round so a failure says what it got.
         if (Math.Abs(actual - expected) >= 0.05)
         {
             Assert.Fail($"The plan used {actual} of roll but {expected} was expected.");
         }
     }
 
-    [Then("the plan should show {int} cut section")]
-    [Then("the plan should show {int} cut sections")]
-    public async Task ThenThePlanShouldShowCutSectionsAsync(int expected)
+    [Then("the cut plan should report {int} cut")]
+    [Then("the cut plan should report {int} cuts")]
+    public async Task ThenTheCutPlanShouldReportCutsAsync(int expected)
     {
         int rows = await _ui.Page.Locator("[data-testid='sections'] tbody tr").CountAsync();
 
         await Assert.That(rows).IsEqualTo(expected);
     }
 
-    [Then("the plan should list the box {string}")]
-    public async Task ThenThePlanShouldListTheBoxAsync(string name)
-    {
-        ILocator names = _ui.Page.Locator("[data-testid='sections'] tbody tr td:first-child");
-        int count = await names.CountAsync();
-
-        for (int i = 0; i < count; i++)
-        {
-            string? cell = await names.Nth(i).TextContentAsync();
-
-            if (string.Equals(cell?.Trim(), name, StringComparison.Ordinal))
-            {
-                return;
-            }
-        }
-
-        Assert.Fail($"The plan does not list a box named '{name}'.");
-    }
-
     /// <summary>
     /// Fills a field and then leaves it. Blazor's inputs bind on <c>change</c>, which the browser
-    /// only fires on blur, while Playwright's fill dispatches <c>input</c> alone. Without the
-    /// Tab, whatever was typed last can still be uncommitted when Plan is clicked, and the plan
-    /// is computed from the previous value — which made these tests flaky rather than wrong.
+    /// only fires on blur, while Playwright's fill dispatches <c>input</c> alone.
     /// </summary>
     private static async Task FillAndLeaveAsync(ILocator input, string value)
     {
@@ -377,11 +401,6 @@ public sealed class PlanWrapSteps
 
     private async Task ClickPlanAsync()
     {
-        // Inputs bind on change over the SignalR circuit. Leaving the field dispatches the
-        // change, but the model the submit handler reads only updates once that round trip
-        // lands — without a settle, the plan is occasionally computed from the previous value.
-        await Task.Delay(300);
-
         await _ui.Page.Locator("[data-testid='plan-button']").ClickAsync();
 
         // Either a plan or an error must arrive; both prove the click landed.
