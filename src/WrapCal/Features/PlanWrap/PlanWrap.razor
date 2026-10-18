@@ -17,27 +17,29 @@
             <label class="form-label" for="rollWidth">Roll Width</label>
             <InputNumber id="rollWidth" @bind-Value="_input.RollWidth" class="form-control"
                          title="The usable width of your paper roll — the distance across it, not its length." />
+            <div class="form-text">Usable width of the roll — across it, not its length.</div>
+            @* Messages sit below the descriptions, so the descriptions stay on one line across
+               all three columns regardless of which field is currently complaining. *@
             <div class="validation-slot">
                 <ValidationMessage For="() => _input.RollWidth" />
             </div>
-            <div class="form-text">Usable width of the roll — across it, not its length.</div>
         </div>
 
         <div class="col-md-3">
             <label class="form-label" for="overlapMargin">Overlap Margin</label>
             <InputNumber id="overlapMargin" @bind-Value="_input.OverlapMargin" class="form-control"
                          title="How far the two ends of the paper lap over each other when wrapped around the box. 0 means the paper meets exactly but does not overlap." />
+            <div class="form-text">How far the two paper ends overlap at the seam.</div>
             <div class="validation-slot">
                 <ValidationMessage For="() => _input.OverlapMargin" />
             </div>
-            <div class="form-text">How far the two paper ends overlap at the seam.</div>
         </div>
 
         <div class="col-md-3">
             <label class="form-label" for="inputUnit">Units</label>
-            <InputSelect id="inputUnit" @bind-Value="_input.InputUnit" class="form-select"
-                         data-testid="unit-select"
-                         title="Applies to every length you type in, and to the results.">
+            <InputSelect id="inputUnit" @bind-Value="_input.InputUnit" @bind-Value:after="OnUnitChanged"
+                         class="form-select" data-testid="unit-select"
+                         title="Applies to every length you type in, and to the results. Changing it converts what you have entered.">
                 <option value="@LengthUnit.Inches">Inches</option>
                 <option value="@LengthUnit.Centimeters">Centimetres</option>
             </InputSelect>
@@ -162,6 +164,7 @@
     private string? _error;
     private bool _interactive;
     private RollDirection _rollDirection = RollDirection.Up;
+    private LengthUnit _previousUnit = LengthUnit.Inches;
 
     protected override void OnInitialized()
     {
@@ -176,6 +179,45 @@
             RefreshBoxMessages();
             _editContext.NotifyValidationStateChanged();
         };
+    }
+
+    /// <summary>
+    /// Re-expresses every length when the unit changes, so the roll and boxes you described stay
+    /// the same physical size and only the numbering changes. Rounded to two decimals — an inch
+    /// is 2.54 cm, so conversions rarely land on something worth reading to full precision.
+    /// </summary>
+    private void OnUnitChanged()
+    {
+        LengthUnit from = _previousUnit;
+        LengthUnit to = _input.InputUnit;
+
+        if (from == to)
+        {
+            return;
+        }
+
+        _input.RollWidth = Converted(_input.RollWidth);
+        _input.OverlapMargin = Converted(_input.OverlapMargin);
+
+        foreach (BoxInput box in _input.Boxes)
+        {
+            box.Length = Converted(box.Length);
+            box.Width = Converted(box.Width);
+            box.Height = Converted(box.Height);
+        }
+
+        _previousUnit = to;
+
+        // Any plan on screen is stated in the unit we just left.
+        _plan = null;
+        _error = null;
+
+        _editContext.Validate();
+        RefreshBoxMessages();
+        _editContext.NotifyValidationStateChanged();
+
+        double Converted(double value) =>
+            Math.Round(UnitConverter.FromCm(UnitConverter.ToCm(value, from), to), 2);
     }
 
     /// <summary>

@@ -72,6 +72,24 @@ public sealed class PlanWrapSteps
         await Assert.That(Math.Abs(inputCentre - removeCentre)).IsLessThan(2.0);
     }
 
+    [Then("the option descriptions should all line up")]
+    public async Task ThenTheOptionDescriptionsShouldAllLineUpAsync()
+    {
+        // Validation messages sit below the descriptions, so a column showing one must not push
+        // its description out of line with the others.
+        ILocator descriptions = _ui.Page.Locator(".col-md-3 .form-text");
+        int count = await descriptions.CountAsync();
+
+        var tops = new List<double>();
+        for (int i = 0; i < count; i++)
+        {
+            tops.Add((await descriptions.Nth(i).BoundingBoxAsync())!.Y);
+        }
+
+        await Assert.That(count).IsEqualTo(3);
+        await Assert.That(tops.Max() - tops.Min()).IsLessThan(2.0);
+    }
+
     [When("I break a box dimension")]
     public async Task WhenIBreakABoxDimensionAsync()
     {

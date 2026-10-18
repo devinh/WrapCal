@@ -30,6 +30,10 @@ Feature: Wrap planning
     When I open the plan page
     Then the Remove button should line up with the row's inputs
 
+  Scenario: The option descriptions line up across the row
+    When I open the plan page
+    Then the option descriptions should all line up
+
   Scenario: Results follow the selected units
     When I plan using centimetres
     Then the results should be reported in "cm"

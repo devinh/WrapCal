@@ -63,6 +63,49 @@ public class PlanWrapPageTests : BunitContext
     }
 
     [Test]
+    public async Task Changing_units_converts_every_entered_length()
+    {
+        var cut = Render<PlanWrap>();
+
+        await cut.Find("[data-testid='unit-select']").ChangeAsync("Centimeters");
+
+        // 30in, 0.5in, and a 9 x 6 x 1.5in box, all restated in centimetres.
+        await Assert.That(cut.Find("#rollWidth").GetAttribute("value")).IsEqualTo("76.2");
+        await Assert.That(cut.Find("#overlapMargin").GetAttribute("value")).IsEqualTo("1.27");
+
+        var sides = cut.FindAll("tbody tr input[type='number']");
+        await Assert.That(sides[0].GetAttribute("value")).IsEqualTo("22.86");
+        await Assert.That(sides[1].GetAttribute("value")).IsEqualTo("15.24");
+        await Assert.That(sides[2].GetAttribute("value")).IsEqualTo("3.81");
+    }
+
+    [Test]
+    public async Task Rounds_converted_lengths_to_two_decimals()
+    {
+        var cut = Render<PlanWrap>();
+
+        await cut.Find("[data-testid='unit-select']").ChangeAsync("Centimeters");
+        await cut.Find("#rollWidth").ChangeAsync("10");
+        await cut.Find("[data-testid='unit-select']").ChangeAsync("Inches");
+
+        // 10 cm is 3.9370078... inches.
+        await Assert.That(cut.Find("#rollWidth").GetAttribute("value")).IsEqualTo("3.94");
+    }
+
+    [Test]
+    public async Task Changing_units_discards_a_plan_stated_in_the_old_units()
+    {
+        var cut = Render<PlanWrap>();
+
+        await cut.Find("form").SubmitAsync();
+        await Assert.That(cut.FindAll("svg[role='img']").Count).IsEqualTo(1);
+
+        await cut.Find("[data-testid='unit-select']").ChangeAsync("Centimeters");
+
+        await Assert.That(cut.FindAll("svg[role='img']").Count).IsEqualTo(0);
+    }
+
+    [Test]
     public async Task Reports_a_bad_box_dimension_as_soon_as_the_field_changes()
     {
         var cut = Render<PlanWrap>();
