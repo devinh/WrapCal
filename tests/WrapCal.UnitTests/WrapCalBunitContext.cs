@@ -18,14 +18,13 @@ namespace WrapCal.UnitTests;
 /// </summary>
 public abstract class WrapCalBunitContext : BunitContext
 {
+    private readonly HttpContextAccessor _http = new();
+
     protected WrapCalBunitContext()
     {
         Services.AddMudServices();
         Services.AddSingleton(TimeProvider.System);
-        Services.AddSingleton<IHttpContextAccessor>(new HttpContextAccessor
-        {
-            HttpContext = new DefaultHttpContext(),
-        });
+        Services.AddSingleton<IHttpContextAccessor>(_http);
 
         // MudBlazor calls into JS for popovers and focus. Loose mode keeps a unit test about
         // markup from needing a browser.
@@ -34,5 +33,30 @@ public abstract class WrapCalBunitContext : BunitContext
         // PlanWrap reads RendererInfo.IsInteractive to decide whether its controls are live.
         // bUnit does not populate it by default and throws on access.
         SetRendererInfo(new RendererInfo("Server", isInteractive: true));
+    }
+
+    /// <summary>
+    /// Gives the components a request to read, standing in for the prerender they would get from
+    /// a real host.
+    /// <para>
+    /// Set here, at call time, rather than in the constructor: <c>HttpContextAccessor</c> holds
+    /// its context in an <see cref="AsyncLocal{T}"/>, so a value assigned while the test class is
+    /// being constructed does not flow into the test method that follows — it reads back null.
+    /// </para>
+    /// </summary>
+    protected void SetRequestCookie(string name, string value)
+    {
+        // Successive calls accumulate, so a test can present the request a returning visitor
+        // would send — the theme, for one, arrives as two cookies plus the plan's own state.
+        string existing = _http.HttpContext is null
+            ? string.Empty
+            : _http.HttpContext.Request.Headers.Cookie.ToString();
+
+        var context = new DefaultHttpContext();
+        context.Request.Headers.Cookie = existing.Length == 0
+            ? $"{name}={value}"
+            : $"{existing}; {name}={value}";
+
+        _http.HttpContext = context;
     }
 }

@@ -16,17 +16,27 @@ public sealed class AppHost : IAsyncDisposable
 {
     private const int StartupTimeoutSeconds = 90;
 
+    /// <summary>
+    /// One client for every probe. Handing <c>new HttpClient()</c> to a poll loop is the usual way
+    /// to run out of sockets; there is no DI container here for <c>IHttpClientFactory</c> to live
+    /// in, so the single static instance is the whole of the fix.
+    /// </summary>
+    private static readonly HttpClient _probeClient = new() { Timeout = TimeSpan.FromSeconds(2) };
+
     private readonly Process _process;
 
-    private AppHost(Process process, string baseUrl)
+    private readonly TimeProvider _time;
+
+    private AppHost(Process process, string baseUrl, TimeProvider time)
     {
         _process = process;
         BaseUrl = baseUrl;
+        _time = time;
     }
 
     public string BaseUrl { get; }
 
-    public static async Task<AppHost> StartAsync()
+    public static async Task<AppHost> StartAsync(TimeProvider? time = null)
     {
         string projectPath = ResolveAppProjectPath();
         string baseUrl = $"http://127.0.0.1:{GetFreePort()}";
@@ -58,7 +68,7 @@ public sealed class AppHost : IAsyncDisposable
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
 
-        var host = new AppHost(process, baseUrl);
+        var host = new AppHost(process, baseUrl, time ?? TimeProvider.System);
         await host.WaitUntilReadyAsync();
         return host;
     }
@@ -69,10 +79,9 @@ public sealed class AppHost : IAsyncDisposable
     /// </summary>
     private async Task WaitUntilReadyAsync()
     {
-        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(2) };
-        var deadline = DateTime.UtcNow.AddSeconds(StartupTimeoutSeconds);
+        DateTimeOffset deadline = _time.GetUtcNow().AddSeconds(StartupTimeoutSeconds);
 
-        while (DateTime.UtcNow < deadline)
+        while (_time.GetUtcNow() < deadline)
         {
             if (_process.HasExited)
             {
@@ -83,7 +92,7 @@ public sealed class AppHost : IAsyncDisposable
 
             try
             {
-                using var response = await client.GetAsync(BaseUrl);
+                using var response = await _probeClient.GetAsync(BaseUrl);
                 if (response.IsSuccessStatusCode)
                 {
                     return;

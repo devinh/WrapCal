@@ -1,3 +1,4 @@
+using System.Globalization;
 using WrapCal.Features.PlanWrap;
 
 namespace WrapCal.UnitTests;
@@ -33,6 +34,52 @@ public class PlanWrapLogicTests
     }
 
     [Test]
+    public async Task Rejects_a_negative_overlap_margin()
+    {
+        var result = PlanWrapLogic.Plan(
+            [Box()],
+            new WrapOptions(30, OverlapMargin: -0.5, RandomRestarts: 0));
+
+        await Assert.That(result.IsSuccess).IsFalse();
+        await Assert.That(result.Error.Code).IsEqualTo("overlap.margin");
+    }
+
+    [Test]
+    public async Task Rejects_a_negative_restart_count()
+    {
+        var result = PlanWrapLogic.Plan([Box()], new WrapOptions(30, 0.5, RandomRestarts: -1));
+
+        await Assert.That(result.IsSuccess).IsFalse();
+        await Assert.That(result.Error.Code).IsEqualTo("options.restarts");
+    }
+
+    [Test]
+    public async Task Rejects_more_boxes_than_the_form_allows()
+    {
+        // The planner keeps its own guard, so a caller that never saw the form cannot hand it a
+        // list long enough to block the circuit it runs on.
+        GiftBox[] boxes = [.. Enumerable.Range(1, PlanWrapInput.MaxBoxCount + 1)
+            .Select(i => new GiftBox($"Box {i}", 10, 10, 10))];
+
+        var result = PlanWrapLogic.Plan(boxes, Options());
+
+        await Assert.That(result.IsSuccess).IsFalse();
+        await Assert.That(result.Error.Code).IsEqualTo("boxes.count");
+    }
+
+    [Test]
+    public async Task Accepts_exactly_as_many_boxes_as_the_form_allows()
+    {
+        GiftBox[] boxes = [.. Enumerable.Range(1, PlanWrapInput.MaxBoxCount)
+            .Select(i => new GiftBox($"Box {i}", 10, 10, 10))];
+
+        var result = PlanWrapLogic.Plan(boxes, Options());
+
+        await Assert.That(result.IsSuccess).IsTrue();
+        await Assert.That(result.Value.Sections.Count).IsEqualTo(PlanWrapInput.MaxBoxCount);
+    }
+
+    [Test]
     public async Task Rejects_a_box_too_wide_for_the_roll()
     {
         var result = PlanWrapLogic.Plan([Box(length: 500, width: 500, height: 500)], Options(rollWidth: 10));
@@ -49,6 +96,29 @@ public class PlanWrapLogicTests
         await Assert.That(result.IsSuccess).IsTrue();
         await Assert.That(result.Value.Sections.Count).IsEqualTo(0);
         await Assert.That(result.Value.RollLengthUsed).IsEqualTo(0.0);
+
+        // Nothing was cut, so the plan is not 100% efficient — the empty ratio is not a ratio.
+        await Assert.That(result.Value.Efficiency).IsEqualTo(0.0);
+    }
+
+    [Test]
+    [Arguments(LengthUnit.Centimeters)]
+    [Arguments(LengthUnit.Inches)]
+    public async Task Areas_account_for_exactly_the_roll_it_used(LengthUnit unit)
+    {
+        // The one relation that catches an area-conversion mistake: everything cut plus
+        // everything wasted is the roll the summary claims to have used.
+        var result = PlanWrapLogic.Plan(
+            [Box(), Box("Mug", 12, 12, 12)],
+            new WrapOptions(30, 0.5, InputUnit: unit, OutputUnit: unit, RandomRestarts: 25, Seed: 1));
+
+        await Assert.That(result.IsSuccess).IsTrue();
+
+        WrapPlan plan = result.Value;
+        double rollArea = plan.RollWidth * plan.RollLengthUsed;
+
+        await Assert.That(Math.Abs(plan.PaperAreaCut + plan.WasteArea - rollArea)).IsLessThan(0.01);
+        await Assert.That(plan.WasteArea).IsGreaterThanOrEqualTo(0.0);
     }
 
     [Test]
@@ -152,6 +222,8 @@ public class PlanWrapLogicTests
     [Test]
     public async Task Describes_the_box_sides_the_paper_goes_around()
     {
+        using var culture = InvariantCulture();
+
         // A flat book wraps about its width, so the paper encircles the 4 and 22 sides.
         WrapPlan book = PlanWrapLogic.Plan(
             [new GiftBox("Book", 22, 15, 4)],
@@ -172,6 +244,8 @@ public class PlanWrapLogicTests
     [Test]
     public async Task States_the_note_in_the_requested_units()
     {
+        using var culture = InvariantCulture();
+
         WrapPlan plan = PlanWrapLogic.Plan(
             [new GiftBox("Gadget", 10, 5, 2)],
             new WrapOptions(
@@ -274,6 +348,23 @@ public class PlanWrapLogicTests
         // packing quality fails the test rather than slipping through.
         await Assert.That(Math.Round(result.Value.RollLengthUsed, 3)).IsEqualTo(371.5);
         await Assert.That(Math.Round(result.Value.Efficiency, 6)).IsEqualTo(0.858311);
+    }
+
+    /// <summary>
+    /// The note is spelled in the reader's culture, so asserting its wording needs a culture of
+    /// its own — otherwise these pass on a machine that writes 4.0 and fail on one that writes
+    /// 4,0, for a reason that has nothing to do with the note.
+    /// </summary>
+    private static IDisposable InvariantCulture()
+    {
+        CultureInfo previous = CultureInfo.CurrentCulture;
+        CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
+        return new RestoreCulture(previous);
+    }
+
+    private sealed class RestoreCulture(CultureInfo previous) : IDisposable
+    {
+        public void Dispose() => CultureInfo.CurrentCulture = previous;
     }
 
     private static bool Overlaps(CutSection a, CutSection b) =>

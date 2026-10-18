@@ -61,30 +61,6 @@ public class ResultTests
     }
 
     [Test]
-    public async Task Match_runs_the_success_branch_on_success()
-    {
-        Result<int> result = Result<int>.Success(7);
-
-        string rendered = result.Match(
-            value => $"ok:{value}",
-            error => $"bad:{error.Code}");
-
-        await Assert.That(rendered).IsEqualTo("ok:7");
-    }
-
-    [Test]
-    public async Task Match_runs_the_failure_branch_on_failure()
-    {
-        Result<int> result = Result<int>.Failure("code", "nope");
-
-        string rendered = result.Match(
-            value => $"ok:{value}",
-            error => $"bad:{error.Code}");
-
-        await Assert.That(rendered).IsEqualTo("bad:code");
-    }
-
-    [Test]
     public async Task Carries_reference_types_as_well_as_values()
     {
         var payload = new List<string> { "a" };

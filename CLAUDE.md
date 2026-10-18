@@ -25,9 +25,19 @@ orthogonal features, accounts, saved plans, or a database.
   `MudDialogProvider`, `MudSnackbarProvider`) live in `MainLayout`, which is inside the
   interactive tree — a provider rendered statically outside it leaves `MudSelect` unable to
   open its overlay.
+- **The theme has three choices and System is the default** — `ThemeChoice` in
+  `Components/Layout`, picked from a `MudMenu` in the app bar. Only the browser can answer
+  what the system is set to, and the prerender runs before any JavaScript it owns, so the
+  prerender draws from `wrapcal-system-theme` (what the browser reported last time) and the
+  circuit corrects it a frame after attaching. A first visit on a dark system therefore flashes
+  light once; every visit after that is drawn right from the start. `MudThemeProvider` supplies
+  the answer — `GetSystemDarkModeAsync` and `WatchSystemDarkModeAsync`, so a page left open
+  follows the system as it changes.
 - **No persistence** — the app is stateless. No database, no EF Core, no Identity.
-  Wrap planning is a pure function of user input. The one exception is a `wrapcal-theme`
-  cookie, which is a display preference rather than application state.
+  Wrap planning is a pure function of user input. The one exception is the theme, which
+  travels in two cookies — `wrapcal-theme` (the choice) and `wrapcal-system-theme` (the last
+  system preference the browser reported). Both are display preferences rather than
+  application state.
 - **No logging library** — the built-in `Microsoft.Extensions.Logging` from the
   template is all that is configured.
 - **TUnit** + **bUnit** — unit and component testing
@@ -74,8 +84,8 @@ tests/
     Components/MainLayoutTests.cs
     Features/                   # one file per production concern
   WrapCal.FunctionalTests/      # Reqnroll + Playwright — separate project, own runner
-    Features/                   # PlanWrap (behaviour), CutPlans (spec tables), Layout, Assets
-    StepDefinitions/            # StepsBase + Form / Planning / Layout / Asset
+    Features/                   # PlanWrap (behaviour), CutPlans (spec tables), Layout, Assets, Theme
+    StepDefinitions/            # StepsBase + Form / Planning / Layout / Asset / Theme
     Hooks/
     Support/
 ```
@@ -98,9 +108,26 @@ Read this before changing the maths. Every point here has been got wrong once al
   without it.
 - **Changing the unit converts what is already typed**, rounded to 2 decimals, and discards
   any displayed plan, which is stated in the unit just left.
+- **Any change to the form discards the displayed plan**, not just a unit change: editing a
+  field, adding a box, or removing one. A plan is only ever on screen while it still describes
+  the inputs in front of the reader. `DiscardPlan` is the single place that clears it, wired to
+  every field with `@bind-Value:after`.
+- **A plan holds at most 100 boxes**, `PlanWrapInput.MaxBoxCount`, enforced twice: the Add
+  button disables at the limit, and `PlanWrapLogic` refuses more for callers that never saw the
+  form. Packing is quadratic in the box count and runs on the circuit's thread, so an uncapped
+  list is a way to freeze the page that is drawing it.
 - **Packing is a greedy shelf fit plus randomised restarts**, seeded, so a given input always
   produces the same plan. `PlanWrapLogicTests` holds a golden test pinning the output — read
   its comment before touching `Pack` or `SheetOptions`.
+- **The restart count is capped by a work budget, not just by `RandomRestarts`.**
+  `RestartWorkBudget / boxes.Count` bounds the whole run; a short list still gets every restart
+  it asked for, a long one trades restarts for staying responsive. Do not "fix" it back to a
+  flat count — 2000 boxes at 500 restarts measured 25 seconds of blocked circuit.
+- **Numbers the reader sees follow their culture; numbers in SVG attributes do not.**
+  `WrapPlanView.Format`, `WrapPlanDiagram.F` and the note use `CurrentCulture`, matching the
+  form's numeric fields. `WrapPlanDiagram.N` stays invariant — it writes `viewBox` and
+  coordinates, which only parse with a decimal point. Tests that assert the wording of a note
+  pin the culture for exactly this reason.
 
 ### Slice conventions
 
@@ -129,9 +156,10 @@ Read this before changing the maths. Every point here has been got wrong once al
   carries a `For` expression plus a `Validation` delegate; returning an empty string means
   valid. MudBlazor declares `Validation` as `object`, so the delegate type has to come from a
   typed property on the code-behind — a method group or lambda in markup cannot be inferred.
-  The bounds themselves are the `const`s on `PlanWrapInput`, shared with nothing else: there is
+  The per-field bounds are `const`s on `PlanWrapInput` and are not duplicated anywhere: there is
   deliberately no second copy to drift. `PlanWrapLogic` keeps its own guards for callers that
-  bypass the form.
+  bypass the form, and where it needs a limit the form also applies — the box count — it reads
+  the same `const` rather than restating the number.
 - **Validation reports when a field is left, not on every keystroke.** That is Mud's timing,
   chosen over the old on-change behaviour. Box fields carry `HelperText=" "` and the global
   `.wrapcal-message-slot` rule so the message line is always reserved — without it, reporting a
@@ -141,10 +169,12 @@ Read this before changing the maths. Every point here has been got wrong once al
   `roll-options`, `unit-select`, `boxes`, `box-row`, `box-name`, `box-length`, `box-width`,
   `box-height`, `add-box`, `remove-box`, `plan-button`, `plan-error`, `roll-direction`,
   `diagram`, `sections`, `roll-length`, `paper-area`, `waste-area`, `efficiency`,
-  `theme-toggle`. MudBlazor puts unmatched attributes on the element it renders — for an input
-  that is the `<input>` itself, but for `MudSelect` it is a hidden input that cannot be
-  clicked, so the two selects are wrapped in a `<div>` carrying the id. The functional suite drives the
-  page through these, so renaming one breaks tests rather than the app.
+  `theme-menu`, `theme-system`, `theme-light`, `theme-dark`. MudBlazor puts unmatched attributes
+  on the element it renders — for an input that is the `<input>` itself, but for `MudSelect` it
+  is a hidden input that cannot be clicked, so the two selects are wrapped in a `<div>` carrying
+  the id, and `MudMenu` is wrapped for the same reason (its activator is the button *inside* the
+  wrapper, which is what a click has to hit). The functional suite drives the page through
+  these, so renaming one breaks tests rather than the app.
 - **The diagram never scales to fit.** Its scale comes from the roll width, which does not
   change as boxes are added, so a longer plan draws a longer diagram and the rest is reached
   by scrolling — the scroll axis follows the roll (`is-vertical` / `is-horizontal` on
@@ -271,7 +301,23 @@ Reqnroll (Gherkin) driving Playwright against the app running for real.
 
 - `Features/*.feature` bind to step definitions in `StepDefinitions/`, split by concern:
   `StepsBase` (shared page helpers), `FormSteps` (setting the form up), `PlanningSteps`
-  (planning and what the plan says), `LayoutSteps` (geometry measured in the browser).
+  (planning and what the plan says), `LayoutSteps` (geometry measured in the browser),
+  `ThemeSteps` (the cookie and what the page does with it).
+- **The theme is split between the two suites, and only `Theme.feature` can test System.**
+  `MainLayoutTests` covers which of the three choices is in force — it arranges the browser's
+  answer by stubbing `mudThemeProvider.isDarkMode`, since bUnit has no media query and no
+  operating system. `Theme.feature` covers what only a real browser can: `EmulateMediaAsync`
+  sets `prefers-color-scheme`, and the palette is read off the document root (where a theme is
+  visible at all) and compared by luminance rather than against exact colours.
+  Mutation-checked: forcing the system preference to light fails "The page follows a dark
+  system" and nothing else.
+- **The `Then` for a theme waits, and has to.** On a first visit the system preference is not
+  knowable until the circuit attaches and can ask the browser, so the palette moves *after* the
+  page is interactive. The step waits up to `ThemeSettleTimeout` for the expected side of
+  mid-grey and only then reports. A theme assertion that reads once will flake.
+- Note what the scenarios do *not* prove: a circuit's first render still sees an HttpContext
+  (the SignalR connection's request, cookies included), so the cookie alone also keeps the
+  theme right. They are blind to which path delivered it, and removing either leaves them green.
 - **Every concrete step class needs `[Binding]`.** Without it Reqnroll finds no steps at all
   and every scenario fails as "undefined", naming no file — not an obvious error to trace
   back to a new class.
@@ -386,6 +432,13 @@ xUnit → TUnit migration and the project rename. On the same commit, after a re
   `ScannedFiles: 41, ProductionFiles: 5, TestFiles: 7, GeneratedFiles: 29`
 - `find_dead_code` → 0 symbols, `ConventionFiltered: 0`
 - `get_test_coverage_map` → no `obj/` artifacts at all
+
+**`find_dead_code` now returns hits, and they are all the same false positive.** Once the
+pages and components grew members used only from markup — `AddBox`, `RemoveBox`,
+`ToggleThemeAsync`, the `*Validation` properties — it reports them as unreferenced, with
+`Confidence: high`, because a `.razor` file is not in the tool's view (see the limitation
+below, which is the same cause). Every one of them is called from markup. Ignore the list,
+and do not "clean up" a member on its say-so: grep the `.razor` file first.
 
 Generated code **is** filtered, as the tool's README promises. The general lesson: a stale
 workspace does not merely return old data — it returns materially *wrong* data, including

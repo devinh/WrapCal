@@ -176,6 +176,51 @@ public class PlanWrapPageTests : WrapCalBunitContext
     }
 
     [Test]
+    public async Task Discards_a_plan_the_form_no_longer_describes()
+    {
+        var cut = Render<PlanWrap>();
+
+        await cut.Find(PlanButton).ClickAsync();
+        await Assert.That(cut.FindAll("[data-testid='diagram']").Count).IsEqualTo(1);
+
+        // Editing a field leaves the plan describing inputs that are gone; showing it anyway
+        // would state numbers the form in front of the user does not produce.
+        await cut.Find(BoxLength).ChangeAsync("18");
+
+        await Assert.That(cut.FindAll("[data-testid='diagram']").Count).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task Discards_the_plan_when_a_box_is_added()
+    {
+        var cut = Render<PlanWrap>();
+
+        await cut.Find(PlanButton).ClickAsync();
+        await Assert.That(cut.FindAll("[data-testid='diagram']").Count).IsEqualTo(1);
+
+        await cut.Find("[data-testid='add-box']").ClickAsync();
+
+        await Assert.That(cut.FindAll("[data-testid='diagram']").Count).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task Stops_offering_new_rows_at_the_box_limit()
+    {
+        // The planner is quadratic in the box count, so an uncapped list is a way to make the
+        // page that is showing it unresponsive. The cap is the form's half of that guard.
+        var cut = Render<PlanWrap>();
+
+        for (int i = 1; i < PlanWrapInput.MaxBoxCount; i++)
+        {
+            await cut.Find("[data-testid='add-box']").ClickAsync();
+        }
+
+        await Assert.That(cut.FindAll("[data-testid='box-name']").Count)
+            .IsEqualTo(PlanWrapInput.MaxBoxCount);
+        await Assert.That(cut.Find("[data-testid='add-box']").HasAttribute("disabled")).IsTrue();
+    }
+
+    [Test]
     public async Task Adding_and_removing_boxes_changes_the_row_count()
     {
         var cut = Render<PlanWrap>();

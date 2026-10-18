@@ -12,7 +12,9 @@ public partial class PlanWrap
     private WrapPlan? _plan;
     private string? _error;
     private RollDirection _rollDirection = RollDirection.Up;
-    private LengthUnit _previousUnit = LengthUnit.Inches;
+
+    // Seeded from the form so the first unit switch converts from what the form is actually in.
+    private LengthUnit _previousUnit = new PlanWrapInput().InputUnit;
 
     /// <summary>
     /// False while the page is being prerendered, true once the circuit is live. The controls are
@@ -23,14 +25,34 @@ public partial class PlanWrap
     /// </summary>
     private bool Interactive => RendererInfo.IsInteractive;
 
-    private void AddBox() => _input.Boxes.Add(new BoxInput());
+    private void AddBox()
+    {
+        if (_input.Boxes.Count >= PlanWrapInput.MaxBoxCount)
+        {
+            return;
+        }
+
+        _input.Boxes.Add(new BoxInput());
+        DiscardPlan();
+    }
 
     private void RemoveBox(int index)
     {
         if (_input.Boxes.Count > 1)
         {
             _input.Boxes.RemoveAt(index);
+            DiscardPlan();
         }
+    }
+
+    /// <summary>
+    /// Drops a plan that no longer describes the form. Called whenever an input changes, so the
+    /// figures on screen are only ever the ones the form in front of the user would produce.
+    /// </summary>
+    private void DiscardPlan()
+    {
+        _plan = null;
+        _error = null;
     }
 
     /// <summary>
@@ -61,8 +83,7 @@ public partial class PlanWrap
         _previousUnit = to;
 
         // Any plan on screen is stated in the unit we just left.
-        _plan = null;
-        _error = null;
+        DiscardPlan();
 
         await _form.ValidateAsync();
 

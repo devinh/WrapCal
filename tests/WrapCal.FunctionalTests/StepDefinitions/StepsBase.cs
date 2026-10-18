@@ -28,14 +28,19 @@ public abstract class StepsBase
     protected async Task OpenPlanPageAsync()
     {
         await Ui.Page.GotoAsync(Ui.Url("/"));
+        await WaitForCircuitAsync();
+    }
 
-        // Until the SignalR circuit attaches, the page is the prerendered copy and every control
-        // is disabled — a click then would either do nothing or POST the form and navigate away.
-        // Waiting for the button to become enabled is waiting for the page to be genuinely live.
+    /// <summary>
+    /// Waits for the SignalR circuit to attach. Until then the page is the prerendered copy and
+    /// every control is disabled — a click would either do nothing or POST the form and navigate
+    /// away. Waiting for the button to become enabled is waiting for the page to be genuinely
+    /// live, and it is the same wait after a reload as after a first navigation.
+    /// </summary>
+    protected async Task WaitForCircuitAsync() =>
         await Ui.Page.WaitForSelectorAsync(
             "[data-testid='plan-button']:not([disabled])",
             new PageWaitForSelectorOptions { Timeout = PageTimeout });
-    }
 
     protected async Task ClickPlanAsync()
     {

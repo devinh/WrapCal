@@ -1,0 +1,42 @@
+@functional
+Feature: Theme
+
+  The theme is a display preference — System by default, or pinned to light or dark — kept in a
+  cookie, because an interactive component cannot write a response cookie. System defers to the
+  operating system, which only the browser can report, so this is the one piece of behaviour a
+  component test cannot settle: it needs a real media query on a real circuit.
+
+  Scenario: The page follows a dark system
+    Given the browser prefers a dark colour scheme
+    And the plan page
+    Then the page should be in the dark theme
+
+  Scenario: The page follows a light system
+    Given the browser prefers a light colour scheme
+    And the plan page
+    Then the page should be in the light theme
+
+  Scenario: A page left open follows the system as it changes
+    Given the browser prefers a light colour scheme
+    And the plan page
+    Then the page should be in the light theme
+    When the browser switches to a dark colour scheme
+    Then the page should be in the dark theme
+
+  Scenario: An explicit choice wins over the system
+    Given the browser prefers a dark colour scheme
+    And the plan page
+    When I choose the light theme
+    Then the page should be in the light theme
+
+  Scenario: The theme the cookie remembers survives the circuit attaching
+    Given the visitor last chose the dark theme
+    And the plan page
+    Then the page should be in the dark theme
+
+  Scenario: Choosing a theme is remembered for next time
+    Given the plan page
+    When I choose the dark theme
+    Then the page should be in the dark theme
+    When I reload the page
+    Then the page should be in the dark theme

@@ -32,7 +32,4 @@ public sealed class Result<T>
     public static Result<T> Success(T value) => new(value, null);
 
     public static Result<T> Failure(string code, string message) => new(default, new Error(code, message));
-
-    public TOut Match<TOut>(Func<T, TOut> onSuccess, Func<Error, TOut> onFailure) =>
-        IsSuccess ? onSuccess(_value!) : onFailure(_error!.Value);
 }

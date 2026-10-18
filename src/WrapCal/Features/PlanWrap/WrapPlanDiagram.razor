@@ -17,7 +17,9 @@ else
            The scroller keeps the drawing at a fixed scale along the roll — more boxes make it
            longer, never smaller — and opens on the origin. Re-keying the scroller is what puts
            it back on the origin: a new plan, or a new direction, starts scrolled afresh. *@
-        <div class="@ScrollerClass" tabindex="0" @key="(Plan, Direction)">
+        @* Focusable because it scrolls by keyboard, and named because a focusable region with
+           no accessible name is an unlabelled stop on the tab path. *@
+        <div class="@ScrollerClass" tabindex="0" role="region" aria-label="Cut layout" @key="(Plan, Direction)">
             <svg viewBox="@ViewBox"
                  preserveAspectRatio="xMinYMin meet"
                  role="img"
@@ -330,5 +332,7 @@ else
     private static string N(double value) =>
         (value == 0 ? 0d : value).ToString("0.###", CultureInfo.InvariantCulture);
 
-    private static string F(double value) => value.ToString("F1", CultureInfo.InvariantCulture);
+    // Text the reader sees, so it follows their culture; N() stays invariant because it writes
+    // SVG attributes, which only parse with a decimal point.
+    private static string F(double value) => value.ToString("F1", CultureInfo.CurrentCulture);
 }

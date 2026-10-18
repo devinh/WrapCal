@@ -21,6 +21,13 @@ public sealed class PlanWrapInput
 
     public const int MaxNameLength = 50;
 
+    /// <summary>
+    /// As many rows as anyone could want to wrap in a sitting, and the point past which the
+    /// page stops growing. The planner is quadratic in the number of boxes and runs on the
+    /// circuit's thread, so an uncapped list is a way to stall the page that is showing it.
+    /// </summary>
+    public const int MaxBoxCount = 100;
+
     public double RollWidth { get; set; } = 30;
 
     public double OverlapMargin { get; set; } = 0.5;

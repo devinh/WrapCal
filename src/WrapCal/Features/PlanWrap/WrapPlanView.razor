@@ -28,7 +28,7 @@
         <MudItem xs="6" md="3">
             <MudText Typo="Typo.caption">Efficiency</MudText>
             <MudText Typo="Typo.h5">
-                <span data-testid="efficiency">@Plan.Efficiency.ToString("P1", CultureInfo.InvariantCulture)</span>
+                <span data-testid="efficiency">@Plan.Efficiency.ToString("P1", CultureInfo.CurrentCulture)</span>
             </MudText>
         </MudItem>
     </MudGrid>
@@ -68,5 +68,7 @@
 
     private string AreaLabel => Plan.Unit == LengthUnit.Centimeters ? "cm²" : "in²";
 
-    private static string Format(double value) => value.ToString("F1", CultureInfo.InvariantCulture);
+    // The culture the form's numeric fields parse in, so a figure here is spelled the same way
+    // as the field it came from.
+    private static string Format(double value) => value.ToString("F1", CultureInfo.CurrentCulture);
 }

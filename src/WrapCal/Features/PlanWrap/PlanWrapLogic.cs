@@ -13,6 +13,15 @@ namespace WrapCal.Features.PlanWrap;
 /// </summary>
 public static class PlanWrapLogic
 {
+    /// <summary>
+    /// How much work the randomised restarts may cost, in units of "boxes × restarts". Packing is
+    /// quadratic in the number of boxes, so a fixed restart count turns a long list into seconds
+    /// of blocked work — 2000 boxes at 500 restarts measured 25s, enough to stall the circuit
+    /// handling the click. A short list keeps every restart it asked for; a long one trades
+    /// restarts for staying responsive.
+    /// </summary>
+    private const int RestartWorkBudget = 50_000;
+
     /// <summary>One legal way to cut a sheet: its size, and the box axis it wraps about.</summary>
     private readonly record struct SheetOption(double Width, double Length, int Axis);
 
@@ -46,6 +55,15 @@ public static class PlanWrapLogic
             return Result<WrapPlan>.Failure("box.dimensions", "All box dimensions must be positive.");
         }
 
+        // Same limit the form enforces through its Add button, restated for callers that bypass
+        // the form — one const, so there is nothing to drift.
+        if (inputBoxes.Count > PlanWrapInput.MaxBoxCount)
+        {
+            return Result<WrapPlan>.Failure(
+                "boxes.count",
+                $"A plan can hold at most {PlanWrapInput.MaxBoxCount} boxes.");
+        }
+
         LengthUnit unit = inputOptions.InputUnit;
         WrapOptions options = inputOptions with
         {
@@ -65,13 +83,15 @@ public static class PlanWrapLogic
 
         if (boxes.Count == 0)
         {
+            // No paper is used, so nothing can be said to be efficient — reporting the empty
+            // ratio as 100% would read as a perfect plan.
             return Result<WrapPlan>.Success(new WrapPlan(
                 [],
                 UnitConverter.FromCm(options.RollWidth, inputOptions.OutputUnit),
                 0,
                 0,
                 0,
-                1,
+                0,
                 inputOptions.OutputUnit));
         }
 
@@ -99,7 +119,11 @@ public static class PlanWrapLogic
         List<Shelf> best = Pack(order, optionsPerBox, options.RollWidth);
         double bestLength = TotalLength(best);
 
-        for (int restart = 0; restart < options.RandomRestarts; restart++)
+        int restarts = Math.Min(
+            options.RandomRestarts,
+            Math.Max(1, RestartWorkBudget / boxes.Count));
+
+        for (int restart = 0; restart < restarts; restart++)
         {
             List<int> trial = [.. order.OrderBy(_ => random.Next())];
             List<Shelf> packed = Pack(trial, optionsPerBox, options.RollWidth);
@@ -152,7 +176,9 @@ public static class PlanWrapLogic
             ToOutput(options.RollWidth),
             ToOutput(bestLength),
             AreaToOutput(paperCut),
-            AreaToOutput(rollArea - paperCut),
+            // Clamped: the sum of the pieces can exceed the roll's own area by a rounding step,
+            // and negative waste reads as a bug in the plan rather than in the floats.
+            AreaToOutput(Math.Max(0, rollArea - paperCut)),
             efficiency,
             outputUnit));
     }
@@ -173,7 +199,10 @@ public static class PlanWrapLogic
         return $"Wrapped around the box's {One(first)} × {One(second)} {label} sides.";
     }
 
-    private static string One(double value) => value.ToString("F1", CultureInfo.InvariantCulture);
+    // The user's culture, not the invariant one: the form's numeric fields parse in the culture
+    // the app runs under, so a note written with a decimal point beside fields showing a decimal
+    // comma would be the same number spelled two ways on one screen.
+    private static string One(double value) => value.ToString("F1", CultureInfo.CurrentCulture);
 
     /// <summary>Every distinct sheet size that wraps this box and fits across the roll.</summary>
     private static List<SheetOption> SheetOptions(GiftBox box, WrapOptions options)

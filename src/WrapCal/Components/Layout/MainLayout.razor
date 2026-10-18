@@ -3,7 +3,7 @@
 @* The providers live here because MainLayout renders inside the interactive tree that starts at
    <Routes> in App.razor. A MudSelect whose popover provider sits outside that tree reports a
    missing MudPopoverProvider and cannot open. *@
-<MudThemeProvider Theme="_theme" IsDarkMode="_isDark" />
+<MudThemeProvider @ref="_provider" Theme="_theme" IsDarkMode="IsDarkMode" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
@@ -12,11 +12,27 @@
     <MudAppBar Elevation="1" Dense="true">
         <MudText Typo="Typo.h6" Class="ml-3">WrapCal</MudText>
         <MudSpacer />
-        <MudIconButton Icon="@ThemeIcon"
-                       Color="Color.Inherit"
-                       OnClick="ToggleThemeAsync"
-                       data-testid="theme-toggle"
-                       aria-label="Switch between light and dark theme" />
+        @* The icon shows what is in force, not what a click would do: with three choices a
+           toggle no longer has an obvious opposite. The testid wraps the menu because MudMenu
+           puts unmatched attributes on markup of its own choosing. *@
+        <div data-testid="theme-menu">
+            <MudMenu Icon="@ThemeIcon"
+                     Color="Color.Inherit"
+                     Dense="true"
+                     AnchorOrigin="Origin.BottomRight"
+                     TransformOrigin="Origin.TopRight"
+                     aria-label="@($"Theme: {ThemeLabel}")">
+                <MudMenuItem OnClick="@(() => ChooseThemeAsync(ThemeChoice.System))" data-testid="theme-system">
+                    System
+                </MudMenuItem>
+                <MudMenuItem OnClick="@(() => ChooseThemeAsync(ThemeChoice.Light))" data-testid="theme-light">
+                    Light
+                </MudMenuItem>
+                <MudMenuItem OnClick="@(() => ChooseThemeAsync(ThemeChoice.Dark))" data-testid="theme-dark">
+                    Dark
+                </MudMenuItem>
+            </MudMenu>
+        </div>
     </MudAppBar>
 
     <MudMainContent>
