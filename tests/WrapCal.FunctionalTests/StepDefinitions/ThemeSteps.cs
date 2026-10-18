@@ -80,6 +80,56 @@ public sealed class ThemeSteps : StepsBase
     /// Opens the page with the runtime held back, which leaves it exactly as a reader sees it
     /// while the WebAssembly is still downloading — the state the boot background exists for.
     /// </summary>
+    [Then("the cut layout should be drawn for a {word} theme")]
+    public async Task ThenTheCutLayoutShouldBeDrawnForAThemeAsync(string theme)
+    {
+        // The paper is the largest surface in the drawing and the first thing that looks wrong
+        // if the diagram has stayed a light-mode picture on a dark page.
+        double luminance = await Ui.Page.EvaluateAsync<double>(
+            """
+            () => {
+                const paper = document.querySelector("[data-testid='diagram'] .paper");
+                const [red, green, blue] = getComputedStyle(paper).fill.match(/[\d.]+/g).map(Number);
+                return ((red + green + blue) / 3) / 255;
+            }
+            """);
+
+        bool isDark = luminance < 0.5;
+
+        if (isDark != (theme == "dark"))
+        {
+            Assert.Fail(
+                $"The cut layout's paper is {(isDark ? "dark" : "light")} "
+                + $"but the {theme} theme was expected.");
+        }
+
+        // The hatched band is painted through a pattern defined in <defs>, which is the one part
+        // of the drawing whose styling depends on the scope attribute reaching inside it. It is
+        // held to the same colour as the paper, because both are the palette surface — and
+        // because an element that has lost its styling falls back to black, which is a colour a
+        // "is anything painted" check would happily accept in dark mode.
+        string hatchFill = await Ui.Page.EvaluateAsync<string>(
+            """
+            () => {
+                const hatch = document.querySelector("[data-testid='diagram'] .hatch-background");
+                const paper = document.querySelector("[data-testid='diagram'] .paper");
+                if (!hatch || !paper) {
+                    return "missing";
+                }
+                return getComputedStyle(hatch).fill + "|" + getComputedStyle(paper).fill;
+            }
+            """);
+
+        string[] fills = hatchFill.Split('|');
+
+        if (fills.Length != 2 || !string.Equals(fills[0], fills[1], StringComparison.Ordinal))
+        {
+            Assert.Fail(
+                $"The hatched band is painted {hatchFill} — its pattern is not following the theme "
+                + "the way the paper is.");
+        }
+    }
+
     [When("the plan page is opened without letting the app load")]
     public async Task WhenThePlanPageIsOpenedWithoutLettingTheAppLoadAsync()
     {

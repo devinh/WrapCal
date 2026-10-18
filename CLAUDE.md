@@ -201,6 +201,14 @@ Read this before changing the maths. Every point here has been got wrong once al
   `.diagram-scroller`). Scaling the whole plan into the figure is what used to make the
   drawing shrink with every box, and `Layout.feature` measures the overflow to catch its
   return.
+- **Every colour in the drawing comes from the palette, never from a literal.** `WrapPlanDiagram`
+  is styled entirely by `--mud-palette-*`, so it is drawn in whichever theme is showing; the two
+  fills that need a tint (the paper and the cut sections) are the primary colour at 12%
+  `fill-opacity` rather than a colour of their own, because the same 12% reads as a pale wash on
+  light and a deep one on dark. The hatch `<pattern>` lives inside `<defs>` and is styled by
+  class like everything else — the scope attribute does reach in there, but it is the one place
+  where a scoping failure would leave the band invisible rather than merely off-colour, so
+  `Theme.feature` holds the hatch to the same computed colour as the paper.
 - **The roll never touches the diagram's frame.** A gutter of 15% of the roll width frames the
   paper on whichever axis the roll spans — the margins on the other axis already carry the two
   end annotations. Without it the drawing read as zoomed in too far, since the paper sat flush

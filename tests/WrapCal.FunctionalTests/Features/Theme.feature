@@ -29,6 +29,12 @@ Feature: Theme
     When I choose the light theme
     Then the page should be in the light theme
 
+  Scenario: The cut layout is drawn in the page's theme
+    Given the visitor last chose the dark theme
+    And the plan page
+    When I plan the wrap
+    Then the cut layout should be drawn for a dark theme
+
   Scenario: The page is already in the right theme while the app is loading
     Given the visitor last chose the dark theme
     When the plan page is opened without letting the app load

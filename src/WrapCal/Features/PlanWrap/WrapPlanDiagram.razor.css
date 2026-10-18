@@ -56,48 +56,65 @@
     flex-direction: row-reverse;
 }
 
+/* Every colour comes from MudBlazor's palette, so the drawing is drawn in the theme it is shown
+   in rather than being a fixed light-mode picture dropped onto a dark page.
+
+   The two washes — the paper and the cut sections — are the primary colour at low opacity over
+   whatever is beneath, not a colour of their own. The same 12% reads as a pale tint on light
+   paper and a deep one on dark, and it keeps the cut outlines legible against both. */
 .paper {
-    fill: #fffdf8;
-    stroke: #bdbdbd;
+    fill: var(--mud-palette-surface, #fffdf8);
+    stroke: var(--mud-palette-lines-default, #bdbdbd);
     stroke-width: 1;
     vector-effect: non-scaling-stroke;
 }
 
 .cut rect {
-    fill: #eeebfc;
-    stroke: #594ae2;
+    fill: var(--mud-palette-primary, #594ae2);
+    fill-opacity: 0.12;
+    stroke: var(--mud-palette-primary, #594ae2);
     /* Keep hairlines crisp however far the drawing is scaled. */
     stroke-width: 1;
     vector-effect: non-scaling-stroke;
 }
 
 .cut text {
-    fill: #1a1a1a;
+    fill: var(--mud-palette-text-primary, #1a1a1a);
     pointer-events: none;
 }
 
 .continues {
-    stroke: #bdbdbd;
+    stroke: var(--mud-palette-lines-default, #bdbdbd);
     stroke-width: 1;
     vector-effect: non-scaling-stroke;
 }
 
 .edge-label {
-    fill: #6f6f6f;
+    fill: var(--mud-palette-text-secondary, #6f6f6f);
     pointer-events: none;
 }
 
+/* Ringed against the page rather than against white, so it stands out in either theme. */
 .origin-dot {
-    fill: #594ae2;
-    stroke: #fff;
+    fill: var(--mud-palette-primary, #594ae2);
+    stroke: var(--mud-palette-background, #fff);
     stroke-width: 1.5;
     vector-effect: non-scaling-stroke;
 }
 
 .origin-label {
-    fill: #594ae2;
+    fill: var(--mud-palette-primary, #594ae2);
     font-weight: 600;
     pointer-events: none;
+}
+
+.hatch-background {
+    fill: var(--mud-palette-surface, #fffdf8);
+}
+
+.hatch-line {
+    stroke: var(--mud-palette-lines-default, #e0e0e0);
+    stroke-width: 2;
 }
 
 /* The figure's caption. Replaces the Bootstrap text-muted/small helpers the template used. */
