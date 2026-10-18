@@ -30,15 +30,13 @@ public class PlanWrapInputTests
         var input = new PlanWrapInput
         {
             RollWidth = 24,
-            OverlapMargin = 1.5,
-            EndAllowance = 2,
+            PaperMargin = 1.5,
         };
 
         WrapOptions options = input.ToOptions();
 
         await Assert.That(options.RollWidth).IsEqualTo(24.0);
-        await Assert.That(options.OverlapMargin).IsEqualTo(1.5);
-        await Assert.That(options.EndAllowance).IsEqualTo(2.0);
+        await Assert.That(options.PaperMargin).IsEqualTo(1.5);
     }
 
     [Test]

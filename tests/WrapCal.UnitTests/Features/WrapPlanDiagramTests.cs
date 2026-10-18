@@ -68,34 +68,56 @@ public class WrapPlanDiagramTests : BunitContext
     }
 
     [Test]
-    public async Task Draws_the_surplus_above_when_the_roll_continues_upwards()
+    [Arguments(RollDirection.Down, "↓ Roll continues")]
+    [Arguments(RollDirection.Up, "↑ Roll continues")]
+    [Arguments(RollDirection.Right, "→ Roll continues")]
+    [Arguments(RollDirection.Left, "← Roll continues")]
+    public async Task Points_the_continues_label_the_right_way(RollDirection direction, string expected)
     {
         var cut = Render<WrapPlanDiagram>(parameters => parameters
             .Add(p => p.Plan, OneBoxPlan())
-            .Add(p => p.ContinuesDown, false));
+            .Add(p => p.Direction, direction));
 
-        string markup = cut.Markup;
-
-        await Assert.That(markup).Contains("↑ Roll continues");
-        await Assert.That(markup.Contains("↓ Roll continues")).IsFalse();
+        await Assert.That(cut.Markup).Contains(expected);
     }
 
     [Test]
     public async Task Mirrors_the_cuts_when_the_roll_continues_upwards()
     {
         // One box would not distinguish the two: a single section starts at Y=0 either way.
-        WrapPlan plan = PlanWrapLogic.Plan(
-            [new GiftBox("Book", 22, 15, 4), new GiftBox("Mug", 12, 12, 12)],
-            new WrapOptions(60, 0.5, RandomRestarts: 0)).Value;
+        WrapPlan plan = TwoBoxPlan();
 
         var down = Render<WrapPlanDiagram>(parameters => parameters
-            .Add(p => p.Plan, plan).Add(p => p.ContinuesDown, true));
+            .Add(p => p.Plan, plan).Add(p => p.Direction, RollDirection.Down));
         var up = Render<WrapPlanDiagram>(parameters => parameters
-            .Add(p => p.Plan, plan).Add(p => p.ContinuesDown, false));
+            .Add(p => p.Plan, plan).Add(p => p.Direction, RollDirection.Up));
 
         string firstYDown = down.FindAll("g.cut rect")[0].GetAttribute("y") ?? string.Empty;
         string firstYUp = up.FindAll("g.cut rect")[0].GetAttribute("y") ?? string.Empty;
 
         await Assert.That(firstYUp).IsNotEqualTo(firstYDown);
     }
+
+    [Test]
+    public async Task Swaps_the_axes_when_the_roll_runs_horizontally()
+    {
+        WrapPlan plan = TwoBoxPlan();
+
+        var down = Render<WrapPlanDiagram>(parameters => parameters
+            .Add(p => p.Plan, plan).Add(p => p.Direction, RollDirection.Down));
+        var right = Render<WrapPlanDiagram>(parameters => parameters
+            .Add(p => p.Plan, plan).Add(p => p.Direction, RollDirection.Right));
+
+        // Down: the paper is as wide as the roll. Right: as tall as the roll.
+        string[] downParts = (down.Find("svg").GetAttribute("viewBox") ?? "").Split(' ');
+        string[] rightParts = (right.Find("svg").GetAttribute("viewBox") ?? "").Split(' ');
+
+        await Assert.That(downParts[2]).IsEqualTo("60");
+        await Assert.That(rightParts[3]).IsEqualTo("60");
+    }
+
+    private static WrapPlan TwoBoxPlan() =>
+        PlanWrapLogic.Plan(
+            [new GiftBox("Book", 22, 15, 4), new GiftBox("Mug", 12, 12, 12)],
+            new WrapOptions(60, 0.5, RandomRestarts: 0)).Value;
 }

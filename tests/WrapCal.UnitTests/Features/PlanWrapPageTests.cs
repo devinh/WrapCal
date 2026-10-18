@@ -20,8 +20,8 @@ public class PlanWrapPageTests : BunitContext
 
         // Find throws when the element is absent, so reaching the end is the assertion.
         cut.Find("#rollWidth");
-        cut.Find("#overlapMargin");
-        cut.Find("#endAllowance");
+        cut.Find("#paperMargin");
+        cut.Find("[data-testid='unit-select']");
         cut.Find("[data-testid='plan-button']");
     }
 

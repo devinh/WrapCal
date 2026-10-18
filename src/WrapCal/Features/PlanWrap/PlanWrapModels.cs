@@ -8,6 +8,18 @@ public enum LengthUnit
 }
 
 /// <summary>
+/// Which way the unused paper is drawn beyond the last cut. Purely presentational — the plan
+/// always measures Y from the starting end regardless of how it is drawn.
+/// </summary>
+public enum RollDirection
+{
+    Down,
+    Up,
+    Left,
+    Right
+}
+
+/// <summary>
 /// Converts between centimetres and inches. The planner does all its arithmetic in
 /// centimetres, converting once on the way in and once on the way out.
 /// </summary>
@@ -26,14 +38,18 @@ public static class UnitConverter
 public sealed record GiftBox(string Name, double Length, double Width, double Height);
 
 /// <summary>
-/// <paramref name="RollWidth"/> and <paramref name="OverlapMargin"/> are in
+/// <paramref name="RollWidth"/> and <paramref name="PaperMargin"/> are in
 /// <paramref name="InputUnit"/>. Everything is converted to centimetres for the maths and
 /// converted back to <paramref name="OutputUnit"/> at the end.
+/// <para>
+/// <paramref name="PaperMargin"/> is added beyond <em>every</em> edge of each sheet, so both
+/// the width and the length of a sheet grow by twice the margin. It covers the seam overlap
+/// around the box and the slack at each end in one number.
+/// </para>
 /// </summary>
 public sealed record WrapOptions(
     double RollWidth,
-    double OverlapMargin,
-    double EndAllowance = 0,
+    double PaperMargin,
     LengthUnit InputUnit = LengthUnit.Centimeters,
     LengthUnit OutputUnit = LengthUnit.Centimeters,
     int RandomRestarts = 500,

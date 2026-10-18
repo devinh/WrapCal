@@ -8,7 +8,7 @@ public class PlanWrapLogicTests
         double rollWidth = 30,
         LengthUnit inputUnit = LengthUnit.Centimeters,
         LengthUnit outputUnit = LengthUnit.Centimeters) =>
-        new(rollWidth, OverlapMargin: 0.5, InputUnit: inputUnit, OutputUnit: outputUnit,
+        new(rollWidth, PaperMargin: 0.5, InputUnit: inputUnit, OutputUnit: outputUnit,
             RandomRestarts: 25, Seed: 1);
 
     private static GiftBox Box(string name = "Book", double length = 22, double width = 15, double height = 4) =>
@@ -101,7 +101,7 @@ public class PlanWrapLogicTests
             [new GiftBox("B", 8, 4, 2)],
             new WrapOptions(
                 RollWidth: 30 / UnitConverter.CmPerInch,
-                OverlapMargin: 0.5 / UnitConverter.CmPerInch,
+                PaperMargin: 0.5 / UnitConverter.CmPerInch,
                 InputUnit: LengthUnit.Inches,
                 OutputUnit: LengthUnit.Centimeters,
                 RandomRestarts: 0));
@@ -166,20 +166,24 @@ public class PlanWrapLogicTests
         // Seeded, so it is reproducible. If these numbers move, the optimiser's behaviour
         // changed — treat that as a deliberate decision to re-baseline, not an accident.
         //
-        // Six varied boxes, deliberately: the randomised restarts only earn their keep on an
-        // input like this. Measured on this exact set, roll length is 171 with restarts
-        // disabled and 152.5 with them on, so this test fails if restarts stop working.
-        // (A 4-box set was tried first and was useless as a guard — it returns 70 for every
-        // restart count, so it would pass even with the optimiser crippled.)
+        // Eight varied boxes on a 40in roll, deliberately: the randomised restarts only earn
+        // their keep on an input where the greedy order is contested. Measured on this exact
+        // set, roll length is 384 with restarts disabled and 375 with them on, so this test
+        // fails if restarts stop working.
+        //
+        // This had to be re-chosen when the margin model changed: the previous six-box set on
+        // a 60in roll became restart-insensitive afterwards (identical output at every restart
+        // count), so it would have passed with the optimiser crippled.
         GiftBox[] boxes =
         [
             new("A", 20, 14, 6), new("B", 15, 15, 15), new("C", 8, 8, 2),
             new("D", 25, 18, 5), new("E", 12, 9, 3), new("F", 18, 12, 7),
+            new("G", 10, 10, 10), new("H", 30, 20, 8),
         ];
 
         var options = new WrapOptions(
-            RollWidth: 60,
-            OverlapMargin: 0.5,
+            RollWidth: 40,
+            PaperMargin: 0.5,
             InputUnit: LengthUnit.Inches,
             OutputUnit: LengthUnit.Inches,
             RandomRestarts: 200,
@@ -188,13 +192,13 @@ public class PlanWrapLogicTests
         var result = PlanWrapLogic.Plan(boxes, options);
 
         await Assert.That(result.IsSuccess).IsTrue();
-        await Assert.That(result.Value.Sections.Count).IsEqualTo(6);
+        await Assert.That(result.Value.Sections.Count).IsEqualTo(8);
 
-        // Exact values are 152.5 and 0.8824590163934426, identical in Debug and Release.
+        // Exact values are 375 and 0.8722000000000002, identical in Debug and Release.
         // Rounded to survive harmless float noise, but finely enough that any real change in
         // packing quality fails the test rather than slipping through.
-        await Assert.That(Math.Round(result.Value.RollLengthUsed, 3)).IsEqualTo(152.5);
-        await Assert.That(Math.Round(result.Value.Efficiency, 6)).IsEqualTo(0.882459);
+        await Assert.That(Math.Round(result.Value.RollLengthUsed, 3)).IsEqualTo(375.0);
+        await Assert.That(Math.Round(result.Value.Efficiency, 4)).IsEqualTo(0.8722);
     }
 
     private static bool Overlaps(CutSection a, CutSection b) =>

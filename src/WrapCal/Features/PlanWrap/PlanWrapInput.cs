@@ -11,11 +11,8 @@ public sealed class PlanWrapInput
     [Range(1.0, 1000.0, ErrorMessage = "Roll Width must be between 1 and 1000.")]
     public double RollWidth { get; set; } = 30;
 
-    [Range(0.0, 100.0, ErrorMessage = "Overlap Margin must be between 0 and 100.")]
-    public double OverlapMargin { get; set; } = 0.5;
-
-    [Range(0.0, 100.0, ErrorMessage = "End Allowance must be between 0 and 100.")]
-    public double EndAllowance { get; set; }
+    [Range(0.0, 100.0, ErrorMessage = "Paper Margin must be between 0 and 100.")]
+    public double PaperMargin { get; set; } = 0.5;
 
     public LengthUnit InputUnit { get; set; } = LengthUnit.Inches;
 
@@ -27,7 +24,7 @@ public sealed class PlanWrapInput
     /// surprising, and the form never exposed the control to change it.
     /// </summary>
     public WrapOptions ToOptions() =>
-        new(RollWidth, OverlapMargin, EndAllowance, InputUnit, InputUnit);
+        new(RollWidth, PaperMargin, InputUnit, InputUnit);
 
     /// <summary>
     /// Box dimensions themselves are checked by <see cref="PlanWrapLogic"/>, which reports
