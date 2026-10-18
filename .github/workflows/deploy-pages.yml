@@ -23,9 +23,9 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
 
@@ -37,14 +37,14 @@ jobs:
 
       # Pages is already pointed at GitHub Actions for this repository, so this only reads its
       # configuration — it is not asked to enable anything.
-      - uses: actions/configure-pages@v5
+      - uses: actions/configure-pages@v6
 
       # output/wwwroot, not output: publish also writes host files beside it that a static host
       # ignores. Deploying through Actions means no Jekyll, so _framework/ is served as-is and
       # no .nojekyll is needed. A branch-based deployment would need one.
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: output/wwwroot
 
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
