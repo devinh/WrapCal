@@ -23,8 +23,8 @@ public sealed class FormSteps : StepsBase
         await OpenPlanPageAsync();
         await SetUnitAsync(unit);
 
-        await FillAndLeaveAsync(Ui.Page.Locator("#rollWidth"), Inv(rollWidth));
-        await FillAndLeaveAsync(Ui.Page.Locator("#overlapMargin"), Inv(overlap));
+        await FillAndLeaveAsync(Ui.Page.Locator("[data-testid='roll-width']"), Inv(rollWidth));
+        await FillAndLeaveAsync(Ui.Page.Locator("[data-testid='overlap-margin']"), Inv(overlap));
     }
 
     [Given("a box {string} measuring {double} by {double} by {double}")]
@@ -32,13 +32,10 @@ public sealed class FormSteps : StepsBase
     {
         ILocator row = await NextBoxRowAsync();
 
-        // InputText renders no type attribute, so it cannot be found by input[type='text'].
         await FillAndLeaveAsync(row.Locator("[data-testid='box-name']"), name);
-
-        ILocator sides = row.Locator("input[type='number']");
-        await FillAndLeaveAsync(sides.Nth(0), Inv(length));
-        await FillAndLeaveAsync(sides.Nth(1), Inv(width));
-        await FillAndLeaveAsync(sides.Nth(2), Inv(height));
+        await FillAndLeaveAsync(row.Locator("[data-testid='box-length']"), Inv(length));
+        await FillAndLeaveAsync(row.Locator("[data-testid='box-width']"), Inv(width));
+        await FillAndLeaveAsync(row.Locator("[data-testid='box-height']"), Inv(height));
     }
 
     [Given("{int} identical boxes measuring {double} by {double} by {double}")]
@@ -77,8 +74,7 @@ public sealed class FormSteps : StepsBase
 
         // Selected by label: the option values are the enum names (Down, Up, ...), which read
         // badly in a feature file.
-        await Ui.Page.Locator("[data-testid='roll-direction']")
-            .SelectOptionAsync(new SelectOptionValue { Label = direction });
+        await PickAsync(Ui.Page.Locator("[data-testid='roll-direction']"), direction);
 
         // Changing direction redraws the diagram, and the scroller is re-keyed, so the previous
         // drawing's elements are detached for a moment. Waiting for the new scroller to carry this

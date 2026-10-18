@@ -1,297 +1,154 @@
 @page "/"
-@rendermode InteractiveServer
 
 <PageTitle>Plan a Wrap</PageTitle>
 
-<h1>Plan a Wrap</h1>
+<MudText Typo="Typo.h4" Class="mb-2">Plan a Wrap</MudText>
 
-<p class="text-muted">
+<MudText Typo="Typo.body1" Class="mb-6">
     Enter the roll you have and the boxes you want to wrap. The plan shows where to cut.
-</p>
+</MudText>
 
-<EditForm EditContext="_editContext" OnSubmit="HandleSubmit" data-interactive="@InteractiveMarker">
-    <DataAnnotationsValidator />
+<MudForm @ref="_form" Model="_input">
+    <MudGrid Spacing="3" Class="mb-6" data-testid="roll-options">
+        <MudItem xs="12" md="4">
+            <MudNumericField T="double" Label="Roll Width"
+                             @bind-Value="_input.RollWidth"
+                             For="() => _input.RollWidth"
+                             Validation="RollWidthValidation"
+                             HelperText="Usable width of the roll — across it, not its length."
+                             data-testid="roll-width" />
+        </MudItem>
 
-    <div class="row g-3 mb-3">
-        <div class="col-md-3">
-            <label class="form-label" for="rollWidth">Roll Width</label>
-            <InputNumber id="rollWidth" @bind-Value="_input.RollWidth" class="form-control"
-                         title="The usable width of your paper roll — the distance across it, not its length." />
-            <div class="form-text">Usable width of the roll — across it, not its length.</div>
-            @* Messages sit below the descriptions, so the descriptions stay on one line across
-               all three columns regardless of which field is currently complaining. *@
-            <div class="validation-slot">
-                <ValidationMessage For="() => _input.RollWidth" />
+        <MudItem xs="12" md="4">
+            <MudNumericField T="double" Label="Overlap Margin"
+                             @bind-Value="_input.OverlapMargin"
+                             For="() => _input.OverlapMargin"
+                             Validation="OverlapValidation"
+                             HelperText="How far the two paper ends overlap at the seam."
+                             data-testid="overlap-margin" />
+        </MudItem>
+
+        <MudItem xs="12" md="4">
+            @* MudSelect puts unmatched attributes on its hidden input, which cannot be clicked,
+               so the testid wraps it instead — the suite opens the picker through this. *@
+            <div data-testid="unit-select">
+                <MudSelect T="LengthUnit" Label="Units"
+                           @bind-Value="_input.InputUnit"
+                           @bind-Value:after="OnUnitChangedAsync"
+                           HelperText="Used for what you type in and what you get back.">
+                    <MudSelectItem Value="LengthUnit.Inches">Inches</MudSelectItem>
+                    <MudSelectItem Value="LengthUnit.Centimeters">Centimetres</MudSelectItem>
+                </MudSelect>
             </div>
-        </div>
+        </MudItem>
+    </MudGrid>
 
-        <div class="col-md-3">
-            <label class="form-label" for="overlapMargin">Overlap Margin</label>
-            <InputNumber id="overlapMargin" @bind-Value="_input.OverlapMargin" class="form-control"
-                         title="How far the two ends of the paper lap over each other when wrapped around the box. 0 means the paper meets exactly but does not overlap." />
-            <div class="form-text">How far the two paper ends overlap at the seam.</div>
-            <div class="validation-slot">
-                <ValidationMessage For="() => _input.OverlapMargin" />
-            </div>
-        </div>
+    <MudText Typo="Typo.h6" Class="mb-1">Boxes</MudText>
 
-        <div class="col-md-3">
-            <label class="form-label" for="inputUnit">Units</label>
-            <InputSelect id="inputUnit" @bind-Value="_input.InputUnit" @bind-Value:after="OnUnitChanged"
-                         class="form-select" data-testid="unit-select"
-                         title="Applies to every length you type in, and to the results. Changing it converts what you have entered.">
-                <option value="@LengthUnit.Inches">Inches</option>
-                <option value="@LengthUnit.Centimeters">Centimetres</option>
-            </InputSelect>
-            <div class="form-text">Used for what you type in and what you get back.</div>
-        </div>
-    </div>
-
-    <h2 class="h5">Boxes</h2>
-    <div class="form-text mb-2">
+    <MudText Typo="Typo.body2" Class="mb-3">
         Length, width and height of each box, in the units selected above. The planner wraps
         each box in a single sheet, folding the paper over both ends.
-    </div>
+    </MudText>
 
-    <table class="table align-middle" data-testid="boxes">
-        <thead>
-            <tr>
-                <th scope="col">Name</th>
-                <th scope="col">Length</th>
-                <th scope="col">Width</th>
-                <th scope="col">Height</th>
-                <th scope="col"></th>
-            </tr>
-        </thead>
-        <tbody>
-            @for (int row = 0; row < _input.Boxes.Count; row++)
-            {
-                int index = row;
-                // Captured into locals: the loop variable is not safe to use in a closure,
-                // and component attributes cannot mix C# with markup.
-                BoxInput box = _input.Boxes[index];
-                string placeholder = $"Box {index + 1}";
+    <MudPaper Elevation="1" Class="pa-4 mb-4" data-testid="boxes">
+        @for (int row = 0; row < _input.Boxes.Count; row++)
+        {
+            int index = row;
+            // Captured into a local: the loop variable is not safe to use in a closure.
+            BoxInput box = _input.Boxes[index];
+            string placeholder = $"Box {index + 1}";
 
-                <tr>
-                    <td>
-                        <InputText @bind-Value="box.Name" class="form-control"
-                                   data-testid="box-name" placeholder="@placeholder" />
-                        <div class="validation-slot">
-                            <ValidationMessage For="() => box.Name" />
-                        </div>
-                    </td>
-                    <td>
-                        <InputNumber @bind-Value="box.Length" class="form-control" />
-                        <div class="validation-slot">
-                            <ValidationMessage For="() => box.Length" />
-                        </div>
-                    </td>
-                    <td>
-                        <InputNumber @bind-Value="box.Width" class="form-control" />
-                        <div class="validation-slot">
-                            <ValidationMessage For="() => box.Width" />
-                        </div>
-                    </td>
-                    <td>
-                        <InputNumber @bind-Value="box.Height" class="form-control" />
-                        <div class="validation-slot">
-                            <ValidationMessage For="() => box.Height" />
-                        </div>
-                    </td>
-                    <td class="remove-cell-host">
-                        <div class="remove-cell">
-                            <button type="button" class="btn btn-outline-danger btn-sm"
-                                    data-testid="remove-box"
-                                    disabled="@(_input.Boxes.Count <= 1)"
-                                    @onclick="() => RemoveBox(index)">
-                                Remove
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-            }
-        </tbody>
-    </table>
+            <MudGrid Spacing="2" Class="align-center mb-2" data-testid="box-row">
+                <MudItem xs="12" sm="6" md="4">
+                    <MudTextField T="string" Label="Name" Placeholder="@placeholder"
+                                  @bind-Value="box.Name"
+                                  For="() => box.Name"
+                                  Validation="NameValidation"
+                                  data-testid="box-name" />
+                </MudItem>
 
-    <div class="d-flex gap-2 mb-3">
-        <button type="button" class="btn btn-outline-secondary btn-sm" data-testid="add-box"
-                @onclick="AddBox">
+                <MudItem xs="4" sm="2" md="2">
+                    <MudNumericField T="double" Label="Length"
+                                     @bind-Value="box.Length"
+                                     For="() => box.Length"
+                                     Validation="LengthValidation"
+                                     data-testid="box-length"
+                                     HelperText=" " Class="wrapcal-message-slot" />
+                </MudItem>
+
+                <MudItem xs="4" sm="2" md="2">
+                    <MudNumericField T="double" Label="Width"
+                                     @bind-Value="box.Width"
+                                     For="() => box.Width"
+                                     Validation="WidthValidation"
+                                     data-testid="box-width"
+                                     HelperText=" " Class="wrapcal-message-slot" />
+                </MudItem>
+
+                <MudItem xs="4" sm="2" md="2">
+                    <MudNumericField T="double" Label="Height"
+                                     @bind-Value="box.Height"
+                                     For="() => box.Height"
+                                     Validation="HeightValidation"
+                                     data-testid="box-height"
+                                     HelperText=" " Class="wrapcal-message-slot" />
+                </MudItem>
+
+                <MudItem xs="12" sm="12" md="2" Class="d-flex justify-end">
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                   Color="Color.Error"
+                                   aria-label="Remove this box"
+                                   data-testid="remove-box"
+                                   Disabled="@(!Interactive || _input.Boxes.Count <= 1)"
+                                   OnClick="() => RemoveBox(index)" />
+                </MudItem>
+            </MudGrid>
+        }
+    </MudPaper>
+
+    <MudStack Row="true" Spacing="2" Class="mb-6">
+        <MudButton Variant="Variant.Outlined" Color="Color.Default"
+                   StartIcon="@Icons.Material.Filled.Add"
+                   data-testid="add-box"
+                   Disabled="@(!Interactive)"
+                   OnClick="AddBox">
             Add box
-        </button>
-        <button type="submit" class="btn btn-primary" data-testid="plan-button">Plan</button>
-    </div>
-</EditForm>
+        </MudButton>
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   data-testid="plan-button"
+                   Disabled="@(!Interactive)"
+                   OnClick="SubmitAsync">
+            Plan
+        </MudButton>
+    </MudStack>
+</MudForm>
 
 @if (_error is not null)
 {
-    <div class="alert alert-warning" data-testid="plan-error">@_error</div>
+    <MudAlert Severity="Severity.Warning" Class="mb-4" data-testid="plan-error">@_error</MudAlert>
 }
 
 @if (_plan is not null)
 {
-    <div class="card mt-4">
-        <div class="card-body">
-            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
-                <h2 class="h5 card-title mb-0">Paper Layout</h2>
+    <MudPaper Elevation="2" Class="pa-4 mt-4">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
+            <MudText Typo="Typo.h6">Paper Layout</MudText>
 
-                @* Presentation only — it changes which way the drawing faces, not the plan. *@
-                <div class="d-flex align-items-center gap-2">
-                    <label class="form-label mb-0 small text-nowrap" for="rollDirection">
-                        Roll Continues
-                    </label>
-                    <select id="rollDirection" class="form-select form-select-sm w-auto"
-                            @bind="_rollDirection" data-testid="roll-direction">
-                        <option value="@RollDirection.Up">Upwards</option>
-                        <option value="@RollDirection.Down">Downwards</option>
-                        <option value="@RollDirection.Right">Rightwards</option>
-                        <option value="@RollDirection.Left">Leftwards</option>
-                    </select>
-                </div>
+            @* Presentation only — it changes which way the drawing faces, not the plan. *@
+            <div data-testid="roll-direction">
+                <MudSelect T="RollDirection" Label="Roll Continues" Dense="true"
+                           @bind-Value="_rollDirection">
+                    <MudSelectItem Value="RollDirection.Up">Upwards</MudSelectItem>
+                    <MudSelectItem Value="RollDirection.Down">Downwards</MudSelectItem>
+                    <MudSelectItem Value="RollDirection.Right">Rightwards</MudSelectItem>
+                    <MudSelectItem Value="RollDirection.Left">Leftwards</MudSelectItem>
+                </MudSelect>
             </div>
+        </MudStack>
 
-            <WrapPlanDiagram Plan="_plan" Direction="_rollDirection" />
-        </div>
-    </div>
+        <WrapPlanDiagram Plan="_plan" Direction="_rollDirection" />
+    </MudPaper>
 
     <WrapPlanView Plan="_plan" />
-}
-
-@code {
-    private readonly PlanWrapInput _input = new();
-    private EditContext _editContext = default!;
-    private ValidationMessageStore _messages = default!;
-    private WrapPlan? _plan;
-    private string? _error;
-    private bool _interactive;
-    private RollDirection _rollDirection = RollDirection.Up;
-    private LengthUnit _previousUnit = LengthUnit.Inches;
-
-    protected override void OnInitialized()
-    {
-        _editContext = new EditContext(_input);
-        _messages = new ValidationMessageStore(_editContext);
-
-        // Box rules are re-checked whenever a field changes, so a bad dimension reports as soon
-        // as the field is left — the same timing the roll options already get for free from
-        // DataAnnotationsValidator, which also revalidates the whole model on every change.
-        _editContext.OnFieldChanged += (_, _) =>
-        {
-            RefreshBoxMessages();
-            _editContext.NotifyValidationStateChanged();
-        };
-    }
-
-    /// <summary>
-    /// Re-expresses every length when the unit changes, so the roll and boxes you described stay
-    /// the same physical size and only the numbering changes. Rounded to two decimals — an inch
-    /// is 2.54 cm, so conversions rarely land on something worth reading to full precision.
-    /// </summary>
-    private void OnUnitChanged()
-    {
-        LengthUnit from = _previousUnit;
-        LengthUnit to = _input.InputUnit;
-
-        if (from == to)
-        {
-            return;
-        }
-
-        _input.RollWidth = Converted(_input.RollWidth);
-        _input.OverlapMargin = Converted(_input.OverlapMargin);
-
-        foreach (BoxInput box in _input.Boxes)
-        {
-            box.Length = Converted(box.Length);
-            box.Width = Converted(box.Width);
-            box.Height = Converted(box.Height);
-        }
-
-        _previousUnit = to;
-
-        // Any plan on screen is stated in the unit we just left.
-        _plan = null;
-        _error = null;
-
-        _editContext.Validate();
-        RefreshBoxMessages();
-        _editContext.NotifyValidationStateChanged();
-
-        double Converted(double value) =>
-            Math.Round(UnitConverter.FromCm(UnitConverter.ToCm(value, from), to), 2);
-    }
-
-    /// <summary>
-    /// Repopulates the box-row messages and reports whether any problems remain.
-    /// </summary>
-    private bool RefreshBoxMessages()
-    {
-        _messages.Clear();
-
-        IReadOnlyList<BoxProblem> problems = _input.ValidateBoxes();
-
-        foreach (BoxProblem problem in problems)
-        {
-            _messages.Add(new FieldIdentifier(problem.Box, problem.Field), problem.Message);
-        }
-
-        return problems.Count > 0;
-    }
-
-    /// <summary>
-    /// Null until the SignalR circuit is live, then "true". Exposed to the DOM so an automated
-    /// test can wait for real interactivity instead of guessing — before the circuit attaches,
-    /// the submit button performs a native form POST and navigates away.
-    /// </summary>
-    private string? InteractiveMarker => _interactive ? "true" : null;
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender && RendererInfo.IsInteractive && !_interactive)
-        {
-            _interactive = true;
-            await InvokeAsync(StateHasChanged);
-        }
-    }
-
-    private void AddBox() => _input.Boxes.Add(new BoxInput());
-
-    private void RemoveBox(int index)
-    {
-        if (_input.Boxes.Count > 1)
-        {
-            _input.Boxes.RemoveAt(index);
-        }
-    }
-
-    private void HandleSubmit(EditContext context)
-    {
-        _messages.Clear();
-
-        // Roll options validate through DataAnnotations; the box rows cannot, so their rules
-        // are applied here and attached to the offending fields.
-        bool fieldsValid = context.Validate();
-        bool boxesInvalid = RefreshBoxMessages();
-
-        context.NotifyValidationStateChanged();
-
-        if (!fieldsValid || boxesInvalid)
-        {
-            _plan = null;
-            _error = null;
-            return;
-        }
-
-        Result<WrapPlan> result = PlanWrapLogic.Plan(_input.ToBoxes(), _input.ToOptions());
-
-        if (result.IsSuccess)
-        {
-            _plan = result.Value;
-            _error = null;
-        }
-        else
-        {
-            _plan = null;
-            _error = result.Error.Message;
-        }
-    }
 }

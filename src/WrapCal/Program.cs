@@ -1,3 +1,4 @@
+using MudBlazor.Services;
 using WrapCal.Components;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -5,6 +6,11 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+builder.Services.AddMudServices();
+
+// Read by MainLayout while prerendering, to start on the theme the cookie already chose.
+builder.Services.AddHttpContextAccessor();
 
 var app = builder.Build();
 

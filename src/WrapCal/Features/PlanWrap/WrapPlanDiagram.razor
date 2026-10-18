@@ -2,7 +2,7 @@
 
 @if (Plan.Sections.Count == 0 || Plan.RollWidth <= 0 || Plan.RollLengthUsed <= 0)
 {
-    <p class="text-muted mb-0">Nothing to draw — no boxes to wrap.</p>
+    <MudText Typo="Typo.body2" Class="mb-0">Nothing to draw — no boxes to wrap.</MudText>
 }
 else
 {
@@ -21,13 +21,14 @@ else
             <svg viewBox="@ViewBox"
                  preserveAspectRatio="xMidYMid meet"
                  role="img"
+                 data-testid="diagram"
                  aria-label="@AriaLabel">
 
                 <defs>
                     <pattern id="@HatchId" width="6" height="6" patternUnits="userSpaceOnUse"
                              patternTransform="rotate(45)">
-                        <rect width="6" height="6" fill="#fbfaf7" />
-                        <line x1="0" y1="0" x2="0" y2="6" stroke="#dedad0" stroke-width="2" />
+                        <rect width="6" height="6" fill="#fffdf8" />
+                        <line x1="0" y1="0" x2="0" y2="6" stroke="#e0e0e0" stroke-width="2" />
                     </pattern>
 
                     @for (int i = 0; i < Plan.Sections.Count; i++)
@@ -91,7 +92,7 @@ else
             </svg>
         </div>
 
-        <figcaption class="text-muted small mt-1">
+        <figcaption class="wrapcal-caption">
             Paper: @F(PaperWidth) @UnitLabel wide × @F(PaperHeight) @UnitLabel long.
             The dot marks the origin (0,0), where the distance across the roll and the distance
             along it are both zero. The roll continues past the @EdgeName edge — the hatched

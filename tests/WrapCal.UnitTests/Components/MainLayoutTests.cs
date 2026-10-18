@@ -3,7 +3,7 @@ using WrapCal.Components.Layout;
 
 namespace WrapCal.UnitTests;
 
-public class MainLayoutTests : BunitContext
+public class MainLayoutTests : WrapCalBunitContext
 {
     [Test]
     public async Task Renders_the_app_name_and_the_page_content()

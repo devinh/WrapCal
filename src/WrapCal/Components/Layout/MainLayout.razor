@@ -1,16 +1,30 @@
 ﻿@inherits LayoutComponentBase
 
-<div class="page">
-    <header class="app-header">
-        <span class="app-brand">WrapCal</span>
-    </header>
+@* The providers live here because MainLayout renders inside the interactive tree that starts at
+   <Routes> in App.razor. A MudSelect whose popover provider sits outside that tree reports a
+   missing MudPopoverProvider and cannot open. *@
+<MudThemeProvider Theme="_theme" IsDarkMode="_isDark" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
 
-    <main>
-        <article class="content">
+<MudLayout>
+    <MudAppBar Elevation="1" Dense="true">
+        <MudText Typo="Typo.h6" Class="ml-3">WrapCal</MudText>
+        <MudSpacer />
+        <MudIconButton Icon="@ThemeIcon"
+                       Color="Color.Inherit"
+                       OnClick="ToggleThemeAsync"
+                       data-testid="theme-toggle"
+                       aria-label="Switch between light and dark theme" />
+    </MudAppBar>
+
+    <MudMainContent>
+        <MudContainer MaxWidth="MaxWidth.Large" Class="pa-6">
             @Body
-        </article>
-    </main>
-</div>
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>
 
 <div id="blazor-error-ui" data-nosnippet>
     An unhandled error has occurred.

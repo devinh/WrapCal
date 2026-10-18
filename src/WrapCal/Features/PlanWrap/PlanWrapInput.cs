@@ -1,17 +1,28 @@
-using System.ComponentModel.DataAnnotations;
-
 namespace WrapCal.Features.PlanWrap;
 
 /// <summary>
 /// What the form binds to. Kept separate from <see cref="WrapOptions"/> so the domain records
-/// carry no display concerns — validation attributes belong on the input model, not the domain.
+/// carry no display concerns — the limits below describe what a person may type, not what the
+/// planner accepts.
 /// </summary>
 public sealed class PlanWrapInput
 {
-    [Range(1.0, 1000.0, ErrorMessage = "Roll Width must be between 1 and 1000.")]
+    public const double MinRollWidth = 1.0;
+
+    public const double MaxRollWidth = 1000.0;
+
+    public const double MinOverlap = 0.0;
+
+    public const double MaxOverlap = 100.0;
+
+    public const double MinDimension = 0.1;
+
+    public const double MaxDimension = 1000.0;
+
+    public const int MaxNameLength = 50;
+
     public double RollWidth { get; set; } = 30;
 
-    [Range(0.0, 100.0, ErrorMessage = "Overlap Margin must be between 0 and 100.")]
     public double OverlapMargin { get; set; } = 0.5;
 
     public LengthUnit InputUnit { get; set; } = LengthUnit.Inches;
@@ -25,49 +36,6 @@ public sealed class PlanWrapInput
     /// </summary>
     public WrapOptions ToOptions() =>
         new(RollWidth, OverlapMargin, InputUnit, InputUnit);
-
-    public const double MinDimension = 0.1;
-
-    public const double MaxDimension = 1000;
-
-    public const int MaxNameLength = 50;
-
-    /// <summary>
-    /// Per-field problems with the box rows, so the page can show each against the input that
-    /// caused it. <c>DataAnnotationsValidator</c> cannot reach inside the list.
-    /// </summary>
-    public IReadOnlyList<BoxProblem> ValidateBoxes()
-    {
-        List<BoxProblem> problems = [];
-
-        foreach (BoxInput box in Boxes)
-        {
-            CheckDimension(box, nameof(BoxInput.Length), "Length", box.Length);
-            CheckDimension(box, nameof(BoxInput.Width), "Width", box.Width);
-            CheckDimension(box, nameof(BoxInput.Height), "Height", box.Height);
-
-            if (box.Name is not null && box.Name.Trim().Length > MaxNameLength)
-            {
-                problems.Add(new BoxProblem(
-                    box,
-                    nameof(BoxInput.Name),
-                    $"Name must be {MaxNameLength} characters or fewer."));
-            }
-        }
-
-        return problems;
-
-        void CheckDimension(BoxInput box, string field, string label, double value)
-        {
-            if (value is < MinDimension or > MaxDimension)
-            {
-                problems.Add(new BoxProblem(
-                    box,
-                    field,
-                    $"{label} must be between {MinDimension} and {MaxDimension}."));
-            }
-        }
-    }
 
     /// <summary>
     /// Box dimensions themselves are checked by <see cref="PlanWrapLogic"/>, which reports
@@ -83,10 +51,8 @@ public sealed class PlanWrapInput
 }
 
 /// <summary>
-/// One row of the boxes table. Deliberately carries no validation attributes:
-/// <c>DataAnnotationsValidator</c> does not recurse into a collection, so attributes here are
-/// silently ignored. The rules live in <see cref="PlanWrapInput.ValidateBoxes"/> instead, which
-/// the page feeds into its own <c>ValidationMessageStore</c>.
+/// One row of the boxes grid. The rules for its fields live in the page's MudForm validation
+/// funcs, which apply the limits above — there is no second copy here to drift out of step.
 /// </summary>
 public sealed class BoxInput
 {
@@ -98,6 +64,3 @@ public sealed class BoxInput
 
     public double Height { get; set; } = 1.5;
 }
-
-/// <summary>A validation problem on one field of one box row.</summary>
-public sealed record BoxProblem(BoxInput Box, string Field, string Message);

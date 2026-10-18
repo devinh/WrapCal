@@ -13,7 +13,7 @@ public abstract class StepsBase
 {
     protected const int PageTimeout = 20_000;
 
-    protected const string BoxRowSelector = "[data-testid='boxes'] tbody tr";
+    protected const string BoxRowSelector = "[data-testid='box-row']";
 
     protected StepsBase(ScenarioContext scenarioContext)
     {
@@ -29,11 +29,11 @@ public abstract class StepsBase
     {
         await Ui.Page.GotoAsync(Ui.Url("/"));
 
-        // The page is InteractiveServer. Until the SignalR circuit attaches, the submit button
-        // is a plain HTML submit and clicking it POSTs and navigates away — so wait for the
-        // component's own "I am interactive" marker rather than clicking and retrying.
+        // Until the SignalR circuit attaches, the page is the prerendered copy and every control
+        // is disabled — a click then would either do nothing or POST the form and navigate away.
+        // Waiting for the button to become enabled is waiting for the page to be genuinely live.
         await Ui.Page.WaitForSelectorAsync(
-            "form[data-interactive='true']",
+            "[data-testid='plan-button']:not([disabled])",
             new PageWaitForSelectorOptions { Timeout = PageTimeout });
     }
 
@@ -56,24 +56,42 @@ public abstract class StepsBase
     {
         string target = unit.StartsWith("in", StringComparison.OrdinalIgnoreCase)
             ? "Inches"
-            : "Centimeters";
+            : "Centimetres";
 
-        ILocator select = Ui.Page.Locator("[data-testid='unit-select']");
+        ILocator host = Ui.Page.Locator("[data-testid='unit-select']");
 
-        if (await select.InputValueAsync() == target)
+        if (await SelectedTextAsync(host) == target)
         {
             return;
         }
 
-        string before = await Ui.Page.Locator("#rollWidth").InputValueAsync();
+        string before = await Ui.Page.Locator("[data-testid='roll-width']").InputValueAsync();
 
-        await select.SelectOptionAsync(target);
+        await PickAsync(host, target);
 
         await Ui.Page.WaitForFunctionAsync(
             "([selector, previous]) => document.querySelector(selector)?.value !== previous",
-            new[] { "#rollWidth", before },
+            new[] { "[data-testid='roll-width']", before },
             new PageWaitForFunctionOptions { Timeout = 10_000 });
     }
+
+    /// <summary>
+    /// A MudSelect is an overlay, not a native &lt;select&gt;: there is nothing for
+    /// selectOption to drive, so the control is opened and the option clicked by its label.
+    /// </summary>
+    protected async Task PickAsync(ILocator host, string label)
+    {
+        await host.ClickAsync();
+
+        await Ui.Page.GetByRole(AriaRole.Option, new() { Name = label, Exact = true }).ClickAsync();
+    }
+
+    /// <summary>
+    /// What a MudSelect currently shows. The visible text is rendered in the component's own
+    /// markup; the hidden input it keeps carries the same value and is simpler to read.
+    /// </summary>
+    protected static Task<string> SelectedTextAsync(ILocator host) =>
+        host.Locator("input").First.InputValueAsync();
 
     /// <summary>
     /// Fills a field and then leaves it. Blazor's inputs bind on <c>change</c>, which the browser

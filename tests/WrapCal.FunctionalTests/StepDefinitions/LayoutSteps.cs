@@ -23,7 +23,7 @@ public sealed class LayoutSteps : StepsBase
         double before = (await Ui.Page.Locator("[data-testid='plan-button']").BoundingBoxAsync())!.Y;
         Context.Set(before, PlanButtonTop);
 
-        ILocator length = Ui.Page.Locator(BoxRowSelector).First.Locator("input[type='number']").First;
+        ILocator length = Ui.Page.Locator(BoxRowSelector).First.Locator("[data-testid='box-length']");
         await FillAndLeaveAsync(length, "0");
 
         await Ui.Page.WaitForSelectorAsync(
@@ -45,8 +45,10 @@ public sealed class LayoutSteps : StepsBase
     [Then("the Remove button should line up with the row's inputs")]
     public async Task ThenTheRemoveButtonShouldLineUpWithTheRowsInputsAsync()
     {
+        // The Mud field wraps its input in a label and a helper line, so alignment is measured
+        // against the control rather than the bare input element.
         var input = (await Ui.Page.Locator(BoxRowSelector).First
-            .Locator("input[type='number']").First.BoundingBoxAsync())!;
+            .Locator(".mud-input-control").First.BoundingBoxAsync())!;
 
         var remove = (await Ui.Page.Locator("[data-testid='remove-box']").First.BoundingBoxAsync())!;
 
@@ -63,7 +65,7 @@ public sealed class LayoutSteps : StepsBase
     {
         // Validation messages sit below the descriptions, so a column showing one must not push
         // its description out of line with the others.
-        ILocator descriptions = Ui.Page.Locator(".col-md-3 .form-text");
+        ILocator descriptions = Ui.Page.Locator("[data-testid='roll-options'] .mud-input-helper-text");
         int count = await descriptions.CountAsync();
 
         var tops = new List<double>();
