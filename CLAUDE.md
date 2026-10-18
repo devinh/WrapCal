@@ -31,6 +31,11 @@ orthogonal features, accounts, saved plans, or a database.
   resolved against the base in force when its element is parsed, not when it is fetched.
   Deploying through Actions skips Jekyll, which is why `_framework/` needs no `.nojekyll`;
   switching to a branch-based deployment would need one.
+- **Three workflows.** `deploy-pages.yml` on push to `main` runs `--target=Release` and uploads
+  `output/wwwroot`; `ci.yml` on pull requests runs `--target=Tests`, and is what a Renovate PR
+  waits on before it can merge itself; `renovate.yaml` runs daily as the `devinh-renovate` App.
+  All three call Cake rather than `dotnet` — a workflow that rebuilds the way it remembers is a
+  second build definition that drifts from the first.
 - **MudBlazor 9.11** — the entire UI. Bootstrap was removed; there is one styling system and
   no second one to fight it. Its providers (`MudThemeProvider`, `MudPopoverProvider`,
   `MudDialogProvider`, `MudSnackbarProvider`) live in `MainLayout`, which wraps the whole page
@@ -289,9 +294,18 @@ dotnet format --verify-no-changes
 ./cake.sh --target=UnitTests
 ./cake.sh --target=FunctionalTests
 
-# What the deploy workflow runs: unit suite, then publish
+# What CI runs: every suite, then publish
 ./cake.sh --target=Release
+
+# Provision the browser the functional suite drives
+./cake.sh --target=InstallBrowsers
 ```
+
+`Release` runs `Tests`, so the deploy is gated on the functional suite as well as the unit one.
+That is deliberate: a dependency bump that changes how the page looks is exactly what would
+otherwise reach the live site unnoticed. `FunctionalTests` depends on `InstallBrowsers`, so a
+clean machine — a runner especially — provisions its own browser; the target is idempotent and
+takes about two seconds once the browser is there.
 
 The Cake project in `cake/` is deliberately **not in `WrapCal.slnx`**, so `dotnet build` at
 the root never builds the build script itself. It targets `net10.0` via `Cake.Sdk`, and its
@@ -431,6 +445,10 @@ Override with `BROWSER=webkit|firefox|chromium`; `HEADED=1` makes the run visibl
 | Linux / Windows | `firefox` | |
 
 #### Installing browsers without PowerShell
+
+**Normally you do not need this:** `./cake.sh --target=InstallBrowsers` does it, and the
+functional suite depends on that target. The manual form below is what the target runs, and is
+worth understanding when it misbehaves.
 
 Playwright .NET ships its installer as `playwright.ps1`, which needs PowerShell — not
 available here. That script's entire job is to load `Microsoft.Playwright.dll` and call

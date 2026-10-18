@@ -7,6 +7,15 @@ var unitTestsProject = "./tests/WrapCal.UnitTests/WrapCal.UnitTests.csproj";
 var functionalTestsProject = "./tests/WrapCal.FunctionalTests/WrapCal.FunctionalTests.csproj";
 var output = "./output";
 
+var functionalTestsBin = $"./tests/WrapCal.FunctionalTests/bin/{configuration}/net10.0";
+var playwrightDll = $"{functionalTestsBin}/Microsoft.Playwright.dll";
+var playwrightRuntimeConfig = $"{functionalTestsBin}/WrapCal.FunctionalTests.runtimeconfig.json";
+
+// Which browser the suite drives, following the suite's own rule: WebKit on macOS, because
+// Firefox cannot launch there at all, and Firefox everywhere else. BROWSER overrides it.
+string browser = EnvironmentVariable("BROWSER")
+    ?? (OperatingSystem.IsMacOS() ? "webkit" : "firefox");
+
 var testSettings = new DotNetTestSettings
 {
     Configuration = configuration,
@@ -48,8 +57,41 @@ Task("UnitTests")
         DotNetTest(unitTestsProject, testSettings);
     });
 
-Task("FunctionalTests")
+// The functional suite drives a real browser, so a fresh machine — a CI runner especially —
+// has to have one. Idempotent: Playwright skips the download when the browser is already there.
+Task("InstallBrowsers")
     .IsDependentOn("Build")
+    .Does(() =>
+    {
+        // Playwright's own installer is a PowerShell script, which is available on neither this
+        // machine nor a Linux runner. The script only loads Microsoft.Playwright.dll and calls
+        // its Main, so the DLL is invoked through `dotnet exec` instead.
+        //
+        // --runtimeconfig has to sit between `exec` and the assembly — passed after it, it
+        // reaches the app rather than the host. DotNetExecute puts the assembly in place first,
+        // so the whole line is rebuilt in ArgumentCustomization, and the arguments parameter
+        // here is deliberately empty: anything given to it is discarded, and repeating the app
+        // arguments in both places only makes it look as though both are used. The flag is not
+        // optional — Microsoft.Playwright.dll ships no .runtimeconfig.json of its own, so
+        // without it the host reads the DLL as a self-contained app and fails on a missing
+        // libhostpolicy.
+        DotNetExecute(
+            playwrightDll,
+            new ProcessArgumentBuilder(),
+            new DotNetExecuteSettings
+            {
+                ArgumentCustomization = _ => new ProcessArgumentBuilder()
+                    .Append("exec")
+                    .Append("--runtimeconfig")
+                    .AppendQuoted(playwrightRuntimeConfig)
+                    .AppendQuoted(playwrightDll)
+                    .Append("install")
+                    .Append(browser)
+            });
+    });
+
+Task("FunctionalTests")
+    .IsDependentOn("InstallBrowsers")
     .Does(() =>
     {
         DotNetTest(functionalTestsProject, testSettings);
@@ -77,11 +119,11 @@ Task("Publish")
         AssertSiteIsBootable($"{output}/wwwroot/index.html");
     });
 
-// What the deploy workflow asks for: the fast suite has to pass, then the site is published.
-// The functional suite is not in this path — it needs a browser and a WebAssembly boot per
-// scenario, and a deployment is not the place to discover it is broken.
+// What the deploy workflow asks for: every suite has to pass, then the site is published.
+// The functional suite is the one that catches a UI regression — a MudBlazor bump that changes
+// a layout, say — which is exactly the kind of change that would otherwise deploy unnoticed.
 Task("Release")
-    .IsDependentOn("UnitTests")
+    .IsDependentOn("Tests")
     .IsDependentOn("Publish");
 
 Task("Default")

@@ -29,9 +29,10 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      # One target, because the build lives in Cake and not here: `Release` builds, runs the fast
-      # suite, and publishes the site to ./output. What the artifact is, and where it lands, is
-      # cake/cake.cs's business — this file only moves it.
+      # One target, because the build lives in Cake and not here: `Release` builds, runs both
+      # suites — including the functional one, which installs the browser it needs — and
+      # publishes the site to ./output. What the artifact is, and where it lands, is
+      # cake/cake.cs's business; this file only moves it.
       - name: Build, test and publish
         run: ./cake.sh --target=Release
 

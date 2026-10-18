@@ -1,0 +1,44 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended"
+  ],
+  "labels": [
+    "renovate"
+  ],
+  "dependencyDashboard": true,
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 5,
+  "platformAutomerge": false,
+  "baseBranchPatterns": [
+    "main"
+  ],
+  "packageRules": [
+    {
+      "description": "Merge anything that is not a major once its checks pass",
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "pin",
+        "digest"
+      ],
+      "automerge": true,
+      "automergeStrategy": "squash"
+    },
+    {
+      "description": "Every major update is a pull request to review, whatever the package — a major is where behaviour changes, and this repo publishes on merge to main",
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "automerge": false
+    },
+    {
+      "description": "A new .NET release bumps the Microsoft and System packages in lock step with the framework, so their majors arrive as one pull request rather than several. Their minor and patch releases follow the framework too and merge above.",
+      "matchPackageNames": [
+        "Microsoft.*",
+        "System.*"
+      ],
+      "groupName": "Microsoft packages (major)"
+    }
+  ]
+}
