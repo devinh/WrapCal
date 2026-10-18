@@ -1,0 +1,155 @@
+@page "/plan"
+@rendermode InteractiveServer
+
+<PageTitle>Plan a wrap</PageTitle>
+
+<h1>Plan a wrap</h1>
+
+<p class="text-muted">
+    Enter the roll you have and the boxes you want to wrap. The plan shows where to cut.
+</p>
+
+<EditForm Model="_input" OnValidSubmit="HandleSubmit" data-interactive="@InteractiveMarker">
+    <DataAnnotationsValidator />
+
+    <div class="row g-3 mb-3">
+        <div class="col-md-3">
+            <label class="form-label" for="rollWidth">Roll width</label>
+            <InputNumber id="rollWidth" @bind-Value="_input.RollWidth" class="form-control" />
+            <ValidationMessage For="() => _input.RollWidth" />
+        </div>
+
+        <div class="col-md-3">
+            <label class="form-label" for="overlapMargin">Overlap margin</label>
+            <InputNumber id="overlapMargin" @bind-Value="_input.OverlapMargin" class="form-control" />
+            <ValidationMessage For="() => _input.OverlapMargin" />
+        </div>
+
+        <div class="col-md-3">
+            <label class="form-label" for="endAllowance">End allowance</label>
+            <InputNumber id="endAllowance" @bind-Value="_input.EndAllowance" class="form-control" />
+            <ValidationMessage For="() => _input.EndAllowance" />
+        </div>
+
+        <div class="col-md-3">
+            <label class="form-label" for="inputUnit">Units</label>
+            <InputSelect id="inputUnit" @bind-Value="_input.InputUnit" class="form-select">
+                <option value="@LengthUnit.Centimeters">Centimetres</option>
+                <option value="@LengthUnit.Inches">Inches</option>
+            </InputSelect>
+        </div>
+    </div>
+
+    <h2 class="h5">Boxes</h2>
+
+    <table class="table align-middle">
+        <thead>
+            <tr>
+                <th scope="col">Name</th>
+                <th scope="col">Length</th>
+                <th scope="col">Width</th>
+                <th scope="col">Height</th>
+                <th scope="col"></th>
+            </tr>
+        </thead>
+        <tbody>
+            @for (int row = 0; row < _input.Boxes.Count; row++)
+            {
+                int index = row;
+                // Captured into locals: the loop variable is not safe to use in a closure,
+                // and component attributes cannot mix C# with markup.
+                BoxInput box = _input.Boxes[index];
+                string placeholder = $"Box {index + 1}";
+
+                <tr>
+                    <td>
+                        <InputText @bind-Value="box.Name" class="form-control"
+                                   placeholder="@placeholder" />
+                    </td>
+                    <td>
+                        <InputNumber @bind-Value="box.Length" class="form-control" />
+                    </td>
+                    <td>
+                        <InputNumber @bind-Value="box.Width" class="form-control" />
+                    </td>
+                    <td>
+                        <InputNumber @bind-Value="box.Height" class="form-control" />
+                    </td>
+                    <td>
+                        <button type="button" class="btn btn-outline-danger btn-sm"
+                                disabled="@(_input.Boxes.Count <= 1)"
+                                @onclick="() => RemoveBox(index)">
+                            Remove
+                        </button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <div class="d-flex gap-2 mb-3">
+        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="AddBox">
+            Add box
+        </button>
+        <button type="submit" class="btn btn-primary" data-testid="plan-button">Plan</button>
+    </div>
+</EditForm>
+
+@if (_error is not null)
+{
+    <div class="alert alert-warning" data-testid="plan-error">@_error</div>
+}
+
+@if (_plan is not null)
+{
+    <WrapPlanView Plan="_plan" />
+}
+
+@code {
+    private readonly PlanWrapInput _input = new();
+    private WrapPlan? _plan;
+    private string? _error;
+    private bool _interactive;
+
+    /// <summary>
+    /// Null until the SignalR circuit is live, then "true". Exposed to the DOM so an automated
+    /// test can wait for real interactivity instead of guessing — before the circuit attaches,
+    /// the submit button performs a native form POST and navigates away.
+    /// </summary>
+    private string? InteractiveMarker => _interactive ? "true" : null;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && RendererInfo.IsInteractive && !_interactive)
+        {
+            _interactive = true;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void AddBox() => _input.Boxes.Add(new BoxInput());
+
+    private void RemoveBox(int index)
+    {
+        if (_input.Boxes.Count > 1)
+        {
+            _input.Boxes.RemoveAt(index);
+        }
+    }
+
+    private void HandleSubmit()
+    {
+        Result<WrapPlan> result = PlanWrapLogic.Plan(_input.ToBoxes(), _input.ToOptions());
+
+        if (result.IsSuccess)
+        {
+            _plan = result.Value;
+            _error = null;
+        }
+        else
+        {
+            _plan = null;
+            _error = result.Error.Message;
+        }
+    }
+}

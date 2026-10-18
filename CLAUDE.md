@@ -43,11 +43,16 @@ src/
       App.razor
       Routes.razor
       _Imports.razor
-    Features/                   # ← where new work goes (not created yet)
-      <FeatureName>/
-        <FeatureName>.razor     # the routable page
-        <FeatureName>Logic.cs   # slice-specific logic
-        <FeatureName>Models.cs  # slice-local records/DTOs
+    Common/
+      Result.cs                 # Result<T> — cross-cutting, outside any slice
+    Features/                   # vertical slices
+      _Imports.razor            # REQUIRED — Components/_Imports.razor does NOT reach here
+      PlanWrap/
+        PlanWrap.razor          # the routable page, /plan, InteractiveServer
+        PlanWrapLogic.cs        # slice logic → Result<WrapPlan>
+        PlanWrapModels.cs       # domain records
+        PlanWrapInput.cs        # form model (DataAnnotations live here, not on domain)
+        WrapPlanView.razor      # display component
     Program.cs
 tests/
   WrapCal.UnitTests/
@@ -69,6 +74,19 @@ tests/
 - **Render mode is chosen per component**, not globally. Static SSR first; add
   `@rendermode InteractiveServer` only where the component genuinely needs
   interactivity, since it changes the hosting and lifetime model.
+- **`Features/_Imports.razor` is load-bearing.** `_Imports.razor` only applies to its own
+  folder and below, and the one in `Components/` is a sibling — without the one in
+  `Features/`, `EditForm`, `InputText`, `PageTitle` and the render-mode directive are all
+  unresolved in slices.
+- **Never name a component after a domain record.** Component names derive from the file,
+  so `WrapPlan.razor` beside the `WrapPlan` record collides. Hence `WrapPlanView.razor`.
+- **Interactive pages expose a `data-interactive` marker.** Set from
+  `OnAfterRenderAsync` when `RendererInfo.IsInteractive` is true. Before the circuit
+  attaches, a `type="submit"` button performs a native POST and navigates the page away —
+  which makes naive Playwright clicks flaky. Tests wait for `form[data-interactive='true']`.
+- **Validation attributes live on the form model** (`PlanWrapInput`), never on domain
+  records. DataAnnotations cannot validate inside a list, so per-box rules are guard
+  clauses in the slice logic that return `Result.Failure`.
 
 ## Coding Standards
 

@@ -1,0 +1,8 @@
+@* Components/_Imports.razor only applies to Components/. Feature slices live in a sibling
+   folder, so they need their own imports — without this the EditForm/InputText/PageTitle
+   components and the render-mode directive are all unresolved. *@
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Routing
+@using Microsoft.AspNetCore.Components.Web
+@using static Microsoft.AspNetCore.Components.Web.RenderMode
+@using WrapCal.Common

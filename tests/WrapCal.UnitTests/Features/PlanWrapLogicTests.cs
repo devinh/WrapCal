@@ -1,0 +1,142 @@
+using WrapCal.Features.PlanWrap;
+
+namespace WrapCal.UnitTests;
+
+public class PlanWrapLogicTests
+{
+    private static WrapOptions Options(
+        double rollWidth = 30,
+        LengthUnit inputUnit = LengthUnit.Centimeters,
+        LengthUnit outputUnit = LengthUnit.Centimeters) =>
+        new(rollWidth, OverlapMargin: 0.5, InputUnit: inputUnit, OutputUnit: outputUnit,
+            RandomRestarts: 25, Seed: 1);
+
+    private static GiftBox Box(string name = "Book", double length = 22, double width = 15, double height = 4) =>
+        new(name, length, width, height);
+
+    [Test]
+    public async Task Rejects_non_positive_roll_width()
+    {
+        var result = PlanWrapLogic.Plan([Box()], Options(rollWidth: 0));
+
+        await Assert.That(result.IsSuccess).IsFalse();
+        await Assert.That(result.Error.Code).IsEqualTo("roll.width");
+    }
+
+    [Test]
+    public async Task Rejects_non_positive_box_dimension()
+    {
+        var result = PlanWrapLogic.Plan([Box(height: 0)], Options());
+
+        await Assert.That(result.IsSuccess).IsFalse();
+        await Assert.That(result.Error.Code).IsEqualTo("box.dimensions");
+    }
+
+    [Test]
+    public async Task Rejects_a_box_too_wide_for_the_roll()
+    {
+        var result = PlanWrapLogic.Plan([Box(length: 500, width: 500, height: 500)], Options(rollWidth: 10));
+
+        await Assert.That(result.IsSuccess).IsFalse();
+        await Assert.That(result.Error.Code).IsEqualTo("box.too-wide");
+    }
+
+    [Test]
+    public async Task Returns_an_empty_plan_for_no_boxes()
+    {
+        var result = PlanWrapLogic.Plan([], Options());
+
+        await Assert.That(result.IsSuccess).IsTrue();
+        await Assert.That(result.Value.Sections.Count).IsEqualTo(0);
+        await Assert.That(result.Value.RollLengthUsed).IsEqualTo(0.0);
+    }
+
+    [Test]
+    public async Task Every_section_fits_across_the_roll()
+    {
+        const double rollWidth = 30;
+        var result = PlanWrapLogic.Plan([Box(), Box("Mug", 12, 12, 12)], Options(rollWidth));
+
+        await Assert.That(result.IsSuccess).IsTrue();
+
+        foreach (CutSection section in result.Value.Sections)
+        {
+            await Assert.That(section.X + section.Width).IsLessThanOrEqualTo(rollWidth + 1e-6);
+        }
+    }
+
+    [Test]
+    public async Task Sections_never_overlap()
+    {
+        // All three must be wrappable within a 30 cm roll, or the plan fails before packing.
+        var result = PlanWrapLogic.Plan(
+            [Box(), Box("Mug", 10, 10, 10), Box("Shirt", 15, 10, 2)], Options());
+
+        await Assert.That(result.IsSuccess).IsTrue();
+
+        IReadOnlyList<CutSection> sections = result.Value.Sections;
+        await Assert.That(sections.Count).IsGreaterThanOrEqualTo(3);
+
+        for (int i = 0; i < sections.Count; i++)
+        {
+            for (int j = i + 1; j < sections.Count; j++)
+            {
+                await Assert.That(Overlaps(sections[i], sections[j])).IsFalse();
+            }
+        }
+    }
+
+    [Test]
+    public async Task Treats_the_same_physical_box_identically_in_both_units()
+    {
+        // Same physical setup expressed twice: 8in x 4in x 2in is 20.32cm x 10.16cm x 5.08cm,
+        // and a 30cm roll is 30/2.54 inches. The roll has to be converted too — comparing a
+        // 30cm roll against a 30in roll would be comparing different physical rolls.
+        var metric = PlanWrapLogic.Plan(
+            [new GiftBox("B", 20.32, 10.16, 5.08)],
+            new WrapOptions(30, 0.5, InputUnit: LengthUnit.Centimeters, OutputUnit: LengthUnit.Centimeters,
+                RandomRestarts: 0));
+
+        var imperial = PlanWrapLogic.Plan(
+            [new GiftBox("B", 8, 4, 2)],
+            new WrapOptions(
+                RollWidth: 30 / UnitConverter.CmPerInch,
+                OverlapMargin: 0.5 / UnitConverter.CmPerInch,
+                InputUnit: LengthUnit.Inches,
+                OutputUnit: LengthUnit.Centimeters,
+                RandomRestarts: 0));
+
+        await Assert.That(metric.IsSuccess).IsTrue();
+        await Assert.That(imperial.IsSuccess).IsTrue();
+
+        double difference = Math.Abs(metric.Value.RollLengthUsed - imperial.Value.RollLengthUsed);
+        await Assert.That(difference).IsLessThanOrEqualTo(0.01);
+    }
+
+    [Test]
+    public async Task Is_repeatable_for_a_fixed_seed()
+    {
+        var options = new WrapOptions(30, 0.5, RandomRestarts: 50, Seed: 12345);
+        GiftBox[] boxes = [Box(), Box("Mug", 12, 12, 12)];
+
+        var first = PlanWrapLogic.Plan(boxes, options);
+        var second = PlanWrapLogic.Plan(boxes, options);
+
+        await Assert.That(second.Value.RollLengthUsed).IsEqualTo(first.Value.RollLengthUsed);
+    }
+
+    [Test]
+    public async Task Efficiency_stays_within_zero_and_one()
+    {
+        var result = PlanWrapLogic.Plan([Box()], Options());
+
+        await Assert.That(result.Value.Efficiency).IsGreaterThanOrEqualTo(0.0);
+        await Assert.That(result.Value.Efficiency).IsLessThanOrEqualTo(1.0);
+    }
+
+    private static bool Overlaps(CutSection a, CutSection b) =>
+        a.X < b.X + b.Width - 1e-6 &&
+        b.X < a.X + a.Width - 1e-6 &&
+        a.Y < b.Y + b.Length - 1e-6 &&
+        b.Y < a.Y + a.Length - 1e-6;
+}
