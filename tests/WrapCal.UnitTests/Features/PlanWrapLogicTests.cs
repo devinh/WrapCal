@@ -134,6 +134,47 @@ public class PlanWrapLogicTests
         await Assert.That(result.Value.Efficiency).IsLessThanOrEqualTo(1.0);
     }
 
+    [Test]
+    public async Task Produces_a_known_plan_for_a_known_input()
+    {
+        // Golden test. The invariant tests above check that a plan is *valid*; none of them
+        // check that it is *good*. A refactor could quietly double the roll length used and
+        // every other test here would still pass. This pins the actual output.
+        //
+        // Seeded, so it is reproducible. If these numbers move, the optimiser's behaviour
+        // changed — treat that as a deliberate decision to re-baseline, not an accident.
+        //
+        // Six varied boxes, deliberately: the randomised restarts only earn their keep on an
+        // input like this. Measured on this exact set, roll length is 171 with restarts
+        // disabled and 152.5 with them on, so this test fails if restarts stop working.
+        // (A 4-box set was tried first and was useless as a guard — it returns 70 for every
+        // restart count, so it would pass even with the optimiser crippled.)
+        GiftBox[] boxes =
+        [
+            new("A", 20, 14, 6), new("B", 15, 15, 15), new("C", 8, 8, 2),
+            new("D", 25, 18, 5), new("E", 12, 9, 3), new("F", 18, 12, 7),
+        ];
+
+        var options = new WrapOptions(
+            RollWidth: 60,
+            OverlapMargin: 0.5,
+            InputUnit: LengthUnit.Inches,
+            OutputUnit: LengthUnit.Inches,
+            RandomRestarts: 200,
+            Seed: 42);
+
+        var result = PlanWrapLogic.Plan(boxes, options);
+
+        await Assert.That(result.IsSuccess).IsTrue();
+        await Assert.That(result.Value.Sections.Count).IsEqualTo(6);
+
+        // Exact values are 152.5 and 0.8824590163934426, identical in Debug and Release.
+        // Rounded to survive harmless float noise, but finely enough that any real change in
+        // packing quality fails the test rather than slipping through.
+        await Assert.That(Math.Round(result.Value.RollLengthUsed, 3)).IsEqualTo(152.5);
+        await Assert.That(Math.Round(result.Value.Efficiency, 6)).IsEqualTo(0.882459);
+    }
+
     private static bool Overlaps(CutSection a, CutSection b) =>
         a.X < b.X + b.Width - 1e-6 &&
         b.X < a.X + a.Width - 1e-6 &&
