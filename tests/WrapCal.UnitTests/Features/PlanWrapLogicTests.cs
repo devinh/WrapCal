@@ -150,6 +150,30 @@ public class PlanWrapLogicTests
                 OutputUnit: LengthUnit.Centimeters, RandomRestarts: 0)).Value;
 
     [Test]
+    public async Task Notes_which_axis_each_seam_runs_along()
+    {
+        // A flat book goes around its width, so its seam runs down the roll.
+        WrapPlan aroundWidth = PlanWrapLogic.Plan(
+            [new GiftBox("Book", 22, 15, 4)],
+            new WrapOptions(60, 0.5, RandomRestarts: 0)).Value;
+
+        await Assert.That(aroundWidth.Sections[0].Note)
+            .StartsWith("Wrapped around the box's width.");
+        await Assert.That(aroundWidth.Sections[0].Note)
+            .EndsWith("Seam runs along the roll's length axis.");
+
+        // A crate that only fits one way has its seam across the roll instead.
+        WrapPlan aroundHeight = PlanWrapLogic.Plan(
+            [new GiftBox("Crate", 30, 20, 10)],
+            new WrapOptions(50, 1, RandomRestarts: 0)).Value;
+
+        await Assert.That(aroundHeight.Sections[0].Note)
+            .StartsWith("Wrapped around the box's height.");
+        await Assert.That(aroundHeight.Sections[0].Note)
+            .EndsWith("Seam runs along the roll's width axis.");
+    }
+
+    [Test]
     public async Task Reports_the_roll_width_in_the_plan()
     {
         var result = PlanWrapLogic.Plan([Box()], Options(rollWidth: 30));

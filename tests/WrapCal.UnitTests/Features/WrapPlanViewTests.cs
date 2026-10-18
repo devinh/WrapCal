@@ -70,6 +70,6 @@ public class WrapPlanViewTests : BunitContext
     {
         var cut = Render<WrapPlanView>(parameters => parameters.Add(p => p.Plan, Plan()));
 
-        await Assert.That(cut.Markup).Contains("wrapped around the");
+        await Assert.That(cut.Markup).Contains("Wrapped around the box's");
     }
 }

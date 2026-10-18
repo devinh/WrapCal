@@ -177,16 +177,25 @@ public static class PlanWrapLogic
             // the middle of the end face from both sides.
             double axisLength = axis + Math.Max(p, q) + options.OverlapMargin;
 
-            string label = $"wrapped around the {AxisNames[axisIndex]}-axis";
+            // Named in the diagram's terms: the roll's length axis runs down it, the width axis
+            // across it. The seam is where the two ends of the wrap meet, so it lies along
+            // whichever axis the paper did not have to go around.
+            string label = $"Wrapped around the box's {AxisNames[axisIndex]}";
 
             if (circumference <= options.RollWidth + 1e-9)
             {
-                result.Add(new SheetOption(circumference, axisLength, label + ", seam runs along roll length"));
+                result.Add(new SheetOption(
+                    circumference,
+                    axisLength,
+                    $"{label}. Seam runs along the roll's length axis."));
             }
 
             if (axisLength <= options.RollWidth + 1e-9)
             {
-                result.Add(new SheetOption(axisLength, circumference, label + ", seam runs across roll width"));
+                result.Add(new SheetOption(
+                    axisLength,
+                    circumference,
+                    $"{label}. Seam runs along the roll's width axis."));
             }
         }
 
