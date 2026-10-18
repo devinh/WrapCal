@@ -26,6 +26,10 @@ Feature: Wrap planning
     When I break a box dimension
     Then the Plan button should not have moved
 
+  Scenario: The Remove button lines up with the box inputs
+    When I open the plan page
+    Then the Remove button should line up with the row's inputs
+
   Scenario: Results follow the selected units
     When I plan using centimetres
     Then the results should be reported in "cm"

@@ -8,3 +8,15 @@
     line-height: 1.15rem;
     color: #b02a37;
 }
+
+/* The inputs sit at the top of their cells with the slot below them, so the Remove button has to
+   start at the same offset and be centred on the input's height — not on the whole cell. */
+.remove-cell-host {
+    vertical-align: top;
+}
+
+.remove-cell {
+    display: flex;
+    align-items: center;
+    min-height: 2.375rem;
+}

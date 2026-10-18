@@ -53,6 +53,25 @@ public sealed class PlanWrapSteps
         await ClickPlanAsync();
     }
 
+    [When("I open the plan page")]
+    public async Task WhenIOpenThePlanPageAsync() => await OpenPlanPageAsync();
+
+    [Then("the Remove button should line up with the row's inputs")]
+    public async Task ThenTheRemoveButtonShouldLineUpWithTheRowsInputsAsync()
+    {
+        var input = (await _ui.Page.Locator("tbody tr").First
+            .Locator("input[type='number']").First.BoundingBoxAsync())!;
+
+        var remove = (await _ui.Page.Locator("[data-testid='remove-box']").First.BoundingBoxAsync())!;
+
+        double inputCentre = input.Y + (input.Height / 2);
+        double removeCentre = remove.Y + (remove.Height / 2);
+
+        // The inputs sit at the top of their cell with the reserved slot beneath, so the button
+        // has to line up with the input rather than with the whole cell.
+        await Assert.That(Math.Abs(inputCentre - removeCentre)).IsLessThan(2.0);
+    }
+
     [When("I break a box dimension")]
     public async Task WhenIBreakABoxDimensionAsync()
     {

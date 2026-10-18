@@ -96,13 +96,15 @@
                             <ValidationMessage For="() => box.Height" />
                         </div>
                     </td>
-                    <td>
-                        <button type="button" class="btn btn-outline-danger btn-sm"
-                                data-testid="remove-box"
-                                disabled="@(_input.Boxes.Count <= 1)"
-                                @onclick="() => RemoveBox(index)">
-                            Remove
-                        </button>
+                    <td class="remove-cell-host">
+                        <div class="remove-cell">
+                            <button type="button" class="btn btn-outline-danger btn-sm"
+                                    data-testid="remove-box"
+                                    disabled="@(_input.Boxes.Count <= 1)"
+                                    @onclick="() => RemoveBox(index)">
+                                Remove
+                            </button>
+                        </div>
                     </td>
                 </tr>
             }
