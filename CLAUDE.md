@@ -87,6 +87,12 @@ tests/
 - **Validation attributes live on the form model** (`PlanWrapInput`), never on domain
   records. DataAnnotations cannot validate inside a list, so per-box rules are guard
   clauses in the slice logic that return `Result.Failure`.
+- **The diagram transposes for Left/Right, it does not rotate.** A section at `(X, Y)`
+  drawn rightwards lands at `(Y, X)` with width and length swapped — a mirror across the
+  roll-width axis, not a 90° rotation (which would be `(Y, RollWidth - X - W)`). This is
+  deliberate: a true rotation would turn the box labels with the drawing, and Up is 180°,
+  so labels would render upside-down. Keeping text upright in all four directions is worth
+  the transpose. The plan itself is identical either way.
 
 ## Coding Standards
 
