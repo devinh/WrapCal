@@ -155,8 +155,17 @@ Two test projects, deliberately separate. Run either on its own, or `dotnet test
   (It still exposes `TestContext`, but `BunitContext` avoids a clash with TUnit's own.)
 - TUnit auto-configures global usings, so `[Test]` and `Assert.That(...)` need no `using`.
 - TUnit assertions are **awaited**: `await Assert.That(cut.Markup).Contains("WrapCal");`
-- **TUnit cannot use `.razor` test files.** TUnit and the Razor SDK are both source
-  generators, and generators cannot see each other's output. Write test components in `.cs`.
+- **`.razor` test files require TUnit's reflection mode.** In the default
+  source-generation mode, TUnit and the Razor SDK are both source generators and neither
+  can see the other's output, so Razor-generated test classes are invisible to discovery.
+  Adding `[assembly: ReflectionMode]` (`TUnit.Core`) — or `TUNIT_EXECUTION_MODE=reflection`
+  — makes them discoverable; that is the documented purpose of reflection mode, and it is
+  what bUnit's own docs omit when they say TUnit "does not work with razor files".
+  **This project stays on the default mode:** our tests are `.cs`, which source generation
+  handles, and reflection mode is the slower of the two. Reach for it only to author
+  `.razor` test components, which additionally needs `Microsoft.NET.Sdk.Razor`.
+  (If you go fully reflection, `<EnableTUnitSourceGeneration>false</EnableTUnitSourceGeneration>`
+  skips generation entirely for faster builds.)
 - `HomePageTests.cs` is the working baseline example.
 
 ### Functional — `tests/WrapCal.FunctionalTests`
