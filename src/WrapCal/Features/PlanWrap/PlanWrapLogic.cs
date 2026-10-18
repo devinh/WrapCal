@@ -1,3 +1,4 @@
+using System.Globalization;
 using WrapCal.Common;
 
 namespace WrapCal.Features.PlanWrap;
@@ -12,10 +13,8 @@ namespace WrapCal.Features.PlanWrap;
 /// </summary>
 public static class PlanWrapLogic
 {
-    private static readonly string[] AxisNames = ["length", "width", "height"];
-
-    /// <summary>One legal way to cut a sheet for a box: its size and what it wraps.</summary>
-    private readonly record struct SheetOption(double Width, double Length, string Note);
+    /// <summary>One legal way to cut a sheet: its size, and the box axis it wraps about.</summary>
+    private readonly record struct SheetOption(double Width, double Length, int Axis);
 
     private sealed class Shelf
     {
@@ -119,7 +118,12 @@ public static class PlanWrapLogic
             foreach ((int itemIndex, SheetOption option, double x) in shelf.Placed)
             {
                 sections.Add(new CutSection(
-                    boxes[itemIndex].Name, x, shelf.Y, option.Width, option.Length, option.Note));
+                    boxes[itemIndex].Name,
+                    x,
+                    shelf.Y,
+                    option.Width,
+                    option.Length,
+                    DescribeWrap(boxes[itemIndex], option.Axis, inputOptions.OutputUnit)));
             }
         }
 
@@ -153,6 +157,24 @@ public static class PlanWrapLogic
             outputUnit));
     }
 
+    /// <summary>
+    /// How to orient the cut sheet against the box, named by the box's own sides. The roll is no
+    /// use as a reference: by the time anyone wraps, the sheet is cut off it.
+    /// </summary>
+    private static string DescribeWrap(GiftBox box, int axisIndex, LengthUnit unit)
+    {
+        double[] dimensions = [box.Length, box.Width, box.Height];
+
+        // The two sides the paper has to go around: the cross-section at this axis.
+        double first = UnitConverter.FromCm(dimensions[(axisIndex + 1) % 3], unit);
+        double second = UnitConverter.FromCm(dimensions[(axisIndex + 2) % 3], unit);
+        string label = unit == LengthUnit.Centimeters ? "cm" : "in";
+
+        return $"Wrapped around the box's {One(first)} × {One(second)} {label} sides.";
+    }
+
+    private static string One(double value) => value.ToString("F1", CultureInfo.InvariantCulture);
+
     /// <summary>Every distinct sheet size that wraps this box and fits across the roll.</summary>
     private static List<SheetOption> SheetOptions(GiftBox box, WrapOptions options)
     {
@@ -177,25 +199,14 @@ public static class PlanWrapLogic
             // the middle of the end face from both sides.
             double axisLength = axis + Math.Max(p, q) + options.OverlapMargin;
 
-            // Named in the diagram's terms: the roll's length axis runs down it, the width axis
-            // across it. The seam is where the two ends of the wrap meet, so it lies along
-            // whichever axis the paper did not have to go around.
-            string label = $"Wrapped around the box's {AxisNames[axisIndex]}";
-
             if (circumference <= options.RollWidth + 1e-9)
             {
-                result.Add(new SheetOption(
-                    circumference,
-                    axisLength,
-                    $"{label}. Seam runs along the roll's length axis."));
+                result.Add(new SheetOption(circumference, axisLength, axisIndex));
             }
 
             if (axisLength <= options.RollWidth + 1e-9)
             {
-                result.Add(new SheetOption(
-                    axisLength,
-                    circumference,
-                    $"{label}. Seam runs along the roll's width axis."));
+                result.Add(new SheetOption(axisLength, circumference, axisIndex));
             }
         }
 

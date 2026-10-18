@@ -150,27 +150,53 @@ public class PlanWrapLogicTests
                 OutputUnit: LengthUnit.Centimeters, RandomRestarts: 0)).Value;
 
     [Test]
-    public async Task Notes_which_axis_each_seam_runs_along()
+    public async Task Describes_the_box_sides_the_paper_goes_around()
     {
-        // A flat book goes around its width, so its seam runs down the roll.
-        WrapPlan aroundWidth = PlanWrapLogic.Plan(
+        // A flat book wraps about its width, so the paper encircles the 4 and 22 sides.
+        WrapPlan book = PlanWrapLogic.Plan(
             [new GiftBox("Book", 22, 15, 4)],
             new WrapOptions(60, 0.5, RandomRestarts: 0)).Value;
 
-        await Assert.That(aroundWidth.Sections[0].Note)
-            .StartsWith("Wrapped around the box's width.");
-        await Assert.That(aroundWidth.Sections[0].Note)
-            .EndsWith("Seam runs along the roll's length axis.");
+        await Assert.That(book.Sections[0].Note)
+            .IsEqualTo("Wrapped around the box's 4.0 × 22.0 cm sides.");
 
-        // A crate that only fits one way has its seam across the roll instead.
-        WrapPlan aroundHeight = PlanWrapLogic.Plan(
+        // An upright crate wraps about its height, so the paper goes around the 30 and 20 sides.
+        WrapPlan crate = PlanWrapLogic.Plan(
             [new GiftBox("Crate", 30, 20, 10)],
             new WrapOptions(50, 1, RandomRestarts: 0)).Value;
 
-        await Assert.That(aroundHeight.Sections[0].Note)
-            .StartsWith("Wrapped around the box's height.");
-        await Assert.That(aroundHeight.Sections[0].Note)
-            .EndsWith("Seam runs along the roll's width axis.");
+        await Assert.That(crate.Sections[0].Note)
+            .IsEqualTo("Wrapped around the box's 30.0 × 20.0 cm sides.");
+    }
+
+    [Test]
+    public async Task States_the_note_in_the_requested_units()
+    {
+        WrapPlan plan = PlanWrapLogic.Plan(
+            [new GiftBox("Gadget", 10, 5, 2)],
+            new WrapOptions(
+                30, 0.5, InputUnit: LengthUnit.Inches, OutputUnit: LengthUnit.Inches,
+                RandomRestarts: 0)).Value;
+
+        await Assert.That(plan.Sections[0].Note)
+            .IsEqualTo("Wrapped around the box's 5.0 × 2.0 in sides.");
+    }
+
+    [Test]
+    public async Task Never_refers_to_the_roll()
+    {
+        // The sheet is cut off the roll before anyone wraps, so the roll is no reference to
+        // orient against — every note has to stand on the box's own dimensions.
+        WrapPlan plan = PlanWrapLogic.Plan(
+            [new GiftBox("Book", 22, 15, 4), new GiftBox("Crate", 30, 20, 10)],
+            new WrapOptions(60, 0.5)).Value;
+
+        await Assert.That(plan.Sections.Count).IsEqualTo(2);
+
+        foreach (CutSection section in plan.Sections)
+        {
+            await Assert.That(section.Note.Contains("roll", StringComparison.OrdinalIgnoreCase)).IsFalse();
+        }
     }
 
     [Test]
