@@ -1,6 +1,6 @@
 # Spec 001: MudBlazor style pass
 
-**Status:** Approved (2026-10-18)
+**Status:** Approved (2026-10-18, amended — interactivity declared at the root)
 **Date:** 2026-10-18
 **Baseline commit:** `cc4a166`
 
@@ -34,7 +34,7 @@ changes.
   - `PlanWrap` → `MudPaper` / `MudGrid` / `MudItem` / `MudForm` / `MudTextField` /
     `MudNumericField` / `MudSelect` / `MudButton` / `MudAlert` / `MudCard`.
   - `WrapPlanView` → Mud typography and surfaces; its table may remain semantic.
-  - `Error.razor` and `NotFound.razor` → Mud components, **both made `InteractiveServer`**.
+  - `Error.razor` and `NotFound.razor` → Mud components, both interactive via the root.
   - `WrapPlanDiagram` → Material colours only; geometry frozen (see below).
 - Declare a **stock MudBlazor Material theme**, light and dark, with a toggle.
 - Self-host the Roboto font files; no third-party requests at runtime.
@@ -109,19 +109,29 @@ introduces any.
 
 ## Edge Cases & Failure Modes
 
-1. **Static SSR surfaces.** `App.razor` and `Routes.razor` stay static SSR. `MudThemeProvider`,
-   `MudPopoverProvider` and `MudDialogProvider` are declared once in `App.razor`; `MudPopoverProvider`
-   is required for `MudSelect`'s overlay. Any component rendered outside an interactive subtree must
-   be static-safe.
+1. **Interactivity is declared once, at the root.** MudBlazor's popover, dialog and snackbar
+   providers **must sit in the same interactive render tree as the components that use them**
+   (MudBlazor issues #9757 and #12283). Providers in a static `App.razor` alongside an interactive
+   `MudSelect` is precisely the broken combination. Therefore:
+   - `App.razor` renders `<Routes @rendermode="InteractiveServer" />`.
+   - `MainLayout` hosts `MudThemeProvider`, `MudPopoverProvider`, `MudDialogProvider` and
+     `MudSnackbarProvider`, and is interactive as a consequence of being inside that root.
+   - `PlanWrap` **drops its own `@rendermode`** — it inherits the root's, and nesting an explicit
+     rendermode inside an interactive parent is not allowed.
+   - `Error.razor` and `NotFound.razor` need no rendermode for the same reason.
+   This supersedes the repo's usual "static SSR first, opt in per component" rule, deliberately:
+   every route in this app is interactive, so per-component opt-in buys nothing but a broken
+   provider tree. `App.razor` itself stays static.
 2. **`Error.razor` loses `HttpContext`.** Under `InteractiveServer` the `[CascadingParameter]
    HttpContext` cascade is empty, so the Request ID would vanish. The ID must be captured during
    the **prerender** pass and persisted into the interactive pass — `[PersistentState]` if it is
    available in .NET 10, otherwise `PersistentComponentState`. See Deferred Decisions.
 3. **Theme toggle must not discard the plan.** A cookie can be written without JS only by posting
    and reloading, which would destroy the on-screen plan and typed box values. The toggle is
-   therefore an **interactive island** (`@rendermode InteractiveServer` on the toggle component
-   inside a static `MainLayout`) writing the cookie through a single JS interop call. `App.razor`
-   reads the cookie server-side, so first paint is already the right theme — no flash.
+   therefore an ordinary component in the (now interactive) `MainLayout`, writing the cookie
+   through a single JS interop call. `App.razor` reads the cookie server-side, so first paint is
+   already the right theme — no flash. No interactive island is needed once interactivity is
+   declared at the root.
 4. **MudSelect and Playwright.** `MudSelect` renders an overlay, not a native `<select>`, so
    `selectOption()` stops working. Steps must open the control and click the item. This affects the
    unit picker and Roll Continues, and therefore `FormSteps`, `PlanningSteps` and `LayoutSteps`.
@@ -164,7 +174,8 @@ made for a Bootstrap asset and `wwwroot/lib/bootstrap` does not exist.
 
 **AC-2 — MudBlazor is in place.** Given the app is running, when `/` is loaded, then the MudBlazor
 stylesheet and script are referenced and `MudThemeProvider`, `MudPopoverProvider` and
-`MudDialogProvider` are rendered.
+`MudDialogProvider` are rendered **inside the interactive render tree** — a `MudSelect` opens its
+overlay rather than reporting a missing provider.
 
 **AC-3 — The plan is unchanged.** Given the inputs used by the golden test in `PlanWrapLogicTests`,
 when a plan is produced, then it is byte-identical to the output pinned before this change.
