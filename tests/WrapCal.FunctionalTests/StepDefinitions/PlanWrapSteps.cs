@@ -22,43 +22,8 @@ public sealed class PlanWrapSteps
         _context = scenarioContext;
     }
 
-    [When("I plan the default box")]
-    public async Task WhenIPlanTheDefaultBoxAsync()
-    {
-        await OpenPlanPageAsync();
-        await ClickPlanAsync();
-    }
-
-    [When("I plan {int} boxes")]
-    public async Task WhenIPlanBoxesAsync(int count)
-    {
-        await OpenPlanPageAsync();
-
-        for (int i = 1; i < count; i++)
-        {
-            await _ui.Page.Locator("[data-testid='add-box']").ClickAsync();
-        }
-
-        await ClickPlanAsync();
-    }
-
-    [When("I plan a box far larger than the roll")]
-    public async Task WhenIPlanABoxFarLargerThanTheRollAsync()
-    {
-        await OpenPlanPageAsync();
-
-        ILocator sides = _ui.Page.Locator(BoxRowSelector).First.Locator("input[type='number']");
-
-        for (int i = 0; i < 3; i++)
-        {
-            await FillAndLeaveAsync(sides.Nth(i), "500");
-        }
-
-        await ClickPlanAsync();
-    }
-
-    [When("I open the plan page")]
-    public async Task WhenIOpenThePlanPageAsync() => await OpenPlanPageAsync();
+    [Given("the plan page")]
+    public async Task GivenThePlanPageAsync() => await OpenPlanPageAsync();
 
     [Then("the Remove button should line up with the row's inputs")]
     public async Task ThenTheRemoveButtonShouldLineUpWithTheRowsInputsAsync()
@@ -94,20 +59,14 @@ public sealed class PlanWrapSteps
         await Assert.That(tops.Max() - tops.Min()).IsLessThan(2.0);
     }
 
-    [When("I break a box dimension")]
-    public async Task WhenIBreakABoxDimensionAsync()
+    [When("a box dimension becomes invalid")]
+    public async Task WhenABoxDimensionBecomesInvalidAsync()
     {
-        await OpenPlanPageAsync();
-
         double before = (await _ui.Page.Locator("[data-testid='plan-button']").BoundingBoxAsync())!.Y;
         _context.Set(before, "planButtonTop");
 
         ILocator length = _ui.Page.Locator(BoxRowSelector).First.Locator("input[type='number']").First;
-        await length.FillAsync("0");
-
-        // Blazor's InputNumber binds on change, not input, so validation fires when the field is
-        // left. Leaving it is the behaviour under test, so the blur is deliberate.
-        await length.PressAsync("Tab");
+        await FillAndLeaveAsync(length, "0");
 
         await _ui.Page.WaitForSelectorAsync(
             "text=Length must be between",
@@ -125,19 +84,6 @@ public sealed class PlanWrapSteps
         await Assert.That(Math.Abs(after - before)).IsLessThan(1.0);
     }
 
-    [When("I plan a box with zero length")]
-    public async Task WhenIPlanABoxWithZeroLengthAsync()
-    {
-        await OpenPlanPageAsync();
-
-        await FillAndLeaveAsync(
-            _ui.Page.Locator(BoxRowSelector).First.Locator("input[type='number']").First, "0");
-
-        // Not using ClickPlanAsync: a field-level problem blocks the submit, so neither a plan
-        // nor the logic-level error appears.
-        await _ui.Page.Locator("[data-testid='plan-button']").ClickAsync();
-    }
-
     [Then("I should see a validation message about the length")]
     public async Task ThenIShouldSeeAValidationMessageAboutTheLengthAsync()
     {
@@ -146,35 +92,37 @@ public sealed class PlanWrapSteps
             new PageWaitForSelectorOptions { Timeout = 10_000 });
     }
 
-    [When("I plan using centimetres")]
-    public async Task WhenIPlanUsingCentimetresAsync()
+    [When("I try to plan the wrap")]
+    public async Task WhenITryToPlanTheWrapAsync()
     {
-        await OpenPlanPageAsync();
-        await _ui.Page.Locator("[data-testid='unit-select']").SelectOptionAsync("Centimeters");
-        await ClickPlanAsync();
+        // No wait: a field-level problem blocks the submit, so neither a plan nor a logic error
+        // appears. The Then step waits for the message.
+        await _ui.Page.Locator("[data-testid='plan-button']").ClickAsync();
     }
 
-    [When("I add a second box, remove it, then plan")]
-    public async Task WhenIAddASecondBoxRemoveItThenPlanAsync()
+    [When("I set the roll to continue {word}")]
+    public async Task WhenISetTheRollToContinueAsync(string direction)
     {
-        await OpenPlanPageAsync();
-
-        await _ui.Page.Locator("[data-testid='add-box']").ClickAsync();
-        await _ui.Page.Locator("[data-testid='remove-box']").Nth(1).ClickAsync();
-
-        await ClickPlanAsync();
-    }
-
-    [When("I plan and set the roll to continue {word}")]
-    public async Task WhenIPlanAndSetTheRollToContinueAsync(string direction)
-    {
-        await OpenPlanPageAsync();
-        await ClickPlanAsync();
-
         // Selected by label: the option values are the enum names (Down, Up, ...), which read
         // badly in a feature file.
         await _ui.Page.Locator("[data-testid='roll-direction']")
             .SelectOptionAsync(new SelectOptionValue { Label = direction });
+    }
+
+    [When("I remove the last box")]
+    public async Task WhenIRemoveTheLastBoxAsync()
+    {
+        ILocator rows = _ui.Page.Locator(BoxRowSelector);
+        int before = await rows.CountAsync();
+
+        await _ui.Page.Locator("[data-testid='remove-box']").Nth(before - 1).ClickAsync();
+
+        await _ui.Page.WaitForFunctionAsync(
+            $"() => document.querySelectorAll(\"{BoxRowSelector}\").length < {before}",
+            null,
+            new PageWaitForFunctionOptions { Timeout = 10_000 });
+
+        _rowsFilled--;
     }
 
     [Then("I should see a cut plan")]
@@ -254,28 +202,41 @@ public sealed class PlanWrapSteps
     public async Task GivenARollAsync(double rollWidth, string unit, double overlap)
     {
         await OpenPlanPageAsync();
-
-        string target = unit.Equals("in", StringComparison.OrdinalIgnoreCase) ? "Inches" : "Centimeters";
-        ILocator unitSelect = _ui.Page.Locator("[data-testid='unit-select']");
-
-        if (await unitSelect.InputValueAsync() != target)
-        {
-            // Changing the unit re-expresses everything already in the form, and that lands over
-            // the circuit. Wait for the converted value rather than for a fixed delay: typing
-            // before it arrives gets overwritten, and a delay would behave differently on a
-            // faster or slower machine.
-            string before = await _ui.Page.Locator("#rollWidth").InputValueAsync();
-
-            await unitSelect.SelectOptionAsync(target);
-
-            await _ui.Page.WaitForFunctionAsync(
-                "([selector, previous]) => document.querySelector(selector)?.value !== previous",
-                new[] { "#rollWidth", before },
-                new PageWaitForFunctionOptions { Timeout = 10_000 });
-        }
+        await SetUnitAsync(unit);
 
         await FillAndLeaveAsync(_ui.Page.Locator("#rollWidth"), Inv(rollWidth));
         await FillAndLeaveAsync(_ui.Page.Locator("#overlapMargin"), Inv(overlap));
+    }
+
+    [Given("the units are set to {word}")]
+    public async Task GivenTheUnitsAreSetToAsync(string unit) => await SetUnitAsync(unit);
+
+    /// <summary>
+    /// Selects a unit and waits for the converted value to arrive. Changing the unit re-expresses
+    /// everything already in the form over the circuit; typing before that lands gets overwritten,
+    /// and waiting for the value to change is the same signal on a fast machine or a slow one.
+    /// </summary>
+    private async Task SetUnitAsync(string unit)
+    {
+        string target = unit.StartsWith("in", StringComparison.OrdinalIgnoreCase)
+            ? "Inches"
+            : "Centimeters";
+
+        ILocator select = _ui.Page.Locator("[data-testid='unit-select']");
+
+        if (await select.InputValueAsync() == target)
+        {
+            return;
+        }
+
+        string before = await _ui.Page.Locator("#rollWidth").InputValueAsync();
+
+        await select.SelectOptionAsync(target);
+
+        await _ui.Page.WaitForFunctionAsync(
+            "([selector, previous]) => document.querySelector(selector)?.value !== previous",
+            new[] { "#rollWidth", before },
+            new PageWaitForFunctionOptions { Timeout = 10_000 });
     }
 
     [Given("a box {string} measuring {double} by {double} by {double}")]
