@@ -11,7 +11,11 @@ namespace WrapCal.FunctionalTests.StepDefinitions;
 /// </summary>
 public abstract class StepsBase
 {
-    protected const int PageTimeout = 20_000;
+    /// <summary>
+    /// Generous, because the first scenario of a run pays for a WebAssembly boot with a cold file
+    /// cache: the runtime, MudBlazor and the app all download before anything is on the page.
+    /// </summary>
+    protected const int PageTimeout = 60_000;
 
     protected const string BoxRowSelector = "[data-testid='box-row']";
 
@@ -28,16 +32,15 @@ public abstract class StepsBase
     protected async Task OpenPlanPageAsync()
     {
         await Ui.Page.GotoAsync(Ui.Url("/"));
-        await WaitForCircuitAsync();
+        await WaitForAppAsync();
     }
 
     /// <summary>
-    /// Waits for the SignalR circuit to attach. Until then the page is the prerendered copy and
-    /// every control is disabled — a click would either do nothing or POST the form and navigate
-    /// away. Waiting for the button to become enabled is waiting for the page to be genuinely
-    /// live, and it is the same wait after a reload as after a first navigation.
+    /// Waits for the app to have rendered. The page is a shell of static files until the
+    /// WebAssembly runtime boots, so nothing the tests drive exists before this — and it is the
+    /// same wait after a reload as after a first navigation.
     /// </summary>
-    protected async Task WaitForCircuitAsync() =>
+    protected async Task WaitForAppAsync() =>
         await Ui.Page.WaitForSelectorAsync(
             "[data-testid='plan-button']:not([disabled])",
             new PageWaitForSelectorOptions { Timeout = PageTimeout });
@@ -54,7 +57,7 @@ public abstract class StepsBase
 
     /// <summary>
     /// Selects a unit and waits for the converted value to arrive. Changing the unit re-expresses
-    /// everything already in the form over the circuit; typing before that lands gets overwritten,
+    /// everything already in the form as a re-render; typing before that lands gets overwritten,
     /// and waiting for the value to change is the same signal on a fast machine or a slow one.
     /// </summary>
     protected async Task SetUnitAsync(string unit)

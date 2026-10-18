@@ -57,7 +57,7 @@ public class PlanWrapLogicTests
     public async Task Rejects_more_boxes_than_the_form_allows()
     {
         // The planner keeps its own guard, so a caller that never saw the form cannot hand it a
-        // list long enough to block the circuit it runs on.
+        // list long enough to block the thread it runs on.
         GiftBox[] boxes = [.. Enumerable.Range(1, PlanWrapInput.MaxBoxCount + 1)
             .Select(i => new GiftBox($"Box {i}", 10, 10, 10))];
 

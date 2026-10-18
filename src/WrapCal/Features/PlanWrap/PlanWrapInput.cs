@@ -24,7 +24,7 @@ public sealed class PlanWrapInput
     /// <summary>
     /// As many rows as anyone could want to wrap in a sitting, and the point past which the
     /// page stops growing. The planner is quadratic in the number of boxes and runs on the
-    /// circuit's thread, so an uncapped list is a way to stall the page that is showing it.
+    /// browser's thread, so an uncapped list is a way to freeze the page that is showing it.
     /// </summary>
     public const int MaxBoxCount = 100;
 

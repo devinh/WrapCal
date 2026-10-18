@@ -16,7 +16,7 @@ public static class PlanWrapLogic
     /// <summary>
     /// How much work the randomised restarts may cost, in units of "boxes × restarts". Packing is
     /// quadratic in the number of boxes, so a fixed restart count turns a long list into seconds
-    /// of blocked work — 2000 boxes at 500 restarts measured 25s, enough to stall the circuit
+    /// of blocked work — 2000 boxes at 500 restarts measured 25s, enough to freeze the page
     /// handling the click. A short list keeps every restart it asked for; a long one trades
     /// restarts for staying responsive.
     /// </summary>

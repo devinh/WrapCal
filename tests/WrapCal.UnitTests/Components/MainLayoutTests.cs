@@ -40,15 +40,12 @@ public class MainLayoutTests : WrapCalBunitContext
     public async Task Draws_the_theme_the_choice_and_the_system_together_describe(
         string? choice, bool systemIsDark, bool expectedDark)
     {
-        // The choice is a cookie off the request; the system's preference is a browser fact, and
-        // the only thing that can answer it is the same call MudBlazor's provider makes. An
-        // explicit choice has to win over it either way — that is the whole point of choosing.
+        // The choice is a cookie the browser hands back; the system's preference is a browser
+        // fact, and the only thing that can answer it is the same call MudBlazor's provider
+        // makes. An explicit choice has to win over it either way — that is the whole point of
+        // choosing.
         SetSystemPreference(systemIsDark);
-
-        if (choice is not null)
-        {
-            SetRequestCookie("wrapcal-theme", choice);
-        }
+        SetThemePreference(choice);
 
         var cut = Render<MainLayout>(parameters => parameters.Add(p => p.Body, "page content"));
 

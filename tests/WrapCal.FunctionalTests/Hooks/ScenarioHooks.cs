@@ -7,6 +7,12 @@ namespace WrapCal.FunctionalTests.Hooks;
 /// <summary>
 /// Per-scenario browser state. A fresh context per scenario keeps cookies, storage, and
 /// cache isolated, so scenarios cannot leak state into one another.
+/// <para>
+/// Sharing one context across the run was tried, to keep the browser's HTTP cache warm between
+/// scenarios. It bought nothing — 34.3s against 34.2s — because the cost of booting a
+/// WebAssembly app is compiling it, not fetching it, and compilation is not cached across
+/// pages. The isolation is worth more than the nothing it cost.
+/// </para>
 /// </summary>
 [Binding]
 public sealed class ScenarioHooks

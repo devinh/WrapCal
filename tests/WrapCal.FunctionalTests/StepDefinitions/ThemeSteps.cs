@@ -4,9 +4,9 @@ using Reqnroll;
 namespace WrapCal.FunctionalTests.StepDefinitions;
 
 /// <summary>
-/// The theme is the one behaviour a component test cannot settle. The choice is a cookie read
-/// during the prerender, and System defers to a media query only a browser answers — neither is
-/// available to bUnit, which has no request, no circuit and no operating system.
+/// What only a real browser can settle about the theme: the cookie round trip through an actual
+/// document, and System deferring to a media query — bUnit has no media query and no operating
+/// system to ask.
 /// </summary>
 [Binding]
 public sealed class ThemeSteps : StepsBase
@@ -22,8 +22,8 @@ public sealed class ThemeSteps : StepsBase
     private const string BackgroundVariable = "--mud-palette-background";
 
     /// <summary>
-    /// Generous, because on a first visit in System mode the answer is not knowable until the
-    /// circuit attaches and can ask the browser.
+    /// Generous, because on a first visit in System mode the answer is not knowable until the app
+    /// has booted and can ask the browser.
     /// </summary>
     private const int ThemeSettleTimeout = 5_000;
 
@@ -41,7 +41,7 @@ public sealed class ThemeSteps : StepsBase
 
     /// <summary>
     /// Changes the media query without navigating, which is the only way to see whether an open
-    /// page is following the system or merely read it once when the circuit attached.
+    /// page is following the system or merely read it once when the app booted.
     /// </summary>
     [When("the browser switches to a {word} colour scheme")]
     public async Task WhenTheBrowserSwitchesToAColourSchemeAsync(string scheme) =>
@@ -65,9 +65,8 @@ public sealed class ThemeSteps : StepsBase
         await Ui.Page.Locator("[data-testid='theme-menu'] button").ClickAsync();
         await Ui.Page.Locator($"[data-testid='theme-{choice}']").ClickAsync();
 
-        // The choice lands over the circuit. Waited for by name rather than by colour: System
-        // resolves to whichever way the browser is set, so the colour says nothing about whether
-        // the click arrived.
+        // Waited for by name rather than by colour: System resolves to whichever way the browser
+        // is set, so the colour says nothing about whether the click arrived.
         await Ui.Page.WaitForFunctionAsync(
             """
             (label) => document.querySelector("[data-testid='theme-menu'] .mud-menu")
@@ -81,7 +80,7 @@ public sealed class ThemeSteps : StepsBase
     public async Task WhenIReloadThePageAsync()
     {
         await Ui.Page.ReloadAsync();
-        await WaitForCircuitAsync();
+        await WaitForAppAsync();
     }
 
     [Then("the page should be in the {word} theme")]

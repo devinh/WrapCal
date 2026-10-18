@@ -16,15 +16,6 @@ public partial class PlanWrap
     // Seeded from the form so the first unit switch converts from what the form is actually in.
     private LengthUnit _previousUnit = new PlanWrapInput().InputUnit;
 
-    /// <summary>
-    /// False while the page is being prerendered, true once the circuit is live. The controls are
-    /// disabled until then, so a click that lands too early cannot do anything. Read during
-    /// render rather than latched in OnAfterRenderAsync: the prerendered markup is replaced by
-    /// the interactive render, which already sees the answer, and there is no second pass to
-    /// wait for.
-    /// </summary>
-    private bool Interactive => RendererInfo.IsInteractive;
-
     private void AddBox()
     {
         if (_input.Boxes.Count >= PlanWrapInput.MaxBoxCount)

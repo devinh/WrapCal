@@ -1,26 +1,13 @@
 using Microsoft.AspNetCore.Components;
-using Microsoft.AspNetCore.Http;
 using Microsoft.JSInterop;
 using MudBlazor;
 
 namespace WrapCal.Components.Layout;
 
-public partial class MainLayout : IDisposable
+public partial class MainLayout
 {
-    private const string ChoiceCookie = "wrapcal-theme";
-    private const string SystemPreferenceCookie = "wrapcal-system-theme";
-
-    private const string ChoicePersistKey = "wrapcal-theme-choice";
-    private const string SystemPreferencePersistKey = "wrapcal-system-theme";
-
     [Inject]
     private IJSRuntime Js { get; set; } = default!;
-
-    [Inject]
-    private IServiceProvider Services { get; set; } = default!;
-
-    [Inject]
-    private IHttpContextAccessor Http { get; set; } = default!;
 
     private readonly MudTheme _theme = new();
 
@@ -29,8 +16,6 @@ public partial class MainLayout : IDisposable
     private ThemeChoice _choice = ThemeChoice.System;
 
     private bool _systemIsDark;
-
-    private PersistingComponentStateSubscription? _persisting;
 
     /// <summary>
     /// What the page is actually drawn in. <see cref="ThemeChoice.System"/> defers to the operating
@@ -57,40 +42,21 @@ public partial class MainLayout : IDisposable
         _ => "System",
     };
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        // The choice and the system's last answer are read from the request during the prerender
-        // and handed to the interactive instance through persistent component state, so the theme
-        // the page was drawn with is the theme the circuit carries on with.
+        // The app is static files and a browser, so there is no request to read the theme from:
+        // the same script that writes the cookies reads them back. Done while initialising rather
+        // than after the first render, because the first frame should already be the right way
+        // round — a cookie read cannot fail or take time, so there is no reason to draw light
+        // first and correct it afterwards.
         //
-        // Both also travel as cookies, which is what makes the handoff resilient: a circuit's own
-        // connection request carries them too, so the fallback alone keeps the theme right. See
-        // `Theme.feature`, which drives the round trip in a browser.
-        //
-        // PersistentComponentState has no public constructor and is only registered by a real
-        // Razor host, so it is resolved rather than injected — under bUnit there is no prerender
-        // and nothing to carry, which the component has to tolerate anyway.
-        PersistentComponentState? state =
-            Services.GetService(typeof(PersistentComponentState)) as PersistentComponentState;
+        // Whatever the browser cannot answer yet — no cookie, no preference recorded — leaves the
+        // two defaults in place: System, drawn light. `OnAfterRenderAsync` is the first moment the
+        // system's real preference is knowable at all.
+        ThemePreferences? preferences = await Js.InvokeAsync<ThemePreferences?>("wrapcalTheme.load");
 
-        _choice = state is not null && state.TryTakeFromJson(ChoicePersistKey, out ThemeChoice persisted)
-            ? persisted
-            : ParseChoice(Http.HttpContext?.Request.Cookies[ChoiceCookie]);
-
-        // No recorded answer means this is the first visit, or the first since the cookie was
-        // cleared. Drawing light is the honest guess: the correction below arrives within a frame
-        // of the circuit attaching, and from then on the cookie makes the prerender right.
-        _systemIsDark = state is not null
-            && state.TryTakeFromJson(SystemPreferencePersistKey, out bool persistedSystem)
-                ? persistedSystem
-                : IsDark(Http.HttpContext?.Request.Cookies[SystemPreferenceCookie]);
-
-        _persisting = state?.RegisterOnPersisting(() =>
-        {
-            state.PersistAsJson(ChoicePersistKey, _choice);
-            state.PersistAsJson(SystemPreferencePersistKey, _systemIsDark);
-            return Task.CompletedTask;
-        });
+        _choice = ParseChoice(preferences?.Choice);
+        _systemIsDark = IsDark(preferences?.System);
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -100,9 +66,8 @@ public partial class MainLayout : IDisposable
             return;
         }
 
-        // The prerender cannot ask the browser anything, so this is the first moment the system
-        // preference is knowable at all. Asked once here, then watched, because in System mode a
-        // page left open has to follow the operating system as it changes.
+        // Asked once here, then watched, because in System mode a page left open has to follow
+        // the operating system as it changes.
         //
         // Leave MudThemeProvider's ObserveSystemDarkModeChange at its default: it is the provider
         // that holds the browser listener, and turning it off silences this watcher too. Tried,
@@ -114,7 +79,7 @@ public partial class MainLayout : IDisposable
     private async Task ApplySystemPreferenceAsync(bool systemIsDark)
     {
         // Recorded whichever mode is chosen: the next page load may well be in System mode, and
-        // this is the only thing that lets its prerender be drawn the right way round.
+        // this is the only thing that lets it be drawn the right way round from the first frame.
         await Js.InvokeVoidAsync("wrapcalTheme.rememberSystem", systemIsDark);
 
         if (_systemIsDark == systemIsDark)
@@ -134,8 +99,8 @@ public partial class MainLayout : IDisposable
     {
         _choice = choice;
 
-        // Written from the browser because an interactive component cannot set a response cookie.
-        // The theme itself already changed in _choice, so the plan on screen survives.
+        // Written from the browser so the preference outlives this page. The theme itself already
+        // changed in _choice, so the plan on screen survives.
         await Js.InvokeVoidAsync("wrapcalTheme.set", choice.ToString().ToLowerInvariant());
     }
 
@@ -147,6 +112,4 @@ public partial class MainLayout : IDisposable
     };
 
     private static bool IsDark(string? value) => string.Equals(value, "dark", StringComparison.Ordinal);
-
-    public void Dispose() => _persisting?.Dispose();
 }

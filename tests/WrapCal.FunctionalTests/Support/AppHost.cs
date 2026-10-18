@@ -1,45 +1,106 @@
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.StaticFiles;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Logging;
 
 namespace WrapCal.FunctionalTests.Support;
 
 /// <summary>
-/// Hosts the real WrapCal app in a child process on a free port.
+/// Serves a published copy of WrapCal as static files.
 /// <para>
-/// A browser talks TCP, so an in-memory <c>TestServer</c> is not an option — Playwright
-/// cannot reach it. Blazor Server also needs a real SignalR circuit, which only exists
-/// on a real server. Hence: real process, real Kestrel.
+/// This is what the app now ships as — a folder of files with no server behind it — so the suite
+/// drives the artifact rather than a development host that production never runs. Publishing
+/// once per run and serving the result also means there is no child process to supervise, no
+/// port to race for and no readiness poll.
 /// </para>
 /// </summary>
 public sealed class AppHost : IAsyncDisposable
 {
-    private const int StartupTimeoutSeconds = 90;
+    private const int PublishTimeoutSeconds = 300;
 
-    /// <summary>
-    /// One client for every probe. Handing <c>new HttpClient()</c> to a poll loop is the usual way
-    /// to run out of sockets; there is no DI container here for <c>IHttpClientFactory</c> to live
-    /// in, so the single static instance is the whole of the fix.
-    /// </summary>
-    private static readonly HttpClient _probeClient = new() { Timeout = TimeSpan.FromSeconds(2) };
+    private readonly WebApplication _server;
 
-    private readonly Process _process;
-
-    private readonly TimeProvider _time;
-
-    private AppHost(Process process, string baseUrl, TimeProvider time)
+    private AppHost(WebApplication server, string baseUrl)
     {
-        _process = process;
+        _server = server;
         BaseUrl = baseUrl;
-        _time = time;
     }
 
+    /// <summary>Origin of the app under test, e.g. <c>http://127.0.0.1:53124</c>.</summary>
     public string BaseUrl { get; }
 
-    public static async Task<AppHost> StartAsync(TimeProvider? time = null)
+    public static async Task<AppHost> StartAsync()
+    {
+        string published = await PublishAsync();
+        string siteRoot = ResolveSiteRoot(published);
+        string baseUrl = $"http://127.0.0.1:{GetFreePort()}";
+
+        WebApplicationBuilder builder = WebApplication.CreateBuilder();
+        builder.Logging.ClearProviders();
+        builder.WebHost.UseUrls(baseUrl);
+
+        WebApplication server = builder.Build();
+
+        var contentTypes = new FileExtensionContentTypeProvider();
+        // Not in the middleware's default map, and browsers refuse to stream-compile a
+        // WebAssembly module that is not served as application/wasm.
+        contentTypes.Mappings[".wasm"] = "application/wasm";
+        contentTypes.Mappings[".webcil"] = "application/octet-stream";
+        contentTypes.Mappings[".dat"] = "application/octet-stream";
+        contentTypes.Mappings[".blat"] = "application/octet-stream";
+
+        var files = new PhysicalFileProvider(siteRoot);
+
+        server.UseDefaultFiles(new DefaultFilesOptions { FileProvider = files });
+
+        // Deliberately uncompressed. Each scenario gets a fresh browser context, so the runtime is
+        // fetched again for every one of them, but the transfer is over loopback where it is
+        // nearly free — compressing 19 MB per scenario costs more in CPU than it saves, measured
+        // at 65s against 49s for the whole suite.
+        server.UseStaticFiles(new StaticFileOptions
+        {
+            FileProvider = files,
+            ContentTypeProvider = contentTypes,
+        });
+
+        await server.StartAsync();
+
+        return new AppHost(server, baseUrl);
+    }
+
+    private const string StampFileName = ".published";
+
+    /// <summary>
+    /// Builds and publishes the app. Publishing rather than building is deliberate: a build
+    /// leaves the app's own static files out of the output folder — only <c>_framework/</c>
+    /// lands there, with the rest coming from the project's <c>wwwroot</c> and the MudBlazor
+    /// package — so a built app is not servable on its own. Publish flattens all of it into one
+    /// tree.
+    /// <para>
+    /// The result is cached beside the test binaries and reused while the app's sources are
+    /// older than the last publish. Publishing runs the IL linker, which uses every core, and
+    /// paying that on every test run is a burst of exactly the kind of load this suite is
+    /// supposed to stop producing.
+    /// </para>
+    /// </summary>
+    private static async Task<string> PublishAsync()
     {
         string projectPath = ResolveAppProjectPath();
-        string baseUrl = $"http://127.0.0.1:{GetFreePort()}";
+        string outputDirectory = Path.Combine(AppContext.BaseDirectory, "app-publish");
+
+        if (IsPublishFresh(outputDirectory, projectPath))
+        {
+            return outputDirectory;
+        }
+
+        if (Directory.Exists(outputDirectory))
+        {
+            Directory.Delete(outputDirectory, recursive: true);
+        }
 
         var startInfo = new ProcessStartInfo("dotnet")
         {
@@ -48,70 +109,120 @@ public sealed class AppHost : IAsyncDisposable
             UseShellExecute = false,
         };
 
-        // --no-launch-profile keeps launchSettings.json out of the picture. Without it,
-        // ASPNETCORE_HTTPS_PORT could be set, and UseHttpsRedirection would try to bounce
-        // every request to an https port this host isn't listening on.
-        startInfo.ArgumentList.Add("run");
-        startInfo.ArgumentList.Add("--project");
+        startInfo.ArgumentList.Add("publish");
         startInfo.ArgumentList.Add(projectPath);
-        startInfo.ArgumentList.Add("--no-launch-profile");
-        startInfo.ArgumentList.Add("--urls");
-        startInfo.ArgumentList.Add(baseUrl);
-        startInfo.Environment["ASPNETCORE_ENVIRONMENT"] = "Development";
+        startInfo.ArgumentList.Add("--configuration");
+        startInfo.ArgumentList.Add(Configuration);
+        startInfo.ArgumentList.Add("--output");
+        startInfo.ArgumentList.Add(outputDirectory);
+        // Compression happens in the test host instead, so the brotli and gzip copies of every
+        // asset would be dead weight — and producing ~400 of them is most of a publish.
+        startInfo.ArgumentList.Add("-p:BlazorEnableCompression=false");
 
-        Process process = Process.Start(startInfo)
-            ?? throw new InvalidOperationException($"Could not start 'dotnet run --project {projectPath}'.");
+        using Process process = Process.Start(startInfo)
+            ?? throw new InvalidOperationException($"Could not start 'dotnet publish {projectPath}'.");
 
-        // Drain both pipes. The child writes to them, and a full pipe buffer would block it.
-        process.OutputDataReceived += static (_, _) => { };
-        process.ErrorDataReceived += static (_, _) => { };
-        process.BeginOutputReadLine();
-        process.BeginErrorReadLine();
+        // Read to the end rather than letting the pipes fill: a blocked child looks like a hang.
+        Task<string> output = process.StandardOutput.ReadToEndAsync();
+        Task<string> error = process.StandardError.ReadToEndAsync();
 
-        var host = new AppHost(process, baseUrl, time ?? TimeProvider.System);
-        await host.WaitUntilReadyAsync();
-        return host;
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(PublishTimeoutSeconds));
+
+        try
+        {
+            await process.WaitForExitAsync(timeout.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            process.Kill(entireProcessTree: true);
+            throw new TimeoutException(
+                $"Publishing {projectPath} did not finish within {PublishTimeoutSeconds}s.");
+        }
+
+        if (process.ExitCode != 0)
+        {
+            throw new InvalidOperationException(
+                $"Publishing {projectPath} failed with exit code {process.ExitCode}.{Environment.NewLine}"
+                + $"{await output}{await error}");
+        }
+
+        // Written last, so a crash mid-publish never leaves a stamp claiming the tree is good.
+        await File.WriteAllTextAsync(
+            Path.Combine(outputDirectory, StampFileName), DateTime.UtcNow.ToString("O"));
+
+        return outputDirectory;
     }
 
     /// <summary>
-    /// Polls until the app answers. Because <see cref="HttpClient"/> follows redirects,
-    /// this also fails loudly if HTTPS redirection is active and pointing at a dead port.
+    /// Whether the cached publish is still current: it exists, it is complete, and nothing the
+    /// app is built from has been written since.
     /// </summary>
-    private async Task WaitUntilReadyAsync()
+    private static bool IsPublishFresh(string outputDirectory, string projectPath)
     {
-        DateTimeOffset deadline = _time.GetUtcNow().AddSeconds(StartupTimeoutSeconds);
+        string stamp = Path.Combine(outputDirectory, StampFileName);
 
-        while (_time.GetUtcNow() < deadline)
+        if (!File.Exists(stamp) || !File.Exists(Path.Combine(outputDirectory, "wwwroot", "index.html")))
         {
-            if (_process.HasExited)
-            {
-                throw new InvalidOperationException(
-                    $"The app exited with code {_process.ExitCode} before becoming ready. " +
-                    $"Run 'dotnet run --project src/WrapCal --no-launch-profile --urls {BaseUrl}' to see why.");
-            }
-
-            try
-            {
-                using var response = await _probeClient.GetAsync(BaseUrl);
-                if (response.IsSuccessStatusCode)
-                {
-                    return;
-                }
-            }
-            catch (HttpRequestException)
-            {
-                // Nothing listening yet — keep waiting.
-            }
-            catch (TaskCanceledException)
-            {
-                // Still starting — keep waiting.
-            }
-
-            await Task.Delay(250);
+            return false;
         }
 
-        throw new TimeoutException(
-            $"The app did not become ready at {BaseUrl} within {StartupTimeoutSeconds}s.");
+        return NewestSourceWriteTime(projectPath) <= File.GetLastWriteTimeUtc(stamp);
+    }
+
+    /// <summary>
+    /// The latest write time of anything the published app is built from: the app's own files,
+    /// and the build settings at the repository root, which apply to every project.
+    /// </summary>
+    private static DateTime NewestSourceWriteTime(string projectPath)
+    {
+        string appDirectory = Path.GetDirectoryName(projectPath)!;
+
+        DateTime newest = Directory
+            .EnumerateFiles(appDirectory, "*", SearchOption.AllDirectories)
+            .Where(file => !file.Contains(
+                $"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
+                && !file.Contains(
+                    $"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
+            .Select(File.GetLastWriteTimeUtc)
+            .DefaultIfEmpty(DateTime.MinValue)
+            .Max();
+
+        // src/WrapCal -> src -> the repository root.
+        string? repositoryRoot = Directory.GetParent(appDirectory)?.Parent?.FullName;
+
+        if (repositoryRoot is not null)
+        {
+            foreach (string name in (string[])["Directory.Build.props", "global.json"])
+            {
+                string path = Path.Combine(repositoryRoot, name);
+
+                if (File.Exists(path) && File.GetLastWriteTimeUtc(path) > newest)
+                {
+                    newest = File.GetLastWriteTimeUtc(path);
+                }
+            }
+        }
+
+        return newest;
+    }
+
+    /// <summary>
+    /// Where the servable files ended up. A publish of a Blazor WebAssembly project nests them
+    /// one level down, under <c>wwwroot/</c>; the check keeps that from being a silent guess.
+    /// </summary>
+    private static string ResolveSiteRoot(string published)
+    {
+        string nested = Path.Combine(published, "wwwroot");
+
+        if (File.Exists(Path.Combine(nested, "index.html")))
+        {
+            return nested;
+        }
+
+        return File.Exists(Path.Combine(published, "index.html"))
+            ? published
+            : throw new InvalidOperationException(
+                $"No index.html in the publish output at {published}. The app did not produce a site.");
     }
 
     private static string ResolveAppProjectPath()
@@ -136,6 +247,23 @@ public sealed class AppHost : IAsyncDisposable
             : Path.Combine(directory.FullName, "src", "WrapCal", "WrapCal.csproj");
     }
 
+    /// <summary>
+    /// The configuration the test binary was built in, read back out of its own output path
+    /// (<c>…/bin/&lt;Configuration&gt;/&lt;tfm&gt;/</c>), so the app is published the same way.
+    /// </summary>
+    private static string Configuration
+    {
+        get
+        {
+            string[] parts = AppContext.BaseDirectory.Split(
+                Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries);
+
+            int bin = Array.LastIndexOf(parts, "bin");
+
+            return bin >= 0 && bin + 1 < parts.Length ? parts[bin + 1] : "Debug";
+        }
+    }
+
     /// <summary>Binds port 0 to let the OS hand back a free port, then releases it.</summary>
     private static int GetFreePort()
     {
@@ -148,12 +276,9 @@ public sealed class AppHost : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        if (!_process.HasExited)
-        {
-            _process.Kill(entireProcessTree: true);
-            await _process.WaitForExitAsync();
-        }
+        await _server.StopAsync();
+        await _server.DisposeAsync();
 
-        _process.Dispose();
+        // The published tree is deliberately left in place: it is the cache the next run reuses.
     }
 }

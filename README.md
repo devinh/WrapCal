@@ -70,6 +70,20 @@ running one alone share a single definition. On Windows use `.\cake.ps1` with th
 arguments. Publishing is a placeholder for now: it drops the site in `./output` and nothing
 more.
 
+### Publishing and hosting
+
+`./cake.sh --target=Publish` leaves a folder of static files in `./output/wwwroot` — no
+server, no runtime to install. (The publish also writes a few host files beside it that a
+static host ignores; `wwwroot` is the site.) Any static host will do, GitHub Pages included.
+
+`index.html` declares `<base href="/" />`, so the site must be served from the root of an
+origin: a user page (`devinh.github.io`) or a custom domain. A GitHub *project* page lives
+under `/WrapCal/` and would need the base href changed to match — and the dev server, which
+serves at the root, would then need adjusting too.
+
+Because everything runs in the browser, the page is blank for a moment while the runtime
+downloads. That is the one thing server rendering did better.
+
 ## Project layout
 
 ```
@@ -83,16 +97,16 @@ cake/                        # Cake build (Cake SDK, net10.0) — not in the sol
 cake.sh / cake.ps1           # run it: ./cake.sh --target=Tests
 
 src/
-  WrapCal/                   # the app (Blazor Web App, styled with MudBlazor)
+  WrapCal/                   # the app (Blazor WebAssembly, styled with MudBlazor)
     Components/
       Layout/                # MainLayout — app bar and content, no navigation
       Pages/                 # Error, NotFound
-      App.razor, Routes.razor, _Imports.razor
+      Routes.razor, _Imports.razor
     Common/
       Result.cs              # Result<T>
     Features/
       PlanWrap/              # the calculator: page, logic, models, summary view, SVG diagram
-    wwwroot/                 # Roboto, app.css, theme.js; MudBlazor ships its own assets
+    wwwroot/                 # index.html, Roboto, app.css, theme.js; MudBlazor ships its own
     Program.cs
     WrapCal.csproj
 
@@ -130,6 +144,12 @@ sheet each box should get back. `PlanWrap.feature` covers behaviour and errors.
 its frame rather than shrinking into it. `Assets.feature` checks what a browser cannot
 show but a diff can hide: that Bootstrap is neither linked nor served, and that MudBlazor
 is doing the styling.
+
+The functional suite runs two scenarios at a time. Every scenario boots the WebAssembly runtime
+in its own browser context and that is a whole-machine burst, so TUnit's default of running
+everything at once left the machine unusable for the length of a run. Set
+`WRAPCAL_SCENARIO_PARALLELISM=1` to serialise them when you need the machine back — it takes
+about as long as the unbounded run did, at a fraction of the load.
 
 Both run on **Microsoft.Testing.Platform**, opted into via `global.json`. Consequences:
 

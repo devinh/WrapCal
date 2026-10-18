@@ -5,7 +5,7 @@ and how to run it; this file says how to change it without breaking it.
 
 ## Project Context
 
-WrapCal is a .NET 10 Blazor Web App that plans how much wrapping paper a set of gift
+WrapCal is a .NET 10 Blazor WebAssembly app that plans how much wrapping paper a set of gift
 boxes needs — given box dimensions and a paper roll's width, it produces a cut plan:
 where to cut the roll, how much length is consumed, and how much paper is wasted.
 
@@ -16,30 +16,38 @@ orthogonal features, accounts, saved plans, or a database.
 ## Tech Stack
 
 - **.NET 10** / C# 14 — SDK `10.0.402`
-- **Blazor Web App** — `InteractiveServer` is registered in `Program.cs`
-  (`AddInteractiveServerRenderMode`) and declared **once**, on `<Routes>` in `App.razor`.
-  Every route is interactive; a page must not add its own `@rendermode`, which cannot nest
-  inside an interactive root.
+- **Standalone Blazor WebAssembly** — `Microsoft.NET.Sdk.BlazorWebAssembly`, with
+  `WebAssemblyHostBuilder` in `Program.cs` mounting `Routes` on `#app` and a `HeadOutlet` on
+  `head::after`. There is **no server and no prerender**: the app is a folder of static files
+  that a browser downloads and runs. `dotnet publish` is the deliverable; `dotnet run` exists
+  only because `WebAssembly.DevServer` serves those files locally.
+- **Everything is interactive, always.** There is no render-mode directive anywhere, and
+  `@rendermode` should never appear — a second render mode has nothing to mean here.
 - **MudBlazor 9.11** — the entire UI. Bootstrap was removed; there is one styling system and
   no second one to fight it. Its providers (`MudThemeProvider`, `MudPopoverProvider`,
-  `MudDialogProvider`, `MudSnackbarProvider`) live in `MainLayout`, which is inside the
-  interactive tree — a provider rendered statically outside it leaves `MudSelect` unable to
-  open its overlay.
+  `MudDialogProvider`, `MudSnackbarProvider`) live in `MainLayout`, which wraps the whole page
+  — a `MudSelect` whose popover provider is not an ancestor reports a missing
+  `MudPopoverProvider` and cannot open.
 - **The theme has three choices and System is the default** — `ThemeChoice` in
   `Components/Layout`, picked from a `MudMenu` in the app bar. Only the browser can answer
-  what the system is set to, and the prerender runs before any JavaScript it owns, so the
-  prerender draws from `wrapcal-system-theme` (what the browser reported last time) and the
-  circuit corrects it a frame after attaching. A first visit on a dark system therefore flashes
-  light once; every visit after that is drawn right from the start. `MudThemeProvider` supplies
-  the answer — `GetSystemDarkModeAsync` and `WatchSystemDarkModeAsync`, so a page left open
-  follows the system as it changes.
+  what the system is set to. `MainLayout.OnInitializedAsync` asks `theme.js` for the two
+  cookies through a single `wrapcalTheme.load` call, so the **first rendered frame already
+  knows the choice** — no flash on a returning visit. A first visit in System mode still
+  flashes light once, because no cookie exists yet and `MudThemeProvider` cannot ask the
+  browser until it has rendered. `GetSystemDarkModeAsync` and `WatchSystemDarkModeAsync` then
+  keep a page left open following the system as it changes.
+- **`theme.js` is the only owner of the theme cookies** — it reads them (`load`), writes the
+  choice (`set`) and records what the browser last reported (`rememberSystem`). A component
+  cannot write a cookie itself, and there is no request for one to arrive on, so nothing in C#
+  touches `document.cookie`.
 - **No persistence** — the app is stateless. No database, no EF Core, no Identity.
   Wrap planning is a pure function of user input. The one exception is the theme, which
   travels in two cookies — `wrapcal-theme` (the choice) and `wrapcal-system-theme` (the last
   system preference the browser reported). Both are display preferences rather than
   application state.
-- **No logging library** — the built-in `Microsoft.Extensions.Logging` from the
-  template is all that is configured.
+- **No logging library and no configuration** — there is nowhere for a log to go in a
+  browser tab, and the app reads no settings, so `appsettings.json` was removed with the
+  server.
 - **TUnit** + **bUnit** — unit and component testing
 - **Reqnroll** (Gherkin BDD) + **Playwright** — functional tests against a real browser
 
@@ -55,9 +63,7 @@ src/
     Components/
       Layout/                   # MainLayout — app bar + content, deliberately no nav
       Pages/
-        Error.razor
         NotFound.razor
-      App.razor
       Routes.razor
       _Imports.razor
     Common/
@@ -76,8 +82,9 @@ src/
         WrapPlanDiagram.razor.css
     Program.cs
     wwwroot/
+      index.html              # the document — base href, asset links, the boot scripts
       app.css                 # Roboto @font-face, framework furniture, message slot
-      theme.js                # writes the theme cookie (the only JS we own)
+      theme.js                # the theme cookies (the only JS we own)
 tests/
   WrapCal.UnitTests/
     Common/ResultTests.cs
@@ -114,15 +121,15 @@ Read this before changing the maths. Every point here has been got wrong once al
   every field with `@bind-Value:after`.
 - **A plan holds at most 100 boxes**, `PlanWrapInput.MaxBoxCount`, enforced twice: the Add
   button disables at the limit, and `PlanWrapLogic` refuses more for callers that never saw the
-  form. Packing is quadratic in the box count and runs on the circuit's thread, so an uncapped
-  list is a way to freeze the page that is drawing it.
+  form. Packing is quadratic in the box count and runs on the browser's only thread, so an
+  uncapped list is a way to freeze the page that is drawing it.
 - **Packing is a greedy shelf fit plus randomised restarts**, seeded, so a given input always
   produces the same plan. `PlanWrapLogicTests` holds a golden test pinning the output — read
   its comment before touching `Pack` or `SheetOptions`.
 - **The restart count is capped by a work budget, not just by `RandomRestarts`.**
   `RestartWorkBudget / boxes.Count` bounds the whole run; a short list still gets every restart
   it asked for, a long one trades restarts for staying responsive. Do not "fix" it back to a
-  flat count — 2000 boxes at 500 restarts measured 25 seconds of blocked circuit.
+  flat count — 2000 boxes at 500 restarts measured 25 seconds of a frozen tab.
 - **Numbers the reader sees follow their culture; numbers in SVG attributes do not.**
   `WrapPlanView.Format`, `WrapPlanDiagram.F` and the note use `CurrentCulture`, matching the
   form's numeric fields. `WrapPlanDiagram.N` stays invariant — it writes `viewBox` and
@@ -137,21 +144,17 @@ Read this before changing the maths. Every point here has been got wrong once al
 - **Keep `@code` blocks small.** Past ~30 lines, extract to a code-behind
   (`.razor.cs`) or a slice logic class.
 - **Shared state goes in a scoped DI service**, not cascading parameters.
-- **Render mode is declared once, at the root** — see the tech-stack note above. Do not add
-  `@rendermode` to a page or layout; it cannot nest inside the interactive root.
 - **`Features/_Imports.razor` is load-bearing.** `_Imports.razor` only applies to its own
   folder and below, and the one in `Components/` is a sibling — without the one in
-  `Features/`, `EditForm`, `InputText`, `PageTitle` and the render-mode directive are all
-  unresolved in slices.
+  `Features/`, `EditForm`, `InputText` and `PageTitle` are unresolved in slices.
 - **Never name a component after a domain record.** Component names derive from the file,
   so `WrapPlan.razor` beside the `WrapPlan` record collides. Hence `WrapPlanView.razor`.
-- **Controls are disabled until the circuit is live.** `Plan`, `Add box` and `Remove` render
-  disabled while `RendererInfo.IsInteractive` is false, then enable. That is a user-facing
-  guarantee, not a test hook: before the circuit attaches a click would either vanish or
-  POST the form and navigate away. Read `RendererInfo` during render rather than latching it
-  in `OnAfterRenderAsync` — the prerendered markup is replaced by the interactive render,
-  which already knows the answer. The suite waits for
-  `[data-testid='plan-button']:not([disabled])`.
+- **There is no "until the circuit is live" gate, and adding one would be dead code.** The
+  page does not exist until the WebAssembly runtime has booted, so a click cannot arrive
+  early — there is nothing to click. `RendererInfo.IsInteractive` is always true here and
+  reading it says nothing. The functional suite still waits for
+  `[data-testid='plan-button']:not([disabled])`, which now means "the app has rendered" and is
+  the same signal after a reload as after a first navigation.
 - **Field rules live in the page's MudForm validation funcs, and only there.** Each field
   carries a `For` expression plus a `Validation` delegate; returning an empty string means
   valid. MudBlazor declares `Validation` as `object`, so the delegate type has to come from a
@@ -314,8 +317,9 @@ Two test projects, deliberately separate. Run either on its own, or `dotnet test
   skips generation entirely for faster builds.)
 - Test files mirror production: `Common/ResultTests.cs`, `Components/MainLayoutTests.cs`,
   `Features/*Tests.cs`.
-- Component tests that render an interactive page must call `SetRendererInfo` in the
-  constructor, or reading `RendererInfo` throws `MissingRendererInfoException`.
+- The theme is arranged through `SetThemePreference(choice, system)`, which stubs
+  `wrapcalTheme.load` — the same single interop call the layout makes at runtime. With no
+  setup the call answers nothing, which is what a first visit looks like.
 
 ### Functional — `tests/WrapCal.FunctionalTests`
 
@@ -329,17 +333,15 @@ Reqnroll (Gherkin) driving Playwright against the app running for real.
   `MainLayoutTests` covers which of the three choices is in force — it arranges the browser's
   answer by stubbing `mudThemeProvider.isDarkMode`, since bUnit has no media query and no
   operating system. `Theme.feature` covers what only a real browser can: `EmulateMediaAsync`
-  sets `prefers-color-scheme`, and the palette is read off the document root (where a theme is
-  visible at all) and compared by luminance rather than against exact colours.
+  sets `prefers-color-scheme`, the palette is read off the document root (where a theme is
+  visible at all) and compared by luminance rather than against exact colours, and the cookie
+  is a real one on a real document.
   Mutation-checked: forcing the system preference to light fails "The page follows a dark
   system" and nothing else.
 - **The `Then` for a theme waits, and has to.** On a first visit the system preference is not
-  knowable until the circuit attaches and can ask the browser, so the palette moves *after* the
-  page is interactive. The step waits up to `ThemeSettleTimeout` for the expected side of
+  knowable until the app has booted and can ask the browser, so the palette moves *after* the
+  page is on screen. The step waits up to `ThemeSettleTimeout` for the expected side of
   mid-grey and only then reports. A theme assertion that reads once will flake.
-- Note what the scenarios do *not* prove: a circuit's first render still sees an HttpContext
-  (the SignalR connection's request, cookies included), so the cookie alone also keeps the
-  theme right. They are blind to which path delivered it, and removing either leaves them green.
 - **Every concrete step class needs `[Binding]`.** Without it Reqnroll finds no steps at all
   and every scenario fails as "undefined", naming no file — not an obvious error to trace
   back to a new class.
@@ -350,11 +352,30 @@ Reqnroll (Gherkin) driving Playwright against the app running for real.
   (`ReqnrollUseIntermediateOutputPathForCodeBehind`).
 - **Reqnroll maps `@tags` to TUnit `[Category]` attributes automatically** — verified in
   the generated code, despite Reqnroll's docs only documenting NUnit/MSTest/xUnit.
-- `Support/AppHost.cs` runs the real app as a child process on a free port. Playwright
-  drives a real socket, so an in-memory `TestServer` is impossible, and Blazor Server
-  needs a real SignalR circuit. `--no-launch-profile` keeps `launchSettings.json` from
-  injecting an HTTPS port; with no HTTPS endpoint the `UseHttpsRedirection()` in
-  `Program.cs` is a no-op.
+- **`Support/AppHost.cs` publishes the app and serves the output as static files.** Publish,
+  not build: a build leaves the app's own assets out of the output folder — only `_framework/`
+  lands there — so a built app is not servable, while publish flattens everything into one
+  tree. The suite therefore drives the artifact that ships rather than a development host that
+  production never runs, and there is no child process, no port to race and no readiness poll.
+  Kestrel needs an explicit `application/wasm` mapping or the browser refuses to stream-compile
+  the modules.
+- **Served uncompressed, deliberately.** Each scenario gets a fresh browser context, so the
+  ~19 MB runtime is fetched again for every one of them. Compressing it was measured at 65s
+  against 49s for the whole suite — over loopback the transfer is nearly free and the CPU is
+  not. Do not "optimise" this back on without measuring.
+- **The publish is cached.** `AppHost` publishes into `bin/<config>/<tfm>/app-publish` and
+  reuses it while nothing under `src/WrapCal` (or `Directory.Build.props` / `global.json`) is
+  newer than the stamp file. Publishing runs the IL linker on every core, and repeating that
+  each run is a load burst for no reason.
+- **Scenarios are limited to two at a time**, `Support/ScenarioParallelism.cs`. TUnit
+  parallelises by default, which here means several browser contexts compiling WebAssembly at
+  once and pinning every core — measured at 44s with the machine unusable throughout, against
+  31s at two. `WRAPCAL_SCENARIO_PARALLELISM=1` is the gentler setting when something else
+  needs the machine; it costs the same 44s the unbounded run did, for far less load. Do not
+  remove the limiter to "speed up" the suite.
+- Publishing takes a few seconds per run, and a cold first run longer, which is why
+  `PageTimeout` is 60s: the first scenario pays for a WebAssembly boot against a cold file
+  cache.
 - `Hooks/TestRunHooks.cs` starts the app and browser once per run.
   `Hooks/ScenarioHooks.cs` gives each scenario a fresh context and screenshots failures
   to `bin/.../playwright-artifacts/`.
@@ -494,10 +515,10 @@ Do NOT generate code that:
 - **Blocks on `.Result` or `.Wait()`** — await instead
 - **Uses `JSRuntime` where CSS or Blazor suffices** — prefer `@bind`,
   `NavigationManager`, `FocusAsync()`
-- **Mixes render modes carelessly** — Interactive Server and WASM components can't
-  share state via DI; data crosses the boundary via parameters or an API
-- **Puts heavy work in `OnInitializedAsync`** — blocks rendering; stream with
-  `[StreamRendering]` or load progressively
+- **Adds `@rendermode`** — there is one render mode and it is the whole app; the attribute
+  has nothing left to select
+- **Puts heavy work in `OnInitializedAsync`** — blocks the first paint, and here that is the
+  only paint there is
 - **Calls `StateHasChanged()` liberally** — the framework already calls it after event
   handlers and lifecycle methods
 - **Uses `[CascadingParameter]` as general state management** — cascading values

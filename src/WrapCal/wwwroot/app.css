@@ -12,6 +12,14 @@ html, body {
     font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif;
 }
 
+/* What stands in for the page while the runtime downloads. There is no server here to render
+   anything earlier, so the first paint is this and nothing else. */
+.loading-indicator {
+    padding: 4rem 1rem;
+    text-align: center;
+    opacity: 0.6;
+}
+
 /* Framework furniture: Blazor toggles these itself, so the ids and classes are fixed. */
 #blazor-error-ui {
     color-scheme: light only;

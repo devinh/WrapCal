@@ -95,7 +95,7 @@ public sealed class FormSteps : StepsBase
 
     /// <summary>
     /// Returns the row for the next box, clicking Add box when one is needed. The click only adds
-    /// a row after a circuit round trip, so this waits for the row to appear — re-checking the
+    /// a row after a render, so this waits for the row to appear — re-checking the
     /// count immediately used to add a row per retry and leave phantom boxes behind.
     /// </summary>
     private async Task<ILocator> NextBoxRowAsync()

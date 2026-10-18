@@ -1,7 +1,7 @@
 ﻿@inherits LayoutComponentBase
 
-@* The providers live here because MainLayout renders inside the interactive tree that starts at
-   <Routes> in App.razor. A MudSelect whose popover provider sits outside that tree reports a
+@* The providers live here so that every component MainLayout wraps — the whole page — resolves
+   them from the same tree. A MudSelect whose popover provider sits outside that tree reports a
    missing MudPopoverProvider and cannot open. *@
 <MudThemeProvider @ref="_provider" Theme="_theme" IsDarkMode="IsDarkMode" />
 <MudPopoverProvider />

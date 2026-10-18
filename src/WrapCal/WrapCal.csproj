@@ -1,13 +1,17 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+    <!-- Rewrites the #[.{fingerprint}] placeholders in wwwroot/index.html at publish time, so
+         the boot script URL is content-addressed and the importmap is filled in. Without it the
+         placeholders ship verbatim and the page never boots. -->
+    <OverrideHtmlAssetPlaceholders>true</OverrideHtmlAssetPlaceholders>
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.13" />
+    <!-- Only so `dotnet run` and `dotnet watch` have something to serve the static files. -->
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="10.0.13" PrivateAssets="all" />
     <PackageReference Include="MudBlazor" Version="9.11.0" />
   </ItemGroup>
 

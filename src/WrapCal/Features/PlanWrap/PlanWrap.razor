@@ -117,7 +117,7 @@
                                    Color="Color.Error"
                                    aria-label="@($"Remove {placeholder}")"
                                    data-testid="remove-box"
-                                   Disabled="@(!Interactive || _input.Boxes.Count <= 1)"
+                                   Disabled="@(_input.Boxes.Count <= 1)"
                                    OnClick="() => RemoveBox(index)" />
                 </MudItem>
             </MudGrid>
@@ -128,14 +128,13 @@
         <MudButton Variant="Variant.Outlined" Color="Color.Default"
                    StartIcon="@Icons.Material.Filled.Add"
                    data-testid="add-box"
-                   Disabled="@(!Interactive || _input.Boxes.Count >= PlanWrapInput.MaxBoxCount)"
+                   Disabled="@(_input.Boxes.Count >= PlanWrapInput.MaxBoxCount)"
                    OnClick="AddBox">
             Add box
         </MudButton>
 
         <MudButton Variant="Variant.Filled" Color="Color.Primary"
                    data-testid="plan-button"
-                   Disabled="@(!Interactive)"
                    OnClick="SubmitAsync">
             Plan
         </MudButton>
