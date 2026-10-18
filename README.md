@@ -9,6 +9,19 @@ as waste.
 It is a **single-purpose calculator** — that page is the whole site. There is no
 navigation, and no plan to add other features.
 
+## What you get
+
+Enter the roll you have and the boxes you want to wrap:
+
+- **A cut plan** — the roll length the boxes consume, the paper cut, the waste, and an
+  efficiency figure.
+- **A paper layout** — an SVG diagram of the sheet with each cut drawn to scale and labelled
+  with the box name and its size. The origin is marked, and a hatched band shows which way
+  the unused roll continues — up, down, left or right, your choice.
+- **A wrapping note per box** — which pair of the box's own sides the paper goes around.
+
+Units switch between inches and centimetres, converting what you have already typed.
+
 ## Requirements
 
 - **.NET SDK 10.0.x** — developed against `10.0.402`
@@ -54,17 +67,18 @@ src/
     Common/
       Result.cs              # Result<T>
     Features/
-      PlanWrap/              # the calculator: page, logic, models, display
+      PlanWrap/              # the calculator: page, logic, models, summary view, SVG diagram
     wwwroot/                 # static assets (Bootstrap, app.css)
     Program.cs
     WrapCal.csproj
 
 tests/
-  WrapCal.UnitTests/         # TUnit + bUnit — unit and component tests
+  WrapCal.UnitTests/         # TUnit + bUnit — logic, components, form model
+    Common/ Components/ Features/
 
   WrapCal.FunctionalTests/   # TUnit + Reqnroll + Playwright — BDD against a real browser
-    Features/                #   Gherkin .feature files
-    StepDefinitions/         #   bindings
+    Features/                #   PlanWrap (behaviour), CutPlans (spec tables), Layout
+    StepDefinitions/         #   StepsBase + Form / Planning / Layout steps
     Hooks/                   #   app + browser lifecycle
     Support/                 #   AppHost, UiContext
 ```
@@ -81,10 +95,14 @@ See [CLAUDE.md](CLAUDE.md) for conventions, coding standards, and anti-patterns.
 
 Two test projects, deliberately separate — run either on its own.
 
-| Project | Stack | Covers |
-|---|---|---|
-| `tests/WrapCal.UnitTests` | TUnit + bUnit | Unit tests and Blazor component rendering |
-| `tests/WrapCal.FunctionalTests` | TUnit + Reqnroll + Playwright | Gherkin scenarios against a real browser |
+| Project | Stack | Covers | Takes |
+|---|---|---|---|
+| `tests/WrapCal.UnitTests` | TUnit + bUnit | Planner maths, form model, components | under a second |
+| `tests/WrapCal.FunctionalTests` | TUnit + Reqnroll + Playwright | The real page in a real browser | a few seconds |
+
+`CutPlans.feature` is the readable specification: concrete roll and box inputs, with the
+sheet each box should get back. `PlanWrap.feature` covers behaviour and errors, and
+`Layout.feature` measures where things sit on the page.
 
 Both run on **Microsoft.Testing.Platform**, opted into via `global.json`. Consequences:
 
