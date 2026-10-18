@@ -141,14 +141,42 @@ dotnet format --verify-no-changes
 
 ## MCP Tools
 
-The `cwm-roslyn-navigator` MCP server is configured in `.mcp.json` and installed
-globally (`dotnet tool list -g` → `cwm.roslynnavigator 0.8.0`). Use it to save tokens:
+`cwm-roslyn-navigator` is installed globally (`dotnet tool list -g` → `cwm.roslynnavigator
+0.8.0`) and registered at **user scope by the dotnet-claude-kit plugin**. There is
+deliberately **no project-level `.mcp.json`** — adding one registers a second, identical
+server that needs its own approval and then shows up as a duplicate.
+
+Solution discovery is automatic: the server scans the working directory (3 levels deep,
+skipping `bin`, `obj`, `.git`), so **no `--solution` argument is needed**. Verified working
+via its startup log (`Discovered solution: .../WrapCal.slnx`).
+
+Use it to save tokens:
 
 - **Before modifying a type** — `find_symbol` to locate, `get_public_api` for its surface
 - **Before adding a reference** — `find_references` for existing usage
-- **Architecture questions** — `get_project_graph`
 - **Interface implementations** — `find_implementations`, not grep
-- **After changes** — `get_diagnostics` to catch warnings
+- **After changes** — `get_diagnostics`
+
+### Known limitation: it cannot see Razor-generated types
+
+The workspace loads through `MSBuildWorkspace`, which **does not execute source
+generators**. Razor compiles components with the Razor source generator (there are no
+`.razor.g.cs` files on disk), so `Home`, `App`, `Routes`, and the `WrapCal.Components`
+namespace **do not exist in the tool's view**. This is expected, not broken config:
+
+- `get_diagnostics` reports phantom `CS0246` errors in `Program.cs` for
+  `WrapCal.Components` (line 1) and `App` (line 24). **`dotnet build` is the source of
+  truth** — ignore these and never "fix" them.
+- `find_symbol`, `find_references`, and `get_public_api` return nothing for Razor
+  components. Use `grep` or read the `.razor` file directly.
+- `get_test_coverage_map` counts only non-Razor types, so its percentage is meaningless
+  for this project — treat that dimension as *Not assessed*.
+
+### Workspace freshness
+
+The workspace loads **once at server start**. After adding or removing a *project*, or
+making large structural changes, restart the session so it reloads the solution.
+Otherwise tools silently report a stale project list.
 
 ## Workflow
 
