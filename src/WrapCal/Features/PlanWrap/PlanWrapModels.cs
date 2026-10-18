@@ -38,18 +38,22 @@ public static class UnitConverter
 public sealed record GiftBox(string Name, double Length, double Width, double Height);
 
 /// <summary>
-/// <paramref name="RollWidth"/> and <paramref name="PaperMargin"/> are in
+/// <paramref name="RollWidth"/> and <paramref name="OverlapMargin"/> are in
 /// <paramref name="InputUnit"/>. Everything is converted to centimetres for the maths and
 /// converted back to <paramref name="OutputUnit"/> at the end.
 /// <para>
-/// <paramref name="PaperMargin"/> is added beyond <em>every</em> edge of each sheet, so both
-/// the width and the length of a sheet grow by twice the margin. It covers the seam overlap
-/// around the box and the slack at each end in one number.
+/// <paramref name="OverlapMargin"/> is how far the two ends of the paper lap over each other
+/// when the wrap goes around the box. It lengthens only the wrap-around dimension; with 0 the
+/// paper would meet exactly and not overlap at all.
+/// </para>
+/// <para>
+/// The along-the-box dimension gets no allowance beyond the fold-over the planner already
+/// adds to cover the end faces.
 /// </para>
 /// </summary>
 public sealed record WrapOptions(
     double RollWidth,
-    double PaperMargin,
+    double OverlapMargin,
     LengthUnit InputUnit = LengthUnit.Centimeters,
     LengthUnit OutputUnit = LengthUnit.Centimeters,
     int RandomRestarts = 500,

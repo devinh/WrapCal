@@ -32,9 +32,9 @@ public static class PlanWrapLogic
             return Result<WrapPlan>.Failure("roll.width", "Roll width must be positive.");
         }
 
-        if (inputOptions.PaperMargin < 0)
+        if (inputOptions.OverlapMargin < 0)
         {
-            return Result<WrapPlan>.Failure("paper.margin", "Paper margin cannot be negative.");
+            return Result<WrapPlan>.Failure("overlap.margin", "Overlap margin cannot be negative.");
         }
 
         if (inputOptions.RandomRestarts < 0)
@@ -51,7 +51,7 @@ public static class PlanWrapLogic
         WrapOptions options = inputOptions with
         {
             RollWidth = UnitConverter.ToCm(inputOptions.RollWidth, unit),
-            PaperMargin = UnitConverter.ToCm(inputOptions.PaperMargin, unit),
+            OverlapMargin = UnitConverter.ToCm(inputOptions.OverlapMargin, unit),
             InputUnit = LengthUnit.Centimeters,
         };
 
@@ -165,16 +165,14 @@ public static class PlanWrapLogic
             double p = dimensions[(axisIndex + 1) % 3];
             double q = dimensions[(axisIndex + 2) % 3];
 
-            // The margin sits beyond every edge of the sheet, so it adds twice to each
-            // dimension: once at each end of it.
-            double margin = 2 * options.PaperMargin;
-
-            // Paper must go around the cross-section (p x q).
-            double circumference = (2 * (p + q)) + margin;
+            // Paper must go around the cross-section (p x q), plus enough to lap the two ends
+            // over each other by the requested overlap.
+            double circumference = (2 * (p + q)) + options.OverlapMargin;
 
             // Along the axis the paper covers the box and folds over each end face (half of
-            // the larger cross-section side per end).
-            double axisLength = axis + Math.Max(p, q) + margin;
+            // the larger cross-section side per end). No extra allowance here — the margin is
+            // about the seam, and the fold-over already covers the ends.
+            double axisLength = axis + Math.Max(p, q);
 
             string label = $"wrapped around the {AxisNames[axisIndex]}-axis";
 

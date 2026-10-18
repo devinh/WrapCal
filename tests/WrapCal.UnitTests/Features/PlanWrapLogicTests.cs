@@ -8,7 +8,7 @@ public class PlanWrapLogicTests
         double rollWidth = 30,
         LengthUnit inputUnit = LengthUnit.Centimeters,
         LengthUnit outputUnit = LengthUnit.Centimeters) =>
-        new(rollWidth, PaperMargin: 0.5, InputUnit: inputUnit, OutputUnit: outputUnit,
+        new(rollWidth, OverlapMargin: 0.5, InputUnit: inputUnit, OutputUnit: outputUnit,
             RandomRestarts: 25, Seed: 1);
 
     private static GiftBox Box(string name = "Book", double length = 22, double width = 15, double height = 4) =>
@@ -101,7 +101,7 @@ public class PlanWrapLogicTests
             [new GiftBox("B", 8, 4, 2)],
             new WrapOptions(
                 RollWidth: 30 / UnitConverter.CmPerInch,
-                PaperMargin: 0.5 / UnitConverter.CmPerInch,
+                OverlapMargin: 0.5 / UnitConverter.CmPerInch,
                 InputUnit: LengthUnit.Inches,
                 OutputUnit: LengthUnit.Centimeters,
                 RandomRestarts: 0));
@@ -124,6 +124,29 @@ public class PlanWrapLogicTests
 
         await Assert.That(second.Value.RollLengthUsed).IsEqualTo(first.Value.RollLengthUsed);
     }
+
+    [Test]
+    public async Task Overlap_margin_is_exactly_the_seam_overlap()
+    {
+        // A 20cm cube goes around in 2 * (20 + 20) = 80cm and needs 20 + max(20, 20) = 40cm
+        // along the box for the fold-over. The margin is how far the two ends lap over each
+        // other, so it lengthens the wrap-around dimension by exactly itself — 0 means the
+        // paper meets without overlapping — and leaves the along-box dimension alone.
+        WrapPlan without = OneBox(new GiftBox("Cube", 20, 20, 20), overlapMargin: 0);
+        WrapPlan with = OneBox(new GiftBox("Cube", 20, 20, 20), overlapMargin: 2);
+
+        await Assert.That(without.Sections[0].Width).IsEqualTo(80.0);
+        await Assert.That(without.Sections[0].Length).IsEqualTo(40.0);
+
+        await Assert.That(with.Sections[0].Width).IsEqualTo(82.0);
+        await Assert.That(with.Sections[0].Length).IsEqualTo(40.0);
+    }
+
+    private static WrapPlan OneBox(GiftBox box, double overlapMargin) =>
+        PlanWrapLogic.Plan(
+            [box],
+            new WrapOptions(200, overlapMargin, InputUnit: LengthUnit.Centimeters,
+                OutputUnit: LengthUnit.Centimeters, RandomRestarts: 0)).Value;
 
     [Test]
     public async Task Reports_the_roll_width_in_the_plan()
@@ -168,12 +191,13 @@ public class PlanWrapLogicTests
         //
         // Eight varied boxes on a 40in roll, deliberately: the randomised restarts only earn
         // their keep on an input where the greedy order is contested. Measured on this exact
-        // set, roll length is 384 with restarts disabled and 375 with them on, so this test
-        // fails if restarts stop working.
+        // set, roll length is 379.5 with restarts disabled and 360.5 with them on, so this
+        // test fails if restarts stop working.
         //
-        // This had to be re-chosen when the margin model changed: the previous six-box set on
-        // a 60in roll became restart-insensitive afterwards (identical output at every restart
-        // count), so it would have passed with the optimiser crippled.
+        // Re-check that sensitivity whenever the sheet maths changes. An earlier revision used
+        // six boxes on a 60in roll; a margin change made it restart-insensitive (identical
+        // output at every restart count) without touching a single line of this test, so it
+        // would have passed with the optimiser crippled.
         GiftBox[] boxes =
         [
             new("A", 20, 14, 6), new("B", 15, 15, 15), new("C", 8, 8, 2),
@@ -183,7 +207,7 @@ public class PlanWrapLogicTests
 
         var options = new WrapOptions(
             RollWidth: 40,
-            PaperMargin: 0.5,
+            OverlapMargin: 0.5,
             InputUnit: LengthUnit.Inches,
             OutputUnit: LengthUnit.Inches,
             RandomRestarts: 200,
@@ -194,11 +218,11 @@ public class PlanWrapLogicTests
         await Assert.That(result.IsSuccess).IsTrue();
         await Assert.That(result.Value.Sections.Count).IsEqualTo(8);
 
-        // Exact values are 375 and 0.8722000000000002, identical in Debug and Release.
+        // Exact values are 360.5 and 0.8691747572815535, identical in Debug and Release.
         // Rounded to survive harmless float noise, but finely enough that any real change in
         // packing quality fails the test rather than slipping through.
-        await Assert.That(Math.Round(result.Value.RollLengthUsed, 3)).IsEqualTo(375.0);
-        await Assert.That(Math.Round(result.Value.Efficiency, 4)).IsEqualTo(0.8722);
+        await Assert.That(Math.Round(result.Value.RollLengthUsed, 3)).IsEqualTo(360.5);
+        await Assert.That(Math.Round(result.Value.Efficiency, 6)).IsEqualTo(0.869175);
     }
 
     private static bool Overlaps(CutSection a, CutSection b) =>

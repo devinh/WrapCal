@@ -22,11 +22,11 @@
         </div>
 
         <div class="col-md-3">
-            <label class="form-label" for="paperMargin">Paper Margin</label>
-            <InputNumber id="paperMargin" @bind-Value="_input.PaperMargin" class="form-control"
-                         title="Paper allowed beyond every edge of each sheet — the seam overlap around the box and the slack at each end, in one number. A 4 x 4 sheet becomes 5 x 5 with a margin of 0.5." />
-            <ValidationMessage For="() => _input.PaperMargin" />
-            <div class="form-text">Spare paper beyond every edge of each sheet.</div>
+            <label class="form-label" for="overlapMargin">Overlap Margin</label>
+            <InputNumber id="overlapMargin" @bind-Value="_input.OverlapMargin" class="form-control"
+                         title="How far the two ends of the paper lap over each other when wrapped around the box. 0 means the paper meets exactly but does not overlap." />
+            <ValidationMessage For="() => _input.OverlapMargin" />
+            <div class="form-text">How far the two paper ends overlap at the seam.</div>
         </div>
 
         <div class="col-md-3">
