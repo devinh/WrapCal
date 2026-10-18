@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.Playwright;
 using Reqnroll;
 using WrapCal.FunctionalTests.Support;
@@ -9,8 +10,11 @@ public sealed class PlanWrapSteps
 {
     private const int PageTimeout = 20_000;
 
+    private const string BoxRowSelector = "[data-testid='boxes'] tbody tr";
+
     private readonly UiContext _ui;
     private readonly ScenarioContext _context;
+    private int _rowsFilled;
 
     public PlanWrapSteps(ScenarioContext scenarioContext)
     {
@@ -43,11 +47,11 @@ public sealed class PlanWrapSteps
     {
         await OpenPlanPageAsync();
 
-        ILocator sides = _ui.Page.Locator("tbody tr").First.Locator("input[type='number']");
+        ILocator sides = _ui.Page.Locator(BoxRowSelector).First.Locator("input[type='number']");
 
         for (int i = 0; i < 3; i++)
         {
-            await sides.Nth(i).FillAsync("500");
+            await FillAndLeaveAsync(sides.Nth(i), "500");
         }
 
         await ClickPlanAsync();
@@ -59,7 +63,7 @@ public sealed class PlanWrapSteps
     [Then("the Remove button should line up with the row's inputs")]
     public async Task ThenTheRemoveButtonShouldLineUpWithTheRowsInputsAsync()
     {
-        var input = (await _ui.Page.Locator("tbody tr").First
+        var input = (await _ui.Page.Locator(BoxRowSelector).First
             .Locator("input[type='number']").First.BoundingBoxAsync())!;
 
         var remove = (await _ui.Page.Locator("[data-testid='remove-box']").First.BoundingBoxAsync())!;
@@ -98,7 +102,7 @@ public sealed class PlanWrapSteps
         double before = (await _ui.Page.Locator("[data-testid='plan-button']").BoundingBoxAsync())!.Y;
         _context.Set(before, "planButtonTop");
 
-        ILocator length = _ui.Page.Locator("tbody tr").First.Locator("input[type='number']").First;
+        ILocator length = _ui.Page.Locator(BoxRowSelector).First.Locator("input[type='number']").First;
         await length.FillAsync("0");
 
         // Blazor's InputNumber binds on change, not input, so validation fires when the field is
@@ -126,7 +130,8 @@ public sealed class PlanWrapSteps
     {
         await OpenPlanPageAsync();
 
-        await _ui.Page.Locator("tbody tr").First.Locator("input[type='number']").First.FillAsync("0");
+        await FillAndLeaveAsync(
+            _ui.Page.Locator(BoxRowSelector).First.Locator("input[type='number']").First, "0");
 
         // Not using ClickPlanAsync: a field-level problem blocks the submit, so neither a plan
         // nor the logic-level error appears.
@@ -245,6 +250,119 @@ public sealed class PlanWrapSteps
             new PageWaitForFunctionOptions { Timeout = 10_000 });
     }
 
+    [When("I plan a roll of {double} {word} wide with an overlap of {double}")]
+    public async Task WhenIPlanARollAsync(double rollWidth, string unit, double overlap)
+    {
+        await OpenPlanPageAsync();
+
+        await _ui.Page.Locator("[data-testid='unit-select']").SelectOptionAsync(
+            unit.Equals("in", StringComparison.OrdinalIgnoreCase) ? "Inches" : "Centimeters");
+
+        // Changing the unit re-expresses everything already in the form, and that lands over the
+        // circuit. Typing before it arrives gets overwritten by the conversion — which produced
+        // plans computed from 30in-as-76.2cm instead of the values this step set.
+        await Task.Delay(300);
+
+        await FillAndLeaveAsync(_ui.Page.Locator("#rollWidth"), Inv(rollWidth));
+        await FillAndLeaveAsync(_ui.Page.Locator("#overlapMargin"), Inv(overlap));
+    }
+
+    [When("I enter a box {string} measuring {double} by {double} by {double}")]
+    public async Task WhenIEnterABoxAsync(string name, double length, double width, double height)
+    {
+        ILocator row = await NextBoxRowAsync();
+
+        // InputText renders no type attribute, so it cannot be found by input[type='text'].
+        await FillAndLeaveAsync(row.Locator("[data-testid='box-name']"), name);
+
+        ILocator sides = row.Locator("input[type='number']");
+        await FillAndLeaveAsync(sides.Nth(0), Inv(length));
+        await FillAndLeaveAsync(sides.Nth(1), Inv(width));
+        await FillAndLeaveAsync(sides.Nth(2), Inv(height));
+    }
+
+    /// <summary>
+    /// Returns the row for the next box, clicking Add box when one is needed. The click only adds
+    /// a row after a circuit round trip, so this waits for the row to appear — re-checking the
+    /// count immediately used to add a row per retry and leave phantom boxes behind.
+    /// </summary>
+    private async Task<ILocator> NextBoxRowAsync()
+    {
+        ILocator rows = _ui.Page.Locator(BoxRowSelector);
+        int before = await rows.CountAsync();
+
+        if (before <= _rowsFilled)
+        {
+            await _ui.Page.Locator("[data-testid='add-box']").ClickAsync();
+
+            await _ui.Page.WaitForFunctionAsync(
+                $"() => document.querySelectorAll(\"{BoxRowSelector}\").length > {before}",
+                null,
+                new PageWaitForFunctionOptions { Timeout = 10_000 });
+        }
+
+        return rows.Nth(_rowsFilled++);
+    }
+
+    [When("I calculate the plan")]
+    public async Task WhenICalculateThePlanAsync() => await ClickPlanAsync();
+
+    [Then("the plan should need {double} of roll")]
+    public async Task ThenThePlanShouldNeedOfRollAsync(double expected)
+    {
+        string? text = await _ui.Page.Locator("[data-testid='roll-length']").TextContentAsync();
+        double actual = double.Parse(text?.Trim() ?? "NaN", CultureInfo.InvariantCulture);
+
+        // The page reports one decimal place, so compare at that precision. Stated this way
+        // round rather than with IsLessThan so a failure says what the plan actually used.
+        if (Math.Abs(actual - expected) >= 0.05)
+        {
+            Assert.Fail($"The plan used {actual} of roll but {expected} was expected.");
+        }
+    }
+
+    [Then("the plan should show {int} cut section")]
+    [Then("the plan should show {int} cut sections")]
+    public async Task ThenThePlanShouldShowCutSectionsAsync(int expected)
+    {
+        int rows = await _ui.Page.Locator("[data-testid='sections'] tbody tr").CountAsync();
+
+        await Assert.That(rows).IsEqualTo(expected);
+    }
+
+    [Then("the plan should list the box {string}")]
+    public async Task ThenThePlanShouldListTheBoxAsync(string name)
+    {
+        ILocator names = _ui.Page.Locator("[data-testid='sections'] tbody tr td:first-child");
+        int count = await names.CountAsync();
+
+        for (int i = 0; i < count; i++)
+        {
+            string? cell = await names.Nth(i).TextContentAsync();
+
+            if (string.Equals(cell?.Trim(), name, StringComparison.Ordinal))
+            {
+                return;
+            }
+        }
+
+        Assert.Fail($"The plan does not list a box named '{name}'.");
+    }
+
+    /// <summary>
+    /// Fills a field and then leaves it. Blazor's inputs bind on <c>change</c>, which the browser
+    /// only fires on blur, while Playwright's fill dispatches <c>input</c> alone. Without the
+    /// Tab, whatever was typed last can still be uncommitted when Plan is clicked, and the plan
+    /// is computed from the previous value — which made these tests flaky rather than wrong.
+    /// </summary>
+    private static async Task FillAndLeaveAsync(ILocator input, string value)
+    {
+        await input.FillAsync(value);
+        await input.PressAsync("Tab");
+    }
+
+    private static string Inv(double value) => value.ToString(CultureInfo.InvariantCulture);
+
     private async Task OpenPlanPageAsync()
     {
         await _ui.Page.GotoAsync(_ui.Url("/"));
@@ -259,6 +377,11 @@ public sealed class PlanWrapSteps
 
     private async Task ClickPlanAsync()
     {
+        // Inputs bind on change over the SignalR circuit. Leaving the field dispatches the
+        // change, but the model the submit handler reads only updates once that round trip
+        // lands — without a settle, the plan is occasionally computed from the previous value.
+        await Task.Delay(300);
+
         await _ui.Page.Locator("[data-testid='plan-button']").ClickAsync();
 
         // Either a plan or an error must arrive; both prove the click landed.

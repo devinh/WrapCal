@@ -53,7 +53,7 @@
         each box in a single sheet, folding the paper over both ends.
     </div>
 
-    <table class="table align-middle">
+    <table class="table align-middle" data-testid="boxes">
         <thead>
             <tr>
                 <th scope="col">Name</th>
@@ -75,7 +75,7 @@
                 <tr>
                     <td>
                         <InputText @bind-Value="box.Name" class="form-control"
-                                   placeholder="@placeholder" />
+                                   data-testid="box-name" placeholder="@placeholder" />
                         <div class="validation-slot">
                             <ValidationMessage For="() => box.Name" />
                         </div>

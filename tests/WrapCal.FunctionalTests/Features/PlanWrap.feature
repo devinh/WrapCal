@@ -52,3 +52,36 @@ Feature: Wrap planning
       | Downwards  | bottom |
       | Rightwards | right  |
       | Leftwards  | left   |
+
+  # Spec tables: the inputs a user would type and the plan they should get back.
+  # Roll length is what the page shows, to one decimal.
+  Scenario Outline: A single box produces a known plan
+    When I plan a roll of <roll> <unit> wide with an overlap of <overlap>
+    And I enter a box "<name>" measuring <l> by <w> by <h>
+    And I calculate the plan
+    Then the plan should need <rollLength> of roll
+    And the plan should show <sections> cut section
+    And the plan should list the box "<name>"
+
+    Examples:
+      | roll | unit | overlap | name   | l  | w  | h  | rollLength | sections |
+      | 100  | cm   | 0       | Cube   | 20 | 20 | 20 | 40.0       | 1        |
+      | 60   | cm   | 0.5     | Book   | 22 | 15 | 4  | 37.5       | 1        |
+      | 50   | cm   | 1       | Crate  | 30 | 20 | 10 | 101.0      | 1        |
+      | 30   | in   | 0.5     | Gadget | 10 | 5  | 2  | 14.5       | 1        |
+
+  Scenario Outline: Several boxes produce a known plan
+    When I plan a roll of <roll> <unit> wide with an overlap of <overlap>
+    And I enter a box "<name1>" measuring <l1> by <w1> by <h1>
+    And I enter a box "<name2>" measuring <l2> by <w2> by <h2>
+    And I calculate the plan
+    Then the plan should need <rollLength> of roll
+    And the plan should show <sections> cut sections
+    And the plan should list the box "<name1>"
+    And the plan should list the box "<name2>"
+
+    Examples:
+      | roll | unit | overlap | name1 | l1 | w1 | h1 | name2 | l2 | w2 | h2 | rollLength | sections |
+      | 60   | cm   | 0.5     | Book  | 22 | 15 | 4  | Mug   | 10 | 10 | 10 | 58.0       | 2        |
+      | 80   | cm   | 1       | Crate | 30 | 20 | 10 | Cube  | 20 | 20 | 20 | 132.0      | 2        |
+      | 100  | cm   | 0.5     | Shirt | 15 | 10 | 2  | Frame | 40 | 30 | 20 | 100.5      | 2        |
