@@ -48,6 +48,26 @@ public sealed class PlanWrapSteps
         await ClickPlanAsync();
     }
 
+    [When("I plan a box with zero length")]
+    public async Task WhenIPlanABoxWithZeroLengthAsync()
+    {
+        await OpenPlanPageAsync();
+
+        await _ui.Page.Locator("tbody tr").First.Locator("input[type='number']").First.FillAsync("0");
+
+        // Not using ClickPlanAsync: a field-level problem blocks the submit, so neither a plan
+        // nor the logic-level error appears.
+        await _ui.Page.Locator("[data-testid='plan-button']").ClickAsync();
+    }
+
+    [Then("I should see a validation message about the length")]
+    public async Task ThenIShouldSeeAValidationMessageAboutTheLengthAsync()
+    {
+        await _ui.Page.WaitForSelectorAsync(
+            "text=Length must be between",
+            new PageWaitForSelectorOptions { Timeout = 10_000 });
+    }
+
     [When("I plan using centimetres")]
     public async Task WhenIPlanUsingCentimetresAsync()
     {

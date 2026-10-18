@@ -63,6 +63,21 @@ public class PlanWrapPageTests : BunitContext
     }
 
     [Test]
+    public async Task Rejects_a_box_with_a_non_positive_dimension_before_planning()
+    {
+        var cut = Render<PlanWrap>();
+
+        await cut.FindAll("tbody tr input[type='number']")[0].ChangeAsync("0");
+        await cut.Find("form").SubmitAsync();
+
+        // Field-level validation blocks the submit, so no plan is produced and the message is
+        // attached to the offending field rather than surfacing as a logic error.
+        await Assert.That(cut.FindAll("svg[role='img']").Count).IsEqualTo(0);
+        await Assert.That(cut.FindAll("[data-testid='plan-error']").Count).IsEqualTo(0);
+        await Assert.That(cut.Markup).Contains("Length must be between 0.1 and 1000.");
+    }
+
+    [Test]
     public async Task Defaults_to_the_roll_continuing_upwards()
     {
         var cut = Render<PlanWrap>();

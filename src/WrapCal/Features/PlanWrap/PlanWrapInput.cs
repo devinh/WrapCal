@@ -26,9 +26,53 @@ public sealed class PlanWrapInput
     public WrapOptions ToOptions() =>
         new(RollWidth, OverlapMargin, InputUnit, InputUnit);
 
+    public const double MinDimension = 0.1;
+
+    public const double MaxDimension = 1000;
+
+    public const int MaxNameLength = 50;
+
+    /// <summary>
+    /// Per-field problems with the box rows, so the page can show each against the input that
+    /// caused it. <c>DataAnnotationsValidator</c> cannot reach inside the list.
+    /// </summary>
+    public IReadOnlyList<BoxProblem> ValidateBoxes()
+    {
+        List<BoxProblem> problems = [];
+
+        foreach (BoxInput box in Boxes)
+        {
+            CheckDimension(box, nameof(BoxInput.Length), "Length", box.Length);
+            CheckDimension(box, nameof(BoxInput.Width), "Width", box.Width);
+            CheckDimension(box, nameof(BoxInput.Height), "Height", box.Height);
+
+            if (box.Name is not null && box.Name.Trim().Length > MaxNameLength)
+            {
+                problems.Add(new BoxProblem(
+                    box,
+                    nameof(BoxInput.Name),
+                    $"Name must be {MaxNameLength} characters or fewer."));
+            }
+        }
+
+        return problems;
+
+        void CheckDimension(BoxInput box, string field, string label, double value)
+        {
+            if (value is < MinDimension or > MaxDimension)
+            {
+                problems.Add(new BoxProblem(
+                    box,
+                    field,
+                    $"{label} must be between {MinDimension} and {MaxDimension}."));
+            }
+        }
+    }
+
     /// <summary>
     /// Box dimensions themselves are checked by <see cref="PlanWrapLogic"/>, which reports
-    /// failures as a <c>Result</c> — DataAnnotations cannot validate inside the list.
+    /// failures as a <c>Result</c> — that also covers rules needing the roll width, which no
+    /// single field can know.
     /// </summary>
     public IReadOnlyList<GiftBox> ToBoxes() =>
         [.. Boxes.Select((box, index) => new GiftBox(
@@ -38,6 +82,12 @@ public sealed class PlanWrapInput
             box.Height))];
 }
 
+/// <summary>
+/// One row of the boxes table. Deliberately carries no validation attributes:
+/// <c>DataAnnotationsValidator</c> does not recurse into a collection, so attributes here are
+/// silently ignored. The rules live in <see cref="PlanWrapInput.ValidateBoxes"/> instead, which
+/// the page feeds into its own <c>ValidationMessageStore</c>.
+/// </summary>
 public sealed class BoxInput
 {
     public string? Name { get; set; }
@@ -48,3 +98,6 @@ public sealed class BoxInput
 
     public double Height { get; set; } = 1.5;
 }
+
+/// <summary>A validation problem on one field of one box row.</summary>
+public sealed record BoxProblem(BoxInput Box, string Field, string Message);

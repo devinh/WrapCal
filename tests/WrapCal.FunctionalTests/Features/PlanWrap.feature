@@ -17,6 +17,11 @@ Feature: Wrap planning
     Then I should see an error instead of a plan
     And I should not see the paper layout
 
+  Scenario: A box with an impossible dimension is stopped before planning
+    When I plan a box with zero length
+    Then I should see a validation message about the length
+    And I should not see the paper layout
+
   Scenario: Results follow the selected units
     When I plan using centimetres
     Then the results should be reported in "cm"

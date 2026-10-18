@@ -9,7 +9,7 @@
     Enter the roll you have and the boxes you want to wrap. The plan shows where to cut.
 </p>
 
-<EditForm Model="_input" OnValidSubmit="HandleSubmit" data-interactive="@InteractiveMarker">
+<EditForm EditContext="_editContext" OnSubmit="HandleSubmit" data-interactive="@InteractiveMarker">
     <DataAnnotationsValidator />
 
     <div class="row g-3 mb-3">
@@ -70,15 +70,19 @@
                     <td>
                         <InputText @bind-Value="box.Name" class="form-control"
                                    placeholder="@placeholder" />
+                        <ValidationMessage For="() => box.Name" />
                     </td>
                     <td>
                         <InputNumber @bind-Value="box.Length" class="form-control" />
+                        <ValidationMessage For="() => box.Length" />
                     </td>
                     <td>
                         <InputNumber @bind-Value="box.Width" class="form-control" />
+                        <ValidationMessage For="() => box.Width" />
                     </td>
                     <td>
                         <InputNumber @bind-Value="box.Height" class="form-control" />
+                        <ValidationMessage For="() => box.Height" />
                     </td>
                     <td>
                         <button type="button" class="btn btn-outline-danger btn-sm"
@@ -138,10 +142,26 @@
 
 @code {
     private readonly PlanWrapInput _input = new();
+    private EditContext _editContext = default!;
+    private ValidationMessageStore _messages = default!;
     private WrapPlan? _plan;
     private string? _error;
     private bool _interactive;
     private RollDirection _rollDirection = RollDirection.Up;
+
+    protected override void OnInitialized()
+    {
+        _editContext = new EditContext(_input);
+        _messages = new ValidationMessageStore(_editContext);
+
+        // Clearing on field change makes a corrected box row drop its message immediately,
+        // the way the roll options already do via DataAnnotationsValidator.
+        _editContext.OnFieldChanged += (_, args) =>
+        {
+            _messages.Clear(args.FieldIdentifier);
+            _editContext.NotifyValidationStateChanged();
+        };
+    }
 
     /// <summary>
     /// Null until the SignalR circuit is live, then "true". Exposed to the DOM so an automated
@@ -169,8 +189,29 @@
         }
     }
 
-    private void HandleSubmit()
+    private void HandleSubmit(EditContext context)
     {
+        _messages.Clear();
+
+        // Roll options validate through DataAnnotations; the box rows cannot, so their rules
+        // are applied here and attached to the offending fields.
+        bool fieldsValid = context.Validate();
+
+        foreach (BoxProblem problem in _input.ValidateBoxes())
+        {
+            _messages.Add(new FieldIdentifier(problem.Box, problem.Field), problem.Message);
+            fieldsValid = false;
+        }
+
+        context.NotifyValidationStateChanged();
+
+        if (!fieldsValid)
+        {
+            _plan = null;
+            _error = null;
+            return;
+        }
+
         Result<WrapPlan> result = PlanWrapLogic.Plan(_input.ToBoxes(), _input.ToOptions());
 
         if (result.IsSuccess)
