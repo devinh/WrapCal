@@ -49,10 +49,11 @@ public sealed record GiftBox(string Name, double Length, double Width, double He
 /// </para>
 /// <para>
 /// <paramref name="SearchIterations"/> is how many times the planner may nudge the arrangement
-/// it already has in search of a shorter roll. Zero means "take the first arrangement and stop",
-/// which is what tests that pin a specific plan ask for. It is a request, not a promise: the
-/// work budget in <see cref="PlanWrapLogic"/> overrules it so a long list cannot block the page
-/// it is drawn on.
+/// it already has in search of a shorter roll. <c>null</c> — the default — means "as much as the
+/// work budget allows", which is what a reader wants: the budget already stops a long list from
+/// blocking the page it is drawn on, so capping below it only spends less of the time available.
+/// Zero means "take the first arrangement and stop", which is what tests that pin a specific plan
+/// ask for. A number caps the search under the budget.
 /// </para>
 /// </summary>
 public sealed record WrapOptions(
@@ -60,7 +61,7 @@ public sealed record WrapOptions(
     double OverlapMargin,
     LengthUnit InputUnit = LengthUnit.Centimeters,
     LengthUnit OutputUnit = LengthUnit.Centimeters,
-    int SearchIterations = 500,
+    int? SearchIterations = null,
     int Seed = 1);
 
 /// <summary>

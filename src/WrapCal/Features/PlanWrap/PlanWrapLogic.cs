@@ -37,7 +37,7 @@ public static class PlanWrapLogic
             return Result<WrapPlan>.Failure("overlap.margin", "Overlap margin cannot be negative.");
         }
 
-        if (inputOptions.SearchIterations < 0)
+        if (inputOptions.SearchIterations is < 0)
         {
             return Result<WrapPlan>.Failure("options.iterations", "Search iterations cannot be negative.");
         }
@@ -108,11 +108,11 @@ public static class PlanWrapLogic
                 .OrderByDescending(i => optionsPerBox[i].Min(option => option.Length)),
         ];
 
-        int iterations = Math.Min(
-            options.SearchIterations,
-            Math.Max(1, SearchWorkBudget / boxes.Count));
+        int budget = Math.Max(1, SearchWorkBudget / boxes.Count);
 
-        List<ShelfPacker.Shelf> best = ShelfPacker.Search(
+        int iterations = options.SearchIterations is { } cap ? Math.Min(cap, budget) : budget;
+
+        List<ShelfPacker.Shelf> best = ShelfPacker.Solve(
             order, optionsPerBox, options.RollWidth, iterations, random);
 
         // Each shelf starts where the one before it ended, so Y falls out of the heights rather

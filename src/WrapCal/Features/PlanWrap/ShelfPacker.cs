@@ -28,7 +28,35 @@ internal static class ShelfPacker
     }
 
     /// <summary>What a candidate plan costs: the roll it consumes, then the paper it cuts.</summary>
-    private readonly record struct Cost(double Length, double Area);
+    internal readonly record struct Cost(double Length, double Area);
+
+    /// <summary>
+    /// Keeps the first arrangement and nothing else, solves small lists outright, and searches
+    /// the rest — then re-solves groups of shelves exactly, since which boxes share a shelf is
+    /// what the heuristic gets wrong and what a move has no way to see.
+    /// </summary>
+    public static List<Shelf> Solve(
+        IReadOnlyList<int> order,
+        IReadOnlyList<List<PlanWrapLogic.SheetOption>> optionsPerBox,
+        double rollWidth,
+        int iterations,
+        Random random)
+    {
+        if (iterations == 0)
+        {
+            return Pack(order, optionsPerBox, rollWidth);
+        }
+
+        if (optionsPerBox.Count <= ShelfOptimum.MaxBoxes)
+        {
+            return ShelfOptimum.Solve(optionsPerBox, rollWidth);
+        }
+
+        return ShelfOptimum.Polish(
+            Search(order, optionsPerBox, rollWidth, iterations, random),
+            optionsPerBox,
+            rollWidth);
+    }
 
     private static List<Shelf> Pack(
         IReadOnlyList<int> order,
@@ -55,7 +83,7 @@ internal static class ShelfPacker
     /// How many nudges to attempt. Zero returns the first guess untouched, which is what tests
     /// that pin a specific packing rely on.
     /// </param>
-    public static List<Shelf> Search(
+    private static List<Shelf> Search(
         IReadOnlyList<int> order,
         IReadOnlyList<List<PlanWrapLogic.SheetOption>> optionsPerBox,
         double rollWidth,
@@ -440,7 +468,7 @@ internal static class ShelfPacker
     /// plan that cuts less paper — otherwise an orientation change could cost paper and buy
     /// nothing, which is the waste this search exists to remove.
     /// </summary>
-    private static bool IsBetter(Cost candidate, Cost incumbent) =>
+    internal static bool IsBetter(Cost candidate, Cost incumbent) =>
         candidate.Length < incumbent.Length - 1e-9
         || (candidate.Length <= incumbent.Length + 1e-9 && candidate.Area < incumbent.Area - 1e-9);
 }

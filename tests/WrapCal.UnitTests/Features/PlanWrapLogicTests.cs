@@ -345,9 +345,11 @@ public class PlanWrapLogicTests
         await Assert.That(firstGuess.RollLengthUsed).IsEqualTo(150.0);
         await Assert.That(firstGuess.Sections.All(section => section.Width == 28.5)).IsTrue();
 
-        // 5 shelves holding two each, plus two shelves holding one.
-        await Assert.That(searched.RollLengthUsed).IsEqualTo(127.5);
-        await Assert.That(searched.Sections.Count(section => section.Width == 14.5)).IsEqualTo(10);
+        // Every box on the narrower sheet, six shelves holding two each — the optimum for this
+        // input, which the exhaustive solver now reaches rather than approximates.
+        await Assert.That(searched.RollLengthUsed).IsEqualTo(123.0);
+        await Assert.That(searched.Sections.All(section => section.Width == 14.5)).IsTrue();
+        await Assert.That(searched.Sections.Count).IsEqualTo(12);
         await Assert.That(searched.PaperAreaCut).IsLessThan(firstGuess.PaperAreaCut);
     }
 
@@ -375,6 +377,57 @@ public class PlanWrapLogicTests
     }
 
     [Test]
+    public async Task Produces_a_known_plan_above_the_exact_threshold()
+    {
+        // The same guard as the golden test, for the half of the planner it cannot reach: sixteen
+        // boxes is over the exhaustive solver's limit, so this input exercises the search and the
+        // exact re-partitioning that follows it. Four sizes, four of each — the shape where which
+        // boxes share a shelf decides the answer.
+        GiftBox[] boxes = ManyBoxes();
+
+        WrapPlan searched = PlanWrapLogic.Plan(boxes, new WrapOptions(60, 0.5, Seed: 42)).Value;
+
+        // Nothing but the first guess, and no re-partitioning either — which is what makes this
+        // test fail if the optimiser stops working, in either half.
+        WrapPlan firstGuess = PlanWrapLogic
+            .Plan(boxes, new WrapOptions(60, 0.5, SearchIterations: 0)).Value;
+
+        await Assert.That(firstGuess.RollLengthUsed).IsGreaterThan(searched.RollLengthUsed);
+        await Assert.That(Math.Round(searched.RollLengthUsed, 1)).IsEqualTo(448.0);
+    }
+
+    [Test]
+    public async Task A_missing_iteration_cap_means_the_work_budget()
+    {
+        // Two ways of clamping to the same thing have to produce the same plan: dropping the cap
+        // and asking for far more than the budget allows both mean "as much as the budget will
+        // pay for". What they must not mean is "no search" or "no limit".
+        GiftBox[] boxes = ManyBoxes(7);
+
+        WrapPlan byDefault = PlanWrapLogic.Plan(boxes, new WrapOptions(60, 0.5, Seed: 42)).Value;
+
+        WrapPlan byHugeCap = PlanWrapLogic
+            .Plan(boxes, new WrapOptions(60, 0.5, SearchIterations: 100_000, Seed: 42)).Value;
+
+        await Assert.That(byHugeCap.RollLengthUsed).IsEqualTo(byDefault.RollLengthUsed);
+    }
+
+    /// <summary>Four sizes repeated, so the input is stated here rather than generated.</summary>
+    private static GiftBox[] ManyBoxes(int copies = 4)
+    {
+        GiftBox[] sizes =
+        [
+            new("A", 20, 14, 6), new("B", 15, 15, 15), new("C", 8, 8, 2), new("D", 25, 18, 5),
+        ];
+
+        return
+        [
+            .. sizes.SelectMany(size =>
+                Enumerable.Range(1, copies).Select(n => size with { Name = $"{size.Name}{n}" })),
+        ];
+    }
+
+    [Test]
     public async Task Produces_a_known_plan_for_a_known_input()
     {
         // Golden test. The invariant tests above check that a plan is *valid*; none of them
@@ -384,15 +437,11 @@ public class PlanWrapLogicTests
         // Seeded, so it is reproducible. If these numbers move, the optimiser's behaviour
         // changed — treat that as a deliberate decision to re-baseline, not an accident.
         //
-        // Eight varied boxes on a 40in roll, deliberately: the search only earns its keep on an
-        // input where the greedy order is contested. Measured on this exact set, roll length is
-        // 380.5 with the search disabled and 371.5 with it on, so this test fails if the search
-        // stops working.
-        //
-        // Re-check that sensitivity whenever the sheet maths changes. An earlier revision used
-        // six boxes on a 60in roll; a margin change made it search-insensitive (identical
-        // output at every iteration count) without touching a single line of this test, so it
-        // would have passed with the optimiser crippled.
+        // Eight varied boxes on a 40in roll. Eight is under the exhaustive solver's limit, so
+        // this now pins an *optimal* plan rather than a searched one — 371.5, which the solver
+        // confirms is the best layout there is for these boxes. The guard on the search itself
+        // lives in Produces_a_known_plan_above_the_exact_threshold, because nothing here
+        // exercises the search any more.
         GiftBox[] boxes =
         [
             new("A", 20, 14, 6), new("B", 15, 15, 15), new("C", 8, 8, 2),

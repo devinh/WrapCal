@@ -49,7 +49,7 @@ Feature: Cut plans
     When I plan the wrap
     Then the cuts should be:
       | name | width | length |
-      | Book | 38.5  | 37.5   |
+      | Book | 37.5  | 38.5   |
       | Mug  | 20.5  | 40.5   |
     And the cut plan should use 40.5 of roll
     And the cut plan should report 2 cuts

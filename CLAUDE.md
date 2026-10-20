@@ -97,6 +97,7 @@ src/
         PlanWrap.razor.cs       # form state, field rules, unit conversion
         PlanWrapLogic.cs        # the planner → Result<WrapPlan>
         ShelfPacker.cs          # shelf packing + the search over placements
+        ShelfOptimum.cs         # the exact layout for small lists, and re-partitioning for long ones
         PlanWrapModels.cs       # domain records
         PlanWrapInput.cs        # form model + the field limits
         WrapPlanView.razor      # summary figures + cut sections table
@@ -153,12 +154,30 @@ Read this before changing the maths. Every point here has been got wrong once al
   38.5 × 37.5 rather than 52.5 × 37.5 for exactly this reason, at the same roll length. The
   comparison needs one *strict* improvement, or two sheets a hair apart would dominate each
   other and leave the box with no option at all.
+- **Lists of twelve boxes or fewer are solved exactly, not searched.** `ShelfOptimum` enumerates
+  every partition of the boxes into shelves by dynamic programming over subsets: a shelf's height
+  is its tallest sheet, so a layout is a partition and the answer is the one whose heights add up
+  to the least. Nothing about that needs a solver or a server, which is why it fits here at all.
+  Measured in a Debug build: 22 ms at 12 boxes, 198 ms at 14, 890 ms at 16 — hence `MaxBoxes = 12`,
+  the largest count that stays invisible inside a click. Twelve identical boxes are now 123 cm,
+  an answer derived by hand and confirmed independently, rather than the 127.5 the search reached.
 - **Packing is a greedy shelf fit plus a search over placements**, seeded, so a given input
   always produces the same plan. The search keeps its best plan and keeps nudging *it*
   (ruin-and-recreate, reorientation, and occasional full repacks), rather than repacking from
   scratch each iteration — measured across six inputs, 2-15% shorter rolls than the old
   random restarts, and faster. `PlanWrapLogicTests` holds a golden test pinning the output —
   read its comment before touching `Pack` or `SheetOptions`.
+- **Above twelve boxes the search's weak point is the partition, so it is re-solved rather than
+  nudged.** `ShelfOptimum.Polish` takes each pair of shelves in the best plan, re-solves that
+  group exactly, and keeps the result when it is shorter. Box-shuffling moves have no way to see a
+  partition that beats the one they are holding; re-solving a pair outright does. Worth 7.5% at
+  15 boxes down to 2% at 30, and it beats giving the plain search eight times the compute.
+  Groups larger than `MaxBoxes` are skipped — those are the expensive case the limit exists for.
+- **A shelf's sheets are chosen for the least paper, not the least width.** Once a shelf's height
+  is settled, every sheet no longer than the shelf is equally good for the roll, so the choice
+  must fall on paper — the same tie-break the search applies between plans. Choosing the narrowest
+  sheet instead looks tidier and quietly cut 3% more paper on any shelf with width to spare. Width
+  is a constraint, not a preference: it only decides whether the boxes fit on the shelf at all.
 - **The search has to be able to return something other than what it started from.** Reinserting
   a ruined box by best fit alone is a fixed point — take a box out and the same plan puts it
   back — and measured **no improvement at all** until both reinsertion *and* the sheet choice for
@@ -179,6 +198,12 @@ Read this before changing the maths. Every point here has been got wrong once al
   flat count — 2000 boxes at 500 restarts measured 25 seconds of a frozen tab. The budget is
   stated in units of boxes × iterations; a search iteration is cheaper than a repack was, so
   the same count now costs less, and raising it is a separate measured decision.
+- **`SearchIterations` is a cap, and its default is no cap at all.** `null` means "as much as the
+  budget allows", because the budget is already the thing stopping a long list from blocking the
+  page — capping below it only spends less of the time that was available. Measured: the default
+  beats a flat 500 by up to 9% at 30 boxes, and is identical at 100, where the budget is 500
+  anyway. `0` still means "first arrangement and nothing else", and the search returns that
+  untouched, which is what tests pinning a specific plan rely on.
 - **Numbers the reader sees follow their culture; numbers in SVG attributes do not.**
   `WrapPlanView.Format`, `WrapPlanDiagram.F` and the note use `CurrentCulture`, matching the
   form's numeric fields. `WrapPlanDiagram.N` stays invariant — it writes `viewBox` and
