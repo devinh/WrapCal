@@ -18,7 +18,7 @@ else
            longer, never smaller — and opens on the origin. Re-keying the scroller is what puts
            it back on the origin: a new plan, or a new direction, starts scrolled afresh. *@
         @* Focusable because it scrolls by keyboard, and named because a focusable region with
-           no accessible name is an unlabelled stop on the tab path. *@
+           no accessible name is an unlabeled stop on the tab path. *@
         <div class="@ScrollerClass" tabindex="0" role="region" aria-label="Cut layout" @key="(Plan, Direction)">
             <svg viewBox="@ViewBox"
                  preserveAspectRatio="xMinYMin meet"
@@ -66,18 +66,18 @@ else
                 {
                     CutSection section = Plan.Sections[i];
                     Box box = Rect(section);
-                    double centreX = box.X + (box.W / 2);
-                    double centreY = box.Y + (box.H / 2);
+                    double centerX = box.X + (box.W / 2);
+                    double centerY = box.Y + (box.H / 2);
 
                     <g class="cut">
                         <rect x="@N(box.X)" y="@N(box.Y)" width="@N(box.W)" height="@N(box.H)" />
 
-                        <text x="@N(centreX)" y="@N(centreY)"
+                        <text x="@N(centerX)" y="@N(centerY)"
                               clip-path="url(#@ClipId(i))"
                               text-anchor="middle" dominant-baseline="middle"
                               font-size="@N(FontSize(section))">
-                            <tspan x="@N(centreX)" dy="-0.55em">@section.ItemName</tspan>
-                            <tspan x="@N(centreX)" dy="1.15em">@Dimensions(section)</tspan>
+                            <tspan x="@N(centerX)" dy="-0.55em">@section.ItemName</tspan>
+                            <tspan x="@N(centerX)" dy="1.15em">@Dimensions(section)</tspan>
                         </text>
                     </g>
                 }
@@ -287,8 +287,8 @@ else
     /// Side labels are rotated on horizontal layouts: the margin is only a fraction of the roll
     /// width, so horizontal text would run far outside it.
     /// </summary>
-    private string? LabelTransform(double centreX, double centreY) =>
-        IsHorizontal ? $"rotate(-90 {N(centreX)} {N(centreY)})" : null;
+    private string? LabelTransform(double centerX, double centerY) =>
+        IsHorizontal ? $"rotate(-90 {N(centerX)} {N(centerY)})" : null;
 
     private string UnitLabel => Plan.Unit == LengthUnit.Centimeters ? "cm" : "in";
 
@@ -321,7 +321,7 @@ else
         return Math.Max(Math.Min(byWidth, byHeight), floor);
     }
 
-    // Normalising zero keeps "-0" out of the viewBox when a margin is zero.
+    // Normalizing zero keeps "-0" out of the viewBox when a margin is zero.
     private static string N(double value) =>
         (value == 0 ? 0d : value).ToString("0.###", CultureInfo.InvariantCulture);
 

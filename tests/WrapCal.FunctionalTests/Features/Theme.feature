@@ -7,24 +7,24 @@ Feature: Theme
   no component test has.
 
   Scenario: The page follows a dark system
-    Given the browser prefers a dark colour scheme
+    Given the browser prefers a dark color scheme
     And the plan page
     Then the page should be in the dark theme
 
   Scenario: The page follows a light system
-    Given the browser prefers a light colour scheme
+    Given the browser prefers a light color scheme
     And the plan page
     Then the page should be in the light theme
 
   Scenario: A page left open follows the system as it changes
-    Given the browser prefers a light colour scheme
+    Given the browser prefers a light color scheme
     And the plan page
     Then the page should be in the light theme
-    When the browser switches to a dark colour scheme
+    When the browser switches to a dark color scheme
     Then the page should be in the dark theme
 
   Scenario: An explicit choice wins over the system
-    Given the browser prefers a dark colour scheme
+    Given the browser prefers a dark color scheme
     And the plan page
     When I choose the light theme
     Then the page should be in the light theme

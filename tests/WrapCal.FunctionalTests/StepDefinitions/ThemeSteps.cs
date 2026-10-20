@@ -15,7 +15,7 @@ public sealed class ThemeSteps : StepsBase
 
     /// <summary>
     /// The palette variable the theme writes onto the document root, which is where a theme
-    /// becomes visible at all — MudBlazor's layout carries its colours as custom properties. Read
+    /// becomes visible at all — MudBlazor's layout carries its colors as custom properties. Read
     /// from the theme's own contract rather than a test hook added to the page, so a repaint in
     /// either direction is caught by the same assertion.
     /// </summary>
@@ -32,8 +32,8 @@ public sealed class ThemeSteps : StepsBase
     {
     }
 
-    [Given("the browser prefers a {word} colour scheme")]
-    public async Task GivenTheBrowserPrefersAColourSchemeAsync(string scheme) =>
+    [Given("the browser prefers a {word} color scheme")]
+    public async Task GivenTheBrowserPrefersAColorSchemeAsync(string scheme) =>
         await Ui.Page.EmulateMediaAsync(new PageEmulateMediaOptions
         {
             ColorScheme = scheme == "dark" ? ColorScheme.Dark : ColorScheme.Light,
@@ -43,8 +43,8 @@ public sealed class ThemeSteps : StepsBase
     /// Changes the media query without navigating, which is the only way to see whether an open
     /// page is following the system or merely read it once when the app booted.
     /// </summary>
-    [When("the browser switches to a {word} colour scheme")]
-    public async Task WhenTheBrowserSwitchesToAColourSchemeAsync(string scheme) =>
+    [When("the browser switches to a {word} color scheme")]
+    public async Task WhenTheBrowserSwitchesToAColorSchemeAsync(string scheme) =>
         await Ui.Page.EmulateMediaAsync(new PageEmulateMediaOptions
         {
             ColorScheme = scheme == "dark" ? ColorScheme.Dark : ColorScheme.Light,
@@ -65,8 +65,8 @@ public sealed class ThemeSteps : StepsBase
         await Ui.Page.Locator("[data-testid='theme-menu'] button").ClickAsync();
         await Ui.Page.Locator($"[data-testid='theme-{choice}']").ClickAsync();
 
-        // Waited for by name rather than by colour: System resolves to whichever way the browser
-        // is set, so the colour says nothing about whether the click arrived.
+        // Waited for by name rather than by color: System resolves to whichever way the browser
+        // is set, so the color says nothing about whether the click arrived.
         await Ui.Page.WaitForFunctionAsync(
             """
             (label) => document.querySelector("[data-testid='theme-menu'] .mud-menu")
@@ -105,8 +105,8 @@ public sealed class ThemeSteps : StepsBase
 
         // The hatched band is painted through a pattern defined in <defs>, which is the one part
         // of the drawing whose styling depends on the scope attribute reaching inside it. It is
-        // held to the same colour as the paper, because both are the palette surface — and
-        // because an element that has lost its styling falls back to black, which is a colour a
+        // held to the same color as the paper, because both are the palette surface — and
+        // because an element that has lost its styling falls back to black, which is a color a
         // "is anything painted" check would happily accept in dark mode.
         string hatchFill = await Ui.Page.EvaluateAsync<string>(
             """
@@ -189,8 +189,8 @@ public sealed class ThemeSteps : StepsBase
     }
 
     /// <summary>
-    /// Waits for the palette to reach the expected side of mid-grey. The comparison is by
-    /// luminance rather than against the palette's exact values: which colours a theme uses is
+    /// Waits for the palette to reach the expected side of mid-gray. The comparison is by
+    /// luminance rather than against the palette's exact values: which colors a theme uses is
     /// the theme's business, and pinning them would make a restyle look like a broken preference.
     /// </summary>
     private async Task WaitForThemeAsync(bool expectedDark) =>

@@ -20,8 +20,8 @@ public enum RollDirection
 }
 
 /// <summary>
-/// Converts between centimetres and inches. The planner does all its arithmetic in
-/// centimetres, converting once on the way in and once on the way out.
+/// Converts between centimeters and inches. The planner does all its arithmetic in
+/// centimeters, converting once on the way in and once on the way out.
 /// </summary>
 public static class UnitConverter
 {
@@ -39,7 +39,7 @@ public sealed record GiftBox(string Name, double Length, double Width, double He
 
 /// <summary>
 /// <paramref name="RollWidth"/> and <paramref name="OverlapMargin"/> are in
-/// <paramref name="InputUnit"/>. Everything is converted to centimetres for the maths and
+/// <paramref name="InputUnit"/>. Everything is converted to centimeters for the maths and
 /// converted back to <paramref name="OutputUnit"/> at the end.
 /// <para>
 /// <paramref name="OverlapMargin"/> is how far the paper laps over itself where it meets. Both

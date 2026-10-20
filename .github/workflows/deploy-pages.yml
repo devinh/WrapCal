@@ -10,7 +10,7 @@ permissions:
   pages: write
   id-token: write
 
-# One deployment at a time. A queued run is not cancelled, so a deployment that has already
+# One deployment at a time. A queued run is not canceled, so a deployment that has already
 # started is never killed halfway through.
 concurrency:
   group: pages

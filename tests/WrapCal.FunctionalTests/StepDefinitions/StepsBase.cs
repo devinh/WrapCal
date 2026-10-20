@@ -64,7 +64,7 @@ public abstract class StepsBase
     {
         string target = unit.StartsWith("in", StringComparison.OrdinalIgnoreCase)
             ? "Inches"
-            : "Centimetres";
+            : "Centimeters";
 
         ILocator host = Ui.Page.Locator("[data-testid='unit-select']");
 

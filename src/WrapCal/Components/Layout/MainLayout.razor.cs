@@ -45,7 +45,7 @@ public partial class MainLayout
     protected override async Task OnInitializedAsync()
     {
         // The app is static files and a browser, so there is no request to read the theme from:
-        // the same script that writes the cookies reads them back. Done while initialising rather
+        // the same script that writes the cookies reads them back. Done while initializing rather
         // than after the first render, because the first frame should already be the right way
         // round — a cookie read cannot fail or take time, so there is no reason to draw light
         // first and correct it afterwards.

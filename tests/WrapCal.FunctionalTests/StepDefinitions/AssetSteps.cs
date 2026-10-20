@@ -48,7 +48,7 @@ public sealed class AssetSteps : StepsBase
     public async Task ThenTheMudBlazorThemeShouldBeAppliedAsync()
     {
         // The provider writes the palette as custom properties, so one of them resolving to a
-        // colour is proof the theme is live rather than the stylesheet being linked and ignored.
+        // color is proof the theme is live rather than the stylesheet being linked and ignored.
         string? primary = await Ui.Page.EvaluateAsync<string?>(
             "() => getComputedStyle(document.documentElement)"
             + ".getPropertyValue('--mud-palette-primary').trim()");

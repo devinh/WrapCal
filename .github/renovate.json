@@ -26,7 +26,7 @@
       "automergeStrategy": "squash"
     },
     {
-      "description": "Every major update is a pull request to review, whatever the package — a major is where behaviour changes, and this repo publishes on merge to main",
+      "description": "Every major update is a pull request to review, whatever the package — a major is where behavior changes, and this repo publishes on merge to main",
       "matchUpdateTypes": [
         "major"
       ],
