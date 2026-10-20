@@ -14,24 +14,16 @@ namespace WrapCal.Features.PlanWrap;
 public static class PlanWrapLogic
 {
     /// <summary>
-    /// How much work the randomised restarts may cost, in units of "boxes × restarts". Packing is
-    /// quadratic in the number of boxes, so a fixed restart count turns a long list into seconds
-    /// of blocked work — 2000 boxes at 500 restarts measured 25s, enough to freeze the page
-    /// handling the click. A short list keeps every restart it asked for; a long one trades
-    /// restarts for staying responsive.
+    /// How much work the search may cost, in units of "boxes × iterations". Packing is quadratic
+    /// in the number of boxes, so a fixed iteration count turns a long list into seconds of
+    /// blocked work — 2000 boxes at 500 iterations measured 25s, enough to freeze the page
+    /// handling the click. A short list keeps every iteration it asked for; a long one trades
+    /// iterations for staying responsive.
     /// </summary>
-    private const int RestartWorkBudget = 50_000;
+    private const int SearchWorkBudget = 50_000;
 
     /// <summary>One legal way to cut a sheet: its size, and the box axis it wraps about.</summary>
-    private readonly record struct SheetOption(double Width, double Length, int Axis);
-
-    private sealed class Shelf
-    {
-        public double Y;
-        public double Height;
-        public double UsedX;
-        public List<(int ItemIndex, SheetOption Option, double X)> Placed = [];
-    }
+    internal readonly record struct SheetOption(double Width, double Length, int Axis);
 
     public static Result<WrapPlan> Plan(IReadOnlyList<GiftBox> inputBoxes, WrapOptions inputOptions)
     {
@@ -45,9 +37,9 @@ public static class PlanWrapLogic
             return Result<WrapPlan>.Failure("overlap.margin", "Overlap margin cannot be negative.");
         }
 
-        if (inputOptions.RandomRestarts < 0)
+        if (inputOptions.SearchIterations is < 0)
         {
-            return Result<WrapPlan>.Failure("options.restarts", "Random restarts cannot be negative.");
+            return Result<WrapPlan>.Failure("options.iterations", "Search iterations cannot be negative.");
         }
 
         if (inputBoxes.Any(box => box.Length <= 0 || box.Width <= 0 || box.Height <= 0))
@@ -107,8 +99,10 @@ public static class PlanWrapLogic
             }
         }
 
-        // Deterministic first guess (tallest first), then randomised restarts, keeping the
-        // shortest roll. Seeded, so a given plan is reproducible.
+        optionsPerBox = UniformPieces(boxes, optionsPerBox);
+
+        // Deterministic first guess (tallest first), then the search. Seeded, so a given plan is
+        // reproducible.
         var random = new Random(options.Seed);
         List<int> order =
         [
@@ -116,39 +110,33 @@ public static class PlanWrapLogic
                 .OrderByDescending(i => optionsPerBox[i].Min(option => option.Length)),
         ];
 
-        List<Shelf> best = Pack(order, optionsPerBox, options.RollWidth);
-        double bestLength = TotalLength(best);
+        int budget = Math.Max(1, SearchWorkBudget / boxes.Count);
 
-        int restarts = Math.Min(
-            options.RandomRestarts,
-            Math.Max(1, RestartWorkBudget / boxes.Count));
+        int iterations = options.SearchIterations is { } cap ? Math.Min(cap, budget) : budget;
 
-        for (int restart = 0; restart < restarts; restart++)
-        {
-            List<int> trial = [.. order.OrderBy(_ => random.Next())];
-            List<Shelf> packed = Pack(trial, optionsPerBox, options.RollWidth);
-            double length = TotalLength(packed);
+        List<ShelfPacker.Shelf> best = ShelfPacker.Solve(
+            order, optionsPerBox, options.RollWidth, iterations, random);
 
-            if (length < bestLength - 1e-9)
-            {
-                best = packed;
-                bestLength = length;
-            }
-        }
-
+        // Each shelf starts where the one before it ended, so Y falls out of the heights rather
+        // than being stored on the shelf — the search moves pieces between shelves, and a stored
+        // Y would have to be kept in step through every move.
         List<CutSection> sections = [];
-        foreach (Shelf shelf in best)
+        double bestLength = 0;
+
+        foreach (ShelfPacker.Shelf shelf in best)
         {
             foreach ((int itemIndex, SheetOption option, double x) in shelf.Placed)
             {
                 sections.Add(new CutSection(
                     boxes[itemIndex].Name,
                     x,
-                    shelf.Y,
+                    bestLength,
                     option.Width,
                     option.Length,
                     DescribeWrap(boxes[itemIndex], option.Axis, inputOptions.OutputUnit)));
             }
+
+            bestLength += shelf.Height;
         }
 
         double paperCut = sections.Sum(section => section.Width * section.Length);
@@ -205,7 +193,7 @@ public static class PlanWrapLogic
     private static string One(double value) => value.ToString("F1", CultureInfo.CurrentCulture);
 
     /// <summary>Every distinct sheet size that wraps this box and fits across the roll.</summary>
-    private static List<SheetOption> SheetOptions(GiftBox box, WrapOptions options)
+    internal static List<SheetOption> SheetOptions(GiftBox box, WrapOptions options)
     {
         double[] dimensions = [box.Length, box.Width, box.Height];
         List<SheetOption> result = [];
@@ -224,9 +212,13 @@ public static class PlanWrapLogic
             //  without the margin they only just meet — there is no lap at all
             double circumference = (2 * (p + q)) + options.OverlapMargin;
 
-            // The fold-over is half of the larger cross-section side per end: enough to reach
-            // the middle of the end face from both sides.
-            double axisLength = axis + Math.Max(p, q) + options.OverlapMargin;
+            // The fold-over closes the end face, a p x q rectangle, and the paper hangs past it
+            // by the same distance all the way round — so folding in gives a frame of that width.
+            // The face is covered as soon as the two flaps across its SHORTER side meet, at half
+            // of it per end: the longer direction needs nothing extra, because those same flaps
+            // already span it. Taking the longer side instead is what cut 41% too much paper off
+            // a book — the fold-over allowance is min(p, q), not max(p, q).
+            double axisLength = axis + Math.Min(p, q) + options.OverlapMargin;
 
             if (circumference <= options.RollWidth + 1e-9)
             {
@@ -239,108 +231,89 @@ public static class PlanWrapLogic
             }
         }
 
-        return
+        List<SheetOption> distinct =
         [
             .. result
                 .GroupBy(option => (Math.Round(option.Width, 6), Math.Round(option.Length, 6)))
                 .Select(group => group.First()),
         ];
+
+        // Drop any sheet that another sheet for the same box dominates — one no wider and no
+        // longer. It fits wherever the larger one fits without making the shelf taller, so
+        // cutting it can never shorten the roll; it only spends paper, which is the thing the
+        // plan exists to conserve. A box always keeps at least one option: nothing can dominate
+        // a sheet that is already the smallest in each direction.
+        return [.. distinct.Where(option => !distinct.Any(other => Dominates(other, option)))];
     }
 
-    private static double TotalLength(List<Shelf> shelves) =>
-        shelves.Count == 0 ? 0 : shelves[^1].Y + shelves[^1].Height;
-
     /// <summary>
-    /// Shelf packing. Each shelf is a full-width strip, so every cut is a straight line: across
-    /// the roll between shelves, then along each shelf between pieces.
+    /// Gives every box of the same size the same piece of paper.
+    /// <para>
+    /// A plan is instructions for someone with scissors, and three identical presents cut from
+    /// three differently sized sheets reads as a mistake even where the packer gains a centimetre
+    /// by mixing them. Each group is reduced to one piece — the sheet that wraps that box best on
+    /// its own, which is the choice a single-box plan already makes — while both rotations of it
+    /// stay available, so the pieces can still be turned to share a shelf.
+    /// </para>
     /// </summary>
-    private static List<Shelf> Pack(List<int> order, List<List<SheetOption>> optionsPerBox, double rollWidth)
+    private static List<List<SheetOption>> UniformPieces(
+        List<GiftBox> boxes,
+        List<List<SheetOption>> optionsPerBox)
     {
-        List<Shelf> shelves = [];
+        List<SheetOption>[] result = [.. optionsPerBox];
 
-        foreach (int index in order)
+        // Grouped on the dimensions alone: two boxes are the same size or they are not, and the
+        // name is only a label for the reader.
+        foreach (IGrouping<(double, double, double), int> group in Enumerable.Range(0, boxes.Count)
+                     .GroupBy(i => (
+                         Math.Round(boxes[i].Length, 6),
+                         Math.Round(boxes[i].Width, 6),
+                         Math.Round(boxes[i].Height, 6))))
         {
-            List<SheetOption> options = optionsPerBox[index];
+            int[] members = [.. group];
 
-            // a) Best fit in an existing shelf without making it taller.
-            Shelf? bestShelf = null;
-            SheetOption bestOption = default;
-            double bestScore = double.MaxValue;
-
-            foreach (Shelf shelf in shelves)
+            // A box nobody has to agree with keeps every sheet it could be cut to. Narrowing a
+            // group of one was a real mistake here: it threw away the sheet that pairs with a
+            // neighbouring box, and a crate that could have shared a strip with a cube beside it
+            // was pushed onto a strip of its own.
+            if (members.Length < 2)
             {
-                foreach (SheetOption option in options)
-                {
-                    if (option.Width <= rollWidth - shelf.UsedX + 1e-9 &&
-                        option.Length <= shelf.Height + 1e-9)
-                    {
-                        double score = ((shelf.Height - option.Length) * option.Width)
-                            + ((rollWidth - shelf.UsedX - option.Width) * 1e-3);
-
-                        if (score < bestScore)
-                        {
-                            bestScore = score;
-                            bestShelf = shelf;
-                            bestOption = option;
-                        }
-                    }
-                }
-            }
-
-            if (bestShelf is not null)
-            {
-                Place(bestShelf, index, bestOption);
                 continue;
             }
 
-            // b) Grow the last shelf if the piece fits beside what is already there — but only
-            // when that costs less than starting a fresh shelf.
-            if (shelves.Count > 0)
-            {
-                Shelf last = shelves[^1];
-                double bestGrowth = double.MaxValue;
-                bool found = false;
-                SheetOption grownOption = default;
+            List<SheetOption> options = optionsPerBox[members[0]];
 
-                foreach (SheetOption option in options)
-                {
-                    if (option.Width <= rollWidth - last.UsedX + 1e-9)
-                    {
-                        double growth = option.Length - last.Height;
-
-                        if (growth < bestGrowth)
-                        {
-                            bestGrowth = growth;
-                            grownOption = option;
-                            found = true;
-                        }
-                    }
-                }
-
-                if (found && bestGrowth < options.Min(option => option.Length))
-                {
-                    last.Height = Math.Max(last.Height, grownOption.Length);
-                    Place(last, index, grownOption);
-                    continue;
-                }
-            }
-
-            // c) Start a new shelf with the shortest option.
-            SheetOption pick = options.OrderBy(option => option.Length)
+            SheetOption chosen = options.OrderBy(option => option.Length)
                 .ThenByDescending(option => option.Width)
                 .First();
 
-            var newShelf = new Shelf { Y = TotalLength(shelves), Height = pick.Length };
-            shelves.Add(newShelf);
-            Place(newShelf, index, pick);
+            // A piece is the paper, not the way it is laid down, so the transposed sheet is the
+            // same piece and stays — that is what lets two of them sit side by side.
+            List<SheetOption> piece =
+            [
+                .. options.Where(option =>
+                    (Near(option.Width, chosen.Width) && Near(option.Length, chosen.Length))
+                    || (Near(option.Width, chosen.Length) && Near(option.Length, chosen.Width))),
+            ];
+
+            foreach (int index in members)
+            {
+                result[index] = piece;
+            }
         }
 
-        return shelves;
+        return [.. result];
+
+        static bool Near(double a, double b) => Math.Abs(a - b) <= 1e-9;
     }
 
-    private static void Place(Shelf shelf, int itemIndex, SheetOption option)
-    {
-        shelf.Placed.Add((itemIndex, option, shelf.UsedX));
-        shelf.UsedX += option.Width;
-    }
+    /// <summary>
+    /// Strictly better on both counts, or equal on one and better on the other. Requiring one
+    /// strict improvement is what keeps two sheets a hair apart from dominating each other and
+    /// leaving the box with no option at all.
+    /// </summary>
+    private static bool Dominates(SheetOption candidate, SheetOption option) =>
+        candidate.Width <= option.Width + 1e-9
+        && candidate.Length <= option.Length + 1e-9
+        && (candidate.Width < option.Width - 1e-9 || candidate.Length < option.Length - 1e-9);
 }

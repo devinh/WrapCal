@@ -238,15 +238,14 @@ else
     };
 
     // The origin sits on the corner where plan X and plan Y are both zero. The mirror (Up) and
-    // the transpose (Left/Right) each move it to a different corner of the paper.
-    private double OriginX => Direction == RollDirection.Left ? Plan.RollLengthUsed : 0;
+    // the transpose (Left/Right) each move it to a different corner of the paper. Which corner
+    // that is comes from RollDirectionText, which the Cut Plan also names in words — so the
+    // sentence and the dot cannot drift apart.
+    private double OriginX => RollDirectionText.OriginAtFarEnd(Direction) ? Plan.RollLengthUsed : 0;
 
-    private double OriginY => Direction switch
-    {
-        RollDirection.Up => Plan.RollLengthUsed,
-        RollDirection.Left or RollDirection.Right => Plan.RollWidth,
-        _ => 0,
-    };
+    private double OriginY => !RollDirectionText.OriginAtBottom(Direction)
+        ? 0
+        : IsHorizontal ? Plan.RollWidth : Plan.RollLengthUsed;
 
     private double OriginRadius => Plan.RollWidth * 0.012;
 
@@ -282,13 +281,7 @@ else
         _ => "↑ Roll continues",
     };
 
-    private string EdgeName => Direction switch
-    {
-        RollDirection.Down => "bottom",
-        RollDirection.Up => "top",
-        RollDirection.Right => "right",
-        _ => "left",
-    };
+    private string EdgeName => RollDirectionText.EdgeWord(Direction);
 
     /// <summary>
     /// Side labels are rotated on horizontal layouts: the margin is only a fraction of the roll

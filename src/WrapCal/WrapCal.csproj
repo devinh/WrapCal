@@ -9,6 +9,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- So the tests can pin which sheets a box may be cut to. That rule includes a sheet never
+         being offered at all because another dominates it, which is otherwise only observable
+         through a plan that happens not to use it — a much weaker claim. -->
+    <InternalsVisibleTo Include="WrapCal.UnitTests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.13" />
     <!-- Only so `dotnet run` and `dotnet watch` have something to serve the static files. -->
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="10.0.13" PrivateAssets="all" />

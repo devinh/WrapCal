@@ -8,7 +8,7 @@ public class WrapPlanViewTests : WrapCalBunitContext
     private static WrapPlan Plan(LengthUnit unit = LengthUnit.Centimeters) =>
         PlanWrapLogic.Plan(
             [new GiftBox("Book", 22, 15, 4)],
-            new WrapOptions(30, 0.5, InputUnit: unit, OutputUnit: unit, RandomRestarts: 0)).Value;
+            new WrapOptions(30, 0.5, InputUnit: unit, OutputUnit: unit, SearchIterations: 0)).Value;
 
     [Test]
     public async Task Renders_a_table_row_per_cut_section()
@@ -71,5 +71,42 @@ public class WrapPlanViewTests : WrapCalBunitContext
         var cut = Render<WrapPlanView>(parameters => parameters.Add(p => p.Plan, Plan()));
 
         await Assert.That(cut.Markup).Contains("Wrapped around the box's");
+    }
+
+    [Test]
+    [Arguments(RollDirection.Up, "Top", "top", "Bottom-Left")]
+    [Arguments(RollDirection.Down, "Bottom", "bottom", "Top-Left")]
+    [Arguments(RollDirection.Right, "Right", "right", "Bottom-Left")]
+    [Arguments(RollDirection.Left, "Left", "left", "Bottom-Right")]
+    public async Task States_the_roll_orientation_and_where_the_origin_is(
+        RollDirection direction,
+        string side,
+        string edge,
+        string corner)
+    {
+        // All four, because the corner is not simply opposite the side the roll runs past: Up and
+        // Right share Bottom-Left, and only Left puts the origin at a right-hand corner.
+        var cut = Render<WrapPlanView>(parameters => parameters
+            .Add(p => p.Plan, Plan())
+            .Add(p => p.Direction, direction));
+
+        string line = cut.Find("[data-testid='plan-orientation']").TextContent;
+
+        await Assert.That(line).IsEqualTo(
+            $"Roll orientation: {side} — the roll continues past the {edge} edge. "
+            + $"Origin (0,0): {corner} corner.");
+    }
+
+    [Test]
+    public async Task Capitalises_both_words_of_the_origin_corner()
+    {
+        var cut = Render<WrapPlanView>(parameters => parameters
+            .Add(p => p.Plan, Plan())
+            .Add(p => p.Direction, RollDirection.Up));
+
+        string line = cut.Find("[data-testid='plan-orientation']").TextContent ?? string.Empty;
+
+        await Assert.That(line).Contains("Origin (0,0): Bottom-Left corner.");
+        await Assert.That(line.Contains("Bottom-left", StringComparison.Ordinal)).IsFalse();
     }
 }
