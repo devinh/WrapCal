@@ -278,7 +278,8 @@ Read this before changing the maths. Every point here has been got wrong once al
   `roll-options`, `unit-select`, `boxes`, `box-row`, `box-name`, `box-length`, `box-width`,
   `box-height`, `add-box`, `remove-box`, `plan-button`, `plan-error`, `roll-direction`,
   `diagram`, `sections`, `roll-length`, `paper-area`, `waste-area`, `efficiency`,
-  `plan-orientation`, `sign-off`, `theme-menu`, `theme-system`, `theme-light`, `theme-dark`. MudBlazor puts unmatched attributes
+  `plan-orientation`, `sign-off`, `diagram-zoom`, `zoom-slider`, `zoom-level`,
+  `theme-menu`, `theme-system`, `theme-light`, `theme-dark`. MudBlazor puts unmatched attributes
   on the element it renders — for an input that is the `<input>` itself, but for `MudSelect` it
   is a hidden input that cannot be clicked, so the two selects are wrapped in a `<div>` carrying
   the id, and `MudMenu` is wrapped for the same reason (its activator is the button *inside* the
@@ -334,6 +335,23 @@ Read this before changing the maths. Every point here has been got wrong once al
   word the caption uses. Mutation checked: forcing `OriginAtBottom` true fails the diagram's
   origin test, the view's text test and the orientation outline together — if it only failed the
   text, the two would be parallel switches rather than one source.
+- **Zoom is explicit, and 100% is the only value that claims anything.** A slider (50-200 in steps
+  of 25) and gestures scale the drawing by multiplying its pinned dimension through
+  `--diagram-zoom`; sizing rather than `transform: scale()` because a transform leaves the layout
+  box alone and the scrollbars would describe the unscaled drawing. The scale-invariance scenarios
+  are *relative* — they compare before and after adding boxes — so they cannot catch a zoom that is
+  simply wrong from the start; `Starts_the_zoom_at_one_hundred_percent` and the readouts in
+  `Layout.feature` are what pin the default.
+- **`diagram.js` is the second file of JS the app owns, and it exists for passive listeners.**
+  Blazor registers `wheel` as passive, so `preventDefault` cannot come from C# and Ctrl+wheel would
+  zoom the page along with the drawing. Its listeners sit on the **document** and scope themselves
+  by where the pointer is, not by the event's target: the scroller is re-keyed on
+  `(Plan, Direction)` and would take a listener with it, and WebKit dispatches a wheel aimed at the
+  page root rather than at the element under the cursor. A trackpad pinch arrives as ctrl+wheel on
+  Chromium — fractional deltas, hence the accumulator — and as `gesture*` events on Safari. The
+  two-finger touch path has **no automated test**: Playwright's multi-touch is Chromium-only through
+  CDP, and this suite runs WebKit on macOS and Firefox elsewhere.
+
 - **The diagram transposes for Left/Right, it does not rotate.** A section at `(X, Y)`
   drawn rightwards lands at `(Y, X)` with width and length swapped — a mirror across the
   roll-width axis, not a 90° rotation (which would be `(Y, RollWidth - X - W)`). This is

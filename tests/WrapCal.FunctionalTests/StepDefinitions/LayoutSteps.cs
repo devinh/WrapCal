@@ -220,6 +220,103 @@ public sealed class LayoutSteps : StepsBase
         await Assert.That(originY).IsBetween(visible.Y, visible.Y + visible.Height);
     }
 
+    [When("I move the zoom slider one step up")]
+    public async Task WhenIMoveTheZoomSliderOneStepUpAsync()
+    {
+        // A range input moves one step per arrow key, which is a real interaction rather than a
+        // synthetic event — and the step is 25, so one press is what the assertions expect.
+        ILocator slider = Ui.Page.Locator("[data-testid='zoom-slider'] input");
+        await slider.FocusAsync();
+        await slider.PressAsync("ArrowRight");
+    }
+
+    [When("I hold Ctrl and wheel up over the diagram once")]
+    public async Task WhenIHoldCtrlAndWheelUpOnceAsync()
+    {
+        // One notch of a mouse wheel. Chromium reports a trackpad pinch as the same gesture with
+        // many smaller deltas, which is the scenario below.
+        await WheelOverDiagramAsync(ctrl: true, turns: 1, deltaPerTurn: -120);
+    }
+
+    [When("I hold Ctrl and wheel up over the diagram in four small turns")]
+    public async Task WhenIHoldCtrlAndWheelUpInSmallTurnsAsync()
+    {
+        await WheelOverDiagramAsync(ctrl: true, turns: 4, deltaPerTurn: -30);
+    }
+
+    [When("a trackpad pinch of {int} percent arrives")]
+    public async Task WhenATrackpadPinchArrivesAsync(int percent)
+    {
+        // Safari's gesture events, dispatched rather than performed: no automation can produce a
+        // real trackpad pinch. The handler is the same one a device would drive.
+        await Ui.Page.EvaluateAsync(
+            """
+            (scale) => {
+                // The listener goes on the document and scopes itself by where the pointer is, so
+                // a dispatched gesture has to carry coordinates inside the drawing like a real one.
+                const box = document.querySelector(".wrap-diagram").getBoundingClientRect();
+                const x = box.left + (box.width / 2);
+                const y = box.top + (box.height / 2);
+
+                const fire = (name) => {
+                    const event = new Event(name, { bubbles: true, cancelable: true });
+                    event.scale = scale;
+                    Object.defineProperty(event, "clientX", { value: x });
+                    Object.defineProperty(event, "clientY", { value: y });
+                    document.dispatchEvent(event);
+                };
+
+                fire("gesturestart");
+                fire("gesturechange");
+                fire("gestureend");
+            }
+            """,
+            percent / 100.0);
+    }
+
+    [Then("the zoom should read {word}")]
+    public async Task ThenTheZoomShouldReadAsync(string expected)
+    {
+        string? readout = await Ui.Page.Locator("[data-testid='zoom-level']").TextContentAsync();
+
+        await Assert.That(readout?.Trim()).IsEqualTo(expected);
+    }
+
+    [Then("the drawing's scale should have grown by {int} percent")]
+    public async Task ThenTheDrawingScaleShouldHaveGrownAsync(int percent)
+    {
+        // The same measurement the scale-invariance scenario uses: the paper's extent across the
+        // roll. That one proves the scale does not move unasked; this proves it moves when asked.
+        double before = Context.Get<double>(DrawingScale);
+        double after = await CrossRollExtentAsync();
+        double expected = before * (1 + (percent / 100.0));
+
+        await Assert.That(Math.Abs(after - expected)).IsLessThan(2.0);
+    }
+
+    private async Task WheelOverDiagramAsync(bool ctrl, int turns, int deltaPerTurn)
+    {
+        ILocator diagram = Ui.Page.Locator("[data-testid='diagram']");
+        var box = (await diagram.BoundingBoxAsync())!;
+
+        await Ui.Page.Mouse.MoveAsync(box.X + (box.Width / 2), box.Y + (box.Height / 2));
+
+        if (ctrl)
+        {
+            await Ui.Page.Keyboard.DownAsync("Control");
+        }
+
+        for (int i = 0; i < turns; i++)
+        {
+            await Ui.Page.Mouse.WheelAsync(0, deltaPerTurn);
+        }
+
+        if (ctrl)
+        {
+            await Ui.Page.Keyboard.UpAsync("Control");
+        }
+    }
+
     [Then("the sign-off should be centered")]
     public async Task ThenTheSignOffShouldBeCenteredAsync()
     {

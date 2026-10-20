@@ -29,6 +29,10 @@
     -->
     <script src="theme.js"></script>
 
+    <!-- Zoom on the cut layout. A non-passive wheel listener is the one thing Blazor cannot give
+         us, and it has to exist before the drawing does. -->
+    <script src="diagram.js"></script>
+
     <!--
       The app is a blank shell until the WebAssembly runtime has downloaded, rendered, and had
       MudBlazor paint its palette. Without this the shell is white whatever theme the reader

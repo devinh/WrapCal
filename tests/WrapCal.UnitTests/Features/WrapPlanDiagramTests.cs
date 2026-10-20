@@ -12,6 +12,88 @@ public class WrapPlanDiagramTests : WrapCalBunitContext
             new WrapOptions(30, 0.5, SearchIterations: 0)).Value;
 
     [Test]
+    public async Task Starts_the_zoom_at_one_hundred_percent()
+    {
+        var cut = Render<WrapPlanDiagram>(parameters => parameters.Add(p => p.Plan, OneBoxPlan()));
+
+        await Assert.That(cut.Find("[data-testid='zoom-level']").TextContent).IsEqualTo("100%");
+    }
+
+    [Test]
+    public async Task Moves_the_zoom_with_the_slider()
+    {
+        var cut = Render<WrapPlanDiagram>(parameters => parameters.Add(p => p.Plan, OneBoxPlan()));
+
+        await cut.Find("[data-testid='zoom-slider'] input").InputAsync("125");
+
+        await Assert.That(cut.Find("[data-testid='zoom-level']").TextContent).IsEqualTo("125%");
+    }
+
+    [Test]
+    public async Task Moves_the_zoom_with_the_wheel()
+    {
+        var cut = Render<WrapPlanDiagram>(parameters => parameters.Add(p => p.Plan, OneBoxPlan()));
+
+        // One notch of a mouse wheel, upwards, which zooms in.
+        await cut.Instance.ZoomByWheelAsync(-120);
+
+        await Assert.That(cut.Find("[data-testid='zoom-level']").TextContent).IsEqualTo("125%");
+    }
+
+    [Test]
+    public async Task Steps_once_for_a_notch_of_trackpad_deltas()
+    {
+        // A trackpad pinch arrives as a stream of small deltas rather than one of 120, so the
+        // handler accumulates. Four small ones add up to one notch and must move one step — acting
+        // on each event would have raced the zoom from 100 to 200 in the same gesture.
+        var cut = Render<WrapPlanDiagram>(parameters => parameters.Add(p => p.Plan, OneBoxPlan()));
+
+        for (int i = 0; i < 4; i++)
+        {
+            await cut.Instance.ZoomByWheelAsync(-30);
+        }
+
+        await Assert.That(cut.Find("[data-testid='zoom-level']").TextContent).IsEqualTo("125%");
+    }
+
+    [Test]
+    public async Task Refuses_to_zoom_past_its_limits()
+    {
+        var cut = Render<WrapPlanDiagram>(parameters => parameters.Add(p => p.Plan, OneBoxPlan()));
+
+        for (int i = 0; i < 20; i++)
+        {
+            await cut.Instance.ZoomByWheelAsync(-120);
+        }
+
+        await Assert.That(cut.Find("[data-testid='zoom-level']").TextContent).IsEqualTo("200%");
+
+        for (int i = 0; i < 20; i++)
+        {
+            await cut.Instance.ZoomByWheelAsync(120);
+        }
+
+        await Assert.That(cut.Find("[data-testid='zoom-level']").TextContent).IsEqualTo("50%");
+    }
+
+    [Test]
+    public async Task Applies_a_pinch_ratio_to_the_zoom_it_started_from()
+    {
+        // Safari reports a pinch as a ratio since the gesture began, so the zoom it started from
+        // is what the ratio multiplies — not the zoom at each event, which would compound.
+        var cut = Render<WrapPlanDiagram>(parameters => parameters.Add(p => p.Plan, OneBoxPlan()));
+
+        await cut.Instance.BeginZoomGestureAsync();
+        await cut.Instance.ZoomByRatioAsync(1.5);
+
+        await Assert.That(cut.Find("[data-testid='zoom-level']").TextContent).IsEqualTo("150%");
+
+        await cut.Instance.ZoomByRatioAsync(1.5);
+
+        await Assert.That(cut.Find("[data-testid='zoom-level']").TextContent).IsEqualTo("150%");
+    }
+
+    [Test]
     public async Task Draws_one_rectangle_per_cut_section()
     {
         WrapPlan plan = OneBoxPlan();
