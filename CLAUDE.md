@@ -491,6 +491,13 @@ Reqnroll (Gherkin) driving Playwright against the app running for real.
   exactly on each limit, and a plan that appears once a rejected field is corrected. Mutation
   checked: turning `> MaxDimension` into `>=` fails the boundary test, and dropping the name
   trim fails the trim test.
+- **A binding is keyword-specific unless it says otherwise.** `[Given]`/`[When]`/`[Then]` match
+  only their own keyword, and an `And` inherits the one before it — so a `Given` step whose
+  definition is `[When]` fails as undefined, naming no file. `[StepDefinition]` is the escape hatch
+  and matches all three. It is not used here on purpose: every step's *meaning* depends on where it
+  sits. "I set the roll orientation" is the tempting candidate, but its control only exists inside
+  `@if (_plan is not null)` (`PlanWrap.razor`), so moving it before a plan would bind and then wait
+  out the locator timeout — a worse failure than the undefined step it replaces.
 - **Every concrete step class needs `[Binding]`.** Without it Reqnroll finds no steps at all
   and every scenario fails as "undefined", naming no file — not an obvious error to trace
   back to a new class.
