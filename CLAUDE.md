@@ -278,7 +278,7 @@ Read this before changing the maths. Every point here has been got wrong once al
   `roll-options`, `unit-select`, `boxes`, `box-row`, `box-name`, `box-length`, `box-width`,
   `box-height`, `add-box`, `remove-box`, `plan-button`, `plan-error`, `roll-direction`,
   `diagram`, `sections`, `roll-length`, `paper-area`, `waste-area`, `efficiency`,
-  `theme-menu`, `theme-system`, `theme-light`, `theme-dark`. MudBlazor puts unmatched attributes
+  `plan-orientation`, `theme-menu`, `theme-system`, `theme-light`, `theme-dark`. MudBlazor puts unmatched attributes
   on the element it renders — for an input that is the `<input>` itself, but for `MudSelect` it
   is a hidden input that cannot be clicked, so the two selects are wrapped in a `<div>` carrying
   the id, and `MudMenu` is wrapped for the same reason (its activator is the button *inside* the
@@ -327,6 +327,13 @@ Read this before changing the maths. Every point here has been got wrong once al
 - **The origin dot moves with the drawing.** It sits on the corner where plan X and plan Y
   are both zero: top-left going Down, bottom-left going Up and Right, bottom-right going
   Left. The horizontal layouts also flip X downwards so that corner really is the origin.
+- **The Cut Plan says that corner in words, and the words are derived from the dot's own
+  position.** `RollDirectionText.OriginAtFarEnd` / `OriginAtBottom` are what `WrapPlanDiagram`
+  places the dot from *and* what the Cut Plan's `plan-orientation` line names the corner from, so
+  the sentence cannot drift from the picture. The same helper holds the menu labels and the edge
+  word the caption uses. Mutation checked: forcing `OriginAtBottom` true fails the diagram's
+  origin test, the view's text test and the orientation outline together — if it only failed the
+  text, the two would be parallel switches rather than one source.
 - **The diagram transposes for Left/Right, it does not rotate.** A section at `(X, Y)`
   drawn rightwards lands at `(Y, X)` with width and length swapped — a mirror across the
   roll-width axis, not a 90° rotation (which would be `(Y, RollWidth - X - W)`). This is

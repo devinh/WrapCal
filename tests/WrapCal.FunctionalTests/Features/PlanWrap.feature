@@ -98,10 +98,11 @@ Feature: Wrap planning
     When I plan the wrap
     And I set the roll orientation to <direction>
     Then the paper layout should say the roll continues past the <edge> edge
+    And the cut plan should say the roll continues past the <edge> edge from the <corner> corner
 
     Examples:
-      | direction  | edge   |
-      | Top        | top    |
-      | Bottom     | bottom |
-      | Right      | right  |
-      | Left       | left   |
+      | direction  | edge   | corner       |
+      | Top        | top    | Bottom-Left  |
+      | Bottom     | bottom | Top-Left     |
+      | Right      | right  | Bottom-Left  |
+      | Left       | left   | Bottom-Right |

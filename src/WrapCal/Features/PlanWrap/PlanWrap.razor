@@ -163,11 +163,13 @@
                 <MudSelect T="RollDirection" Label="Roll Orientation" Dense="true"
                            Style="min-width: 11rem"
                            @bind-Value="_rollDirection">
-                    @* Named for the side the roll is on, which is what it says on the drawing. *@
-                    <MudSelectItem Value="RollDirection.Up">Top</MudSelectItem>
-                    <MudSelectItem Value="RollDirection.Down">Bottom</MudSelectItem>
-                    <MudSelectItem Value="RollDirection.Left">Left</MudSelectItem>
-                    <MudSelectItem Value="RollDirection.Right">Right</MudSelectItem>
+                    @* Named for the side the roll is on, which is what it says on the drawing. The
+                       words come from RollDirectionText so the menu, the caption and the Cut Plan
+                       line cannot end up saying different things. *@
+                    @foreach (RollDirection option in RollDirectionText.MenuOrder)
+                    {
+                        <MudSelectItem Value="option">@RollDirectionText.MenuLabel(option)</MudSelectItem>
+                    }
                 </MudSelect>
             </div>
         </MudStack>
@@ -175,5 +177,5 @@
         <WrapPlanDiagram Plan="_plan" Direction="_rollDirection" />
     </MudPaper>
 
-    <WrapPlanView Plan="_plan" />
+    <WrapPlanView Plan="_plan" Direction="_rollDirection" />
 }

@@ -126,6 +126,18 @@ public sealed class PlanningSteps : StepsBase
             new PageWaitForFunctionOptions { Timeout = 10_000 });
     }
 
+    [Then("the cut plan should say the roll continues past the {word} edge from the {word} corner")]
+    public async Task ThenTheCutPlanShouldSayTheRollAndTheOriginAsync(string edge, string corner)
+    {
+        // Both facts off one line, so a right corner beside a wrong edge cannot pass: the Cut Plan
+        // and the drawing name the same direction and the same corner, and they have to agree.
+        string line = await Ui.Page.Locator("[data-testid='plan-orientation']").TextContentAsync()
+            ?? string.Empty;
+
+        await Assert.That(line).Contains($"the roll continues past the {edge} edge");
+        await Assert.That(line).Contains($"Origin (0,0): {corner} corner");
+    }
+
     [Then("the cuts should be:")]
     public async Task ThenTheCutsShouldBeAsync(DataTable expected)
     {
