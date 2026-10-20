@@ -24,6 +24,73 @@ Enter the roll you have and the boxes you want to wrap:
 
 Units switch between inches and centimeters, converting what you have already typed.
 
+## How the calculation works
+
+Each box is wrapped in one rectangular sheet, wrapped around four of its sides and folded over the
+two ends. Everything is worked out in centimeters and converted back to your units at the end.
+
+### What sheet does a box need?
+
+Three orientations are possible, one per axis of the box. For a chosen axis, `p` and `q` are the two
+sides across it:
+
+```
+wrap-around = 2 × (p + q) + margin       the perimeter the paper goes around, plus a lap at the seam
+along-box   = axis + min(p, q) + margin  the box's length, plus enough to fold over both ends
+```
+
+The fold-over is `min(p, q)` because folding closes the end face — a `p × q` rectangle — and half its
+**shorter** side per end is enough. The flaps that meet in the middle already span the long
+direction, so charging for that would cut more paper than wrapping needs.
+
+Each orientation gives up to two candidate sheets (the sheet and its transpose), kept only if the
+sheet's width fits across the roll.
+
+### Which candidates are thrown away
+
+- **Duplicates**, by size.
+- **Dominated sheets**: if another sheet for the same box is no wider *and* no longer, it fits
+  wherever the bigger one does without making the strip taller — so cutting the bigger one can only
+  spend paper. A 9 × 6 × 1.5 box is never offered an 8 × 30.5 sheet when 8 × 21.5 exists.
+- If nothing survives, the box is reported as too wide to wrap in one sheet.
+
+**Boxes of the same size are cut from the same paper.** Three identical presents should come off
+three identical sheets rather than three different ones, so each size of box gets one piece — usable
+either way round, which is what lets two of them share a strip. This is a deliberate trade: it costs
+a couple of percent of roll on repeated sizes.
+
+### How the sheets are arranged on the roll
+
+Sheets are packed into full-width **strips** (shelves), so every cut is a straight line: across the
+roll between strips, then along each strip between pieces. A strip is as tall as its tallest sheet,
+and the roll length used is the sum of the strip heights.
+
+Which boxes share a strip is the whole difficulty — it is a two-dimensional packing problem — so the
+planner tries two things depending on how many boxes there are:
+
+- **Twelve boxes or fewer: solved exactly.** Every way of splitting the boxes into strips is
+  enumerated, and the split whose heights add up to the least wins. This is optimal, and still over
+  in a few tens of milliseconds at twelve boxes.
+- **More than that: searched, then repaired.** A greedy arrangement is improved by moving boxes
+  between strips, re-cutting a box to a different sheet, and occasionally starting over. Between
+  rounds, every pair of strips is re-solved exactly and kept if it comes out shorter. A seeded
+  random number generator makes this reproducible, and the work is capped at 50,000 ÷ the number of
+  boxes so a long list stays responsive.
+
+Plans are compared by **roll length first**, with paper cut as the tie-break: the roll is what you
+buy and cut, but a tie should not be broken by cutting more paper.
+
+### What the figures mean
+
+- **Roll Length Used** — the sum of the strip heights: how much of the roll the plan consumes.
+- **Paper Cut** — the total area of the sheets, which is less than the roll consumed because strips
+  are only as tall as their tallest sheet.
+- **Waste** — the roll consumed but not covered by a sheet.
+- **Efficiency** — paper cut as a fraction of the roll consumed.
+
+So a long box and a short one in the same strip waste the difference in height, and the efficiency
+figure is what that costs you.
+
 ## Requirements
 
 - **.NET SDK 10.0.x** — developed against `10.0.402`
