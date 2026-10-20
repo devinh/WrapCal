@@ -163,8 +163,8 @@ Read this before changing the maths. Every point here has been got wrong once al
 - **A sheet no other sheet for the same box dominates is the only one considered.**
   `SheetOptions` drops any option that another option for the same box is no wider and no
   longer than: it fits wherever the larger one fits without raising the shelf, so cutting it can
-  never shorten the roll — it only spends paper. A 22 × 15 × 4 book on a 60 cm roll is cut
-  38.5 × 37.5 rather than 52.5 × 37.5 for exactly this reason, at the same roll length. The
+  never shorten the roll — it only spends paper. A 9 × 6 × 1.5 box on a 30 cm roll is never
+  offered the 8 × 30.5 sheet, because 8 × 21.5 is the same width and nine shorter. The
   comparison needs one *strict* improvement, or two sheets a hair apart would dominate each
   other and leave the box with no option at all.
 - **Lists of twelve boxes or fewer are solved exactly, not searched.** `ShelfOptimum` enumerates
@@ -172,14 +172,18 @@ Read this before changing the maths. Every point here has been got wrong once al
   is its tallest sheet, so a layout is a partition and the answer is the one whose heights add up
   to the least. Nothing about that needs a solver or a server, which is why it fits here at all.
   Measured in a Debug build: 22 ms at 12 boxes, 198 ms at 14, 890 ms at 16 — hence `MaxBoxes = 12`,
-  the largest count that stays invisible inside a click. Twelve identical boxes are now 123 cm,
-  an answer derived by hand and confirmed independently, rather than the 127.5 the search reached.
+  the largest count that stays invisible inside a click. Twelve identical 8 × 6 × 4 boxes are now
+  126 cm, an answer derived by hand and confirmed independently, rather than the 150 the old
+  search reached.
 - **Packing is a greedy shelf fit plus a search over placements**, seeded, so a given input
   always produces the same plan. The search keeps its best plan and keeps nudging *it*
   (ruin-and-recreate, reorientation, and occasional full repacks), rather than repacking from
-  scratch each iteration — measured across six inputs, 2-15% shorter rolls than the old
-  random restarts, and faster. `PlanWrapLogicTests` holds a golden test pinning the output —
-  read its comment before touching `Pack` or `SheetOptions`.
+  scratch each iteration. It still carries real weight: on lists where every box differs it
+  finds 26% shorter rolls than the greedy first guess at fourteen boxes, 12% at thirty and 4% at
+  sixty. (It was 2–15% better than the old random restarts when that was measured; that
+  comparison predates the fold-over fix, so treat the figure as history rather than a current
+  claim.) `PlanWrapLogicTests` holds a golden test pinning the output — read its comment before
+  touching `Pack` or `SheetOptions`.
 - **Above twelve boxes the search's weak point is the partition, so it is re-solved rather than
   nudged.** `ShelfOptimum.Polish` takes each pair of shelves in the best plan, re-solves that
   group exactly, and keeps the result when it is shorter. Box-shuffling moves have no way to see a
@@ -196,10 +200,12 @@ Read this before changing the maths. Every point here has been got wrong once al
   back — and measured **no improvement at all** until both reinsertion *and* the sheet choice for
   a new shelf were randomised. Strict hill climbing was the second half: refusing every worse
   plan cannot walk down into a better valley, hence `UphillChance`.
-- **Opening a shelf with a box's shortest sheet is the wrong default for identical boxes.**
-  It minimises that shelf's height but is often too wide for a second box to share, so a run of
-  identical boxes draws one shelf each — 150 cm where 123 was available. The search therefore
-  sometimes opens with the shortest sheet that still leaves half the roll free.
+- **Opening a shelf with a box's shortest sheet can be the wrong default.** It minimises that
+  shelf's height but may be too wide for a second box to share, so the box beside it opens a
+  shelf of its own. The search therefore sometimes opens with the shortest sheet that still
+  leaves half the roll free — measured on mixed-size lists at 151.2 → 146.6 for fourteen boxes
+  and 309.2 → 301.9 for thirty. It does nothing for identical boxes any more: the uniform-piece
+  rule already settles their shape.
 - **Length is the objective; paper cut is only the tie-break.** Roll length is what the reader
   buys and cuts. Ties to within `1e-9` go to the plan cutting less paper, which is what stops an
   orientation change costing paper and buying nothing. Do not make paper area the primary cost:
@@ -213,10 +219,12 @@ Read this before changing the maths. Every point here has been got wrong once al
   the same count now costs less, and raising it is a separate measured decision.
 - **`SearchIterations` is a cap, and its default is no cap at all.** `null` means "as much as the
   budget allows", because the budget is already the thing stopping a long list from blocking the
-  page — capping below it only spends less of the time that was available. Measured: the default
-  beats a flat 500 by up to 9% at 30 boxes, and is identical at 100, where the budget is 500
-  anyway. `0` still means "first arrangement and nothing else", and the search returns that
-  untouched, which is what tests pinning a specific plan rely on.
+  page — capping below it only spends less of the time that was available. Measured against a
+  flat 500 on mixed-size lists: 8.7% shorter at fourteen boxes, 1.6% at thirty, and a hair
+  *worse* at sixty — the re-partitioning pass is not monotone in where the search starts from, so
+  a longer search is not reliably a better one. Identical at 100 boxes, where the budget is 500
+  anyway. `0` still means "first arrangement and nothing else", which is what tests pinning a
+  specific plan rely on.
 - **Numbers the reader sees follow their culture; numbers in SVG attributes do not.**
   `WrapPlanView.Format`, `WrapPlanDiagram.F` and the note use `CurrentCulture`, matching the
   form's numeric fields. `WrapPlanDiagram.N` stays invariant — it writes `viewBox` and
