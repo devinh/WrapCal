@@ -96,6 +96,7 @@ src/
         PlanWrap.razor          # the routable page — "/"
         PlanWrap.razor.cs       # form state, field rules, unit conversion
         PlanWrapLogic.cs        # the planner → Result<WrapPlan>
+        ShelfPacker.cs          # shelf packing + the search over placements
         PlanWrapModels.cs       # domain records
         PlanWrapInput.cs        # form model + the field limits
         WrapPlanView.razor      # summary figures + cut sections table
@@ -145,13 +146,39 @@ Read this before changing the maths. Every point here has been got wrong once al
   button disables at the limit, and `PlanWrapLogic` refuses more for callers that never saw the
   form. Packing is quadratic in the box count and runs on the browser's only thread, so an
   uncapped list is a way to freeze the page that is drawing it.
-- **Packing is a greedy shelf fit plus randomised restarts**, seeded, so a given input always
-  produces the same plan. `PlanWrapLogicTests` holds a golden test pinning the output — read
-  its comment before touching `Pack` or `SheetOptions`.
-- **The restart count is capped by a work budget, not just by `RandomRestarts`.**
-  `RestartWorkBudget / boxes.Count` bounds the whole run; a short list still gets every restart
-  it asked for, a long one trades restarts for staying responsive. Do not "fix" it back to a
-  flat count — 2000 boxes at 500 restarts measured 25 seconds of a frozen tab.
+- **A sheet no other sheet for the same box dominates is the only one considered.**
+  `SheetOptions` drops any option that another option for the same box is no wider and no
+  longer than: it fits wherever the larger one fits without raising the shelf, so cutting it can
+  never shorten the roll — it only spends paper. A 22 × 15 × 4 book on a 60 cm roll is cut
+  38.5 × 37.5 rather than 52.5 × 37.5 for exactly this reason, at the same roll length. The
+  comparison needs one *strict* improvement, or two sheets a hair apart would dominate each
+  other and leave the box with no option at all.
+- **Packing is a greedy shelf fit plus a search over placements**, seeded, so a given input
+  always produces the same plan. The search keeps its best plan and keeps nudging *it*
+  (ruin-and-recreate, reorientation, and occasional full repacks), rather than repacking from
+  scratch each iteration — measured across six inputs, 2-15% shorter rolls than the old
+  random restarts, and faster. `PlanWrapLogicTests` holds a golden test pinning the output —
+  read its comment before touching `Pack` or `SheetOptions`.
+- **The search has to be able to return something other than what it started from.** Reinserting
+  a ruined box by best fit alone is a fixed point — take a box out and the same plan puts it
+  back — and measured **no improvement at all** until both reinsertion *and* the sheet choice for
+  a new shelf were randomised. Strict hill climbing was the second half: refusing every worse
+  plan cannot walk down into a better valley, hence `UphillChance`.
+- **Opening a shelf with a box's shortest sheet is the wrong default for identical boxes.**
+  It minimises that shelf's height but is often too wide for a second box to share, so a run of
+  identical boxes draws one shelf each — 150 cm where 123 was available. The search therefore
+  sometimes opens with the shortest sheet that still leaves half the roll free.
+- **Length is the objective; paper cut is only the tie-break.** Roll length is what the reader
+  buys and cuts. Ties to within `1e-9` go to the plan cutting less paper, which is what stops an
+  orientation change costing paper and buying nothing. Do not make paper area the primary cost:
+  at a fixed length that metric always prefers the *largest* legal sheet, rewarding a box
+  wrapped in three sheets' worth of paper.
+- **The iteration count is capped by a work budget, not just by `RandomRestarts`.**
+  `RestartWorkBudget / boxes.Count` bounds the whole run; a short list still gets every iteration
+  it asked for, a long one trades iterations for staying responsive. Do not "fix" it back to a
+  flat count — 2000 boxes at 500 restarts measured 25 seconds of a frozen tab. The budget is
+  stated in units of boxes × iterations; a search iteration is cheaper than a repack was, so
+  the same count now costs less, and raising it is a separate measured decision.
 - **Numbers the reader sees follow their culture; numbers in SVG attributes do not.**
   `WrapPlanView.Format`, `WrapPlanDiagram.F` and the note use `CurrentCulture`, matching the
   form's numeric fields. `WrapPlanDiagram.N` stays invariant — it writes `viewBox` and

@@ -224,13 +224,16 @@ public class PlanWrapLogicTests
     {
         using var culture = InvariantCulture();
 
-        // A flat book wraps about its width, so the paper encircles the 4 and 22 sides.
+        // A flat book wraps about its length, so the paper encircles the 15 and 4 sides. It used
+        // to be the 4 and 22 sides: that sheet is 52.5 wide where this one is 38.5, and no
+        // shorter, so another sheet for the same box dominated it and the roll gained nothing by
+        // carrying it. See Drops_a_dominated_sheet below.
         WrapPlan book = PlanWrapLogic.Plan(
             [new GiftBox("Book", 22, 15, 4)],
             new WrapOptions(60, 0.5, RandomRestarts: 0)).Value;
 
         await Assert.That(book.Sections[0].Note)
-            .IsEqualTo("Wrapped around the box's 4.0 × 22.0 cm sides.");
+            .IsEqualTo("Wrapped around the box's 15.0 × 4.0 cm sides.");
 
         // An upright crate wraps about its height, so the paper goes around the 30 and 20 sides.
         WrapPlan crate = PlanWrapLogic.Plan(
@@ -305,6 +308,73 @@ public class PlanWrapLogicTests
     }
 
     [Test]
+    public async Task Drops_a_dominated_sheet()
+    {
+        // A 22 x 15 x 4 book can be cut 52.5 x 37.5, wrapping around the 15 x 4 sides, or
+        // 38.5 x 37.5 around the 22 x 15 ones. The wider sheet is no shorter, so it fits
+        // wherever the narrower one does and can never make the roll shorter — it only spends
+        // paper. It used to be chosen, for exactly that width.
+        WrapPlan plan = PlanWrapLogic.Plan(
+            [new GiftBox("Book", 22, 15, 4)],
+            new WrapOptions(60, 0.5, RandomRestarts: 0)).Value;
+
+        await Assert.That(plan.Sections.Count).IsEqualTo(1);
+        await Assert.That(plan.Sections[0].Width).IsEqualTo(38.5);
+        await Assert.That(plan.Sections[0].Length).IsEqualTo(37.5);
+
+        // The roll is the same either way; what changes is how much of it gets cut up.
+        await Assert.That(plan.RollLengthUsed).IsEqualTo(37.5);
+        await Assert.That(Math.Round(plan.PaperAreaCut, 6)).IsEqualTo(38.5 * 37.5);
+    }
+
+    [Test]
+    public async Task Changes_a_boxes_orientation_when_that_shortens_the_roll()
+    {
+        // Twelve identical boxes are the case the first guess gets most wrong. It opens every
+        // shelf with that box's shortest sheet, 28.5 x 12.5 — minimal in height, but too wide
+        // for a second box to share the shelf, so twelve boxes draw twelve shelves. Rotating to
+        // the 14.5 x 20.5 sheet costs height per shelf and halves the number of shelves.
+        GiftBox[] boxes = [.. Enumerable.Range(0, 12).Select(_ => new GiftBox("Tile", 8, 6, 4))];
+
+        WrapPlan firstGuess = PlanWrapLogic
+            .Plan(boxes, new WrapOptions(30, 0.5, RandomRestarts: 0)).Value;
+
+        WrapPlan searched = PlanWrapLogic
+            .Plan(boxes, new WrapOptions(30, 0.5, RandomRestarts: 500, Seed: 42)).Value;
+
+        await Assert.That(firstGuess.RollLengthUsed).IsEqualTo(150.0);
+        await Assert.That(firstGuess.Sections.All(section => section.Width == 28.5)).IsTrue();
+
+        // 5 shelves holding two each, plus two shelves holding one.
+        await Assert.That(searched.RollLengthUsed).IsEqualTo(127.5);
+        await Assert.That(searched.Sections.Count(section => section.Width == 14.5)).IsEqualTo(10);
+        await Assert.That(searched.PaperAreaCut).IsLessThan(firstGuess.PaperAreaCut);
+    }
+
+    [Test]
+    public async Task Never_uses_a_roll_the_paper_cannot_fill()
+    {
+        // Every sheet covers part of the roll, so no plan can use less roll area than the paper
+        // it cuts. The bound ignores every gap, which is what makes it a bound rather than a
+        // target — but it holds whatever the packer does, so a search that quietly stopped
+        // earning its keep shows up here even though no exact plan is pinned. Measured at 1.17.
+        GiftBox[] boxes =
+        [
+            new("A", 20, 14, 6), new("B", 15, 15, 15), new("C", 8, 8, 2), new("D", 25, 18, 5),
+            new("E", 12, 9, 3), new("F", 18, 12, 7), new("G", 10, 10, 10), new("H", 30, 20, 8),
+        ];
+
+        WrapPlan plan = PlanWrapLogic.Plan(
+            boxes,
+            new WrapOptions(
+                40, 0.5, InputUnit: LengthUnit.Inches, OutputUnit: LengthUnit.Inches,
+                RandomRestarts: 200, Seed: 42)).Value;
+
+        await Assert.That(plan.RollWidth * plan.RollLengthUsed)
+            .IsLessThanOrEqualTo(plan.PaperAreaCut * 1.3);
+    }
+
+    [Test]
     public async Task Produces_a_known_plan_for_a_known_input()
     {
         // Golden test. The invariant tests above check that a plan is *valid*; none of them
@@ -314,10 +384,10 @@ public class PlanWrapLogicTests
         // Seeded, so it is reproducible. If these numbers move, the optimiser's behaviour
         // changed — treat that as a deliberate decision to re-baseline, not an accident.
         //
-        // Eight varied boxes on a 40in roll, deliberately: the randomised restarts only earn
-        // their keep on an input where the greedy order is contested. Measured on this exact
-        // set, roll length is 380.5 with restarts disabled and 371.5 with them on, so this
-        // test fails if restarts stop working.
+        // Eight varied boxes on a 40in roll, deliberately: the search only earns its keep on an
+        // input where the greedy order is contested. Measured on this exact set, roll length is
+        // 380.5 with the search disabled and 371.5 with it on, so this test fails if the search
+        // stops working.
         //
         // Re-check that sensitivity whenever the sheet maths changes. An earlier revision used
         // six boxes on a 60in roll; a margin change made it restart-insensitive (identical

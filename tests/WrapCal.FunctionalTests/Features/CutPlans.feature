@@ -21,7 +21,7 @@ Feature: Cut plans
     When I plan the wrap
     Then the cuts should be:
       | name | width | length |
-      | Book | 52.5  | 37.5   |
+      | Book | 38.5  | 37.5   |
     And the cut plan should use 37.5 of roll
 
   Scenario: A crate that only fits one way
@@ -49,9 +49,9 @@ Feature: Cut plans
     When I plan the wrap
     Then the cuts should be:
       | name | width | length |
-      | Book | 52.5  | 37.5   |
-      | Mug  | 40.5  | 20.5   |
-    And the cut plan should use 58.0 of roll
+      | Book | 38.5  | 37.5   |
+      | Mug  | 20.5  | 40.5   |
+    And the cut plan should use 40.5 of roll
     And the cut plan should report 2 cuts
 
   Scenario: A crate and a cube
@@ -73,7 +73,7 @@ Feature: Cut plans
     When I plan the wrap
     Then the cuts should be:
       | name  | width | length |
-      | Shirt | 17.5  | 50.5   |
+      | Shirt | 24.5  | 25.5   |
       | Frame | 70.5  | 100.5  |
     And the cut plan should use 100.5 of roll
     And the cut plan should report 2 cuts

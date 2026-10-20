@@ -40,8 +40,11 @@ Feature: Layout stability
     And the page should not scroll sideways
 
   Scenario Outline: A long plan scrolls along the roll instead of shrinking to fit
+    # 24 boxes, not 12: the packer learned to lay identical boxes two to a shelf, which halved
+    # this plan and left it short enough to fit — a plan that fits proves nothing about whether
+    # a long one is shrunk or scrolled.
     Given a roll 30 cm wide with an overlap of 0.5
-    And 12 identical boxes measuring 8 by 6 by 4
+    And 24 identical boxes measuring 8 by 6 by 4
     When I plan the wrap
     And I set the roll orientation to <Direction>
     Then the layout should be cut off by its box rather than shrunk to fit it

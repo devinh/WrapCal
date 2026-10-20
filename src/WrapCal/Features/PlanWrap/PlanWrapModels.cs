@@ -47,6 +47,13 @@ public sealed record GiftBox(string Name, double Length, double Width, double He
 /// meet, and the along-the-box dimension has one where the two folded end flaps meet — so the
 /// margin is added once to each. With 0 the paper would meet exactly and not overlap at all.
 /// </para>
+/// <para>
+/// <paramref name="RandomRestarts"/> is how much search to attempt — the name predates the
+/// planner keeping its best plan and nudging it instead of repacking from scratch. Zero means
+/// "take the first arrangement and stop", which is what tests that pin a specific plan ask for.
+/// It is a request, not a promise: the work budget in <see cref="PlanWrapLogic"/> overrules it
+/// so a long list cannot block the page it is drawn on.
+/// </para>
 /// </summary>
 public sealed record WrapOptions(
     double RollWidth,
