@@ -54,12 +54,12 @@ public sealed class LayoutSteps : StepsBase
 
         var remove = (await Ui.Page.Locator("[data-testid='remove-box']").First.BoundingBoxAsync())!;
 
-        double inputCentre = input.Y + (input.Height / 2);
-        double removeCentre = remove.Y + (remove.Height / 2);
+        double inputCenter = input.Y + (input.Height / 2);
+        double removeCenter = remove.Y + (remove.Height / 2);
 
         // The inputs sit at the top of their cell with the reserved slot beneath, so the button
         // has to line up with the input rather than with the whole cell.
-        await Assert.That(Math.Abs(inputCentre - removeCentre)).IsLessThan(2.0);
+        await Assert.That(Math.Abs(inputCenter - removeCenter)).IsLessThan(2.0);
     }
 
     [Then("the box name input should line up with the other inputs")]
@@ -70,14 +70,14 @@ public sealed class LayoutSteps : StepsBase
         var name = (await row.Locator("[data-testid='box-name']").BoundingBoxAsync())!;
         var length = (await row.Locator("[data-testid='box-length']").BoundingBoxAsync())!;
 
-        double nameCentre = name.Y + (name.Height / 2);
-        double lengthCentre = length.Y + (length.Height / 2);
+        double nameCenter = name.Y + (name.Height / 2);
+        double lengthCenter = length.Y + (length.Height / 2);
 
         // The name field and the three dimensions are the same control with the same label and
         // the same reserved message line, so they must sit on one line. They stopped doing so
-        // once the name field alone was left without a message slot: a shorter control centres
+        // once the name field alone was left without a message slot: a shorter control centers
         // itself in the row and drops below its neighbours.
-        await Assert.That(Math.Abs(nameCentre - lengthCentre)).IsLessThan(2.0);
+        await Assert.That(Math.Abs(nameCenter - lengthCenter)).IsLessThan(2.0);
     }
 
     [Given("a phone's width")]
@@ -97,10 +97,10 @@ public sealed class LayoutSteps : StepsBase
 
         // Given a line to itself at a phone's width, the button read as a stray control in the
         // whitespace under the row rather than part of it.
-        double heightCentre = height.Y + (height.Height / 2);
-        double removeCentre = remove.Y + (remove.Height / 2);
+        double heightCenter = height.Y + (height.Height / 2);
+        double removeCenter = remove.Y + (remove.Height / 2);
 
-        await Assert.That(Math.Abs(heightCentre - removeCentre)).IsLessThan(2.0);
+        await Assert.That(Math.Abs(heightCenter - removeCenter)).IsLessThan(2.0);
     }
 
     [Then("the cut plan table should fit inside its card")]

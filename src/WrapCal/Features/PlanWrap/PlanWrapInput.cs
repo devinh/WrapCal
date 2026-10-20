@@ -38,7 +38,7 @@ public sealed class PlanWrapInput
 
     /// <summary>
     /// Results are reported in the same unit the user typed in. There is deliberately no
-    /// separate output-unit field: choosing imperial and being handed centimetres is
+    /// separate output-unit field: choosing imperial and being handed centimeters is
     /// surprising, and the form never exposed the control to change it.
     /// </summary>
     public WrapOptions ToOptions() =>

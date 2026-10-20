@@ -14,7 +14,7 @@ public class PlanWrapInputTests
     public async Task Reports_results_in_the_same_unit_that_was_entered()
     {
         // The form used to carry a separate output unit that nothing could set, so choosing
-        // inches still produced centimetres. Output now follows input.
+        // inches still produced centimeters. Output now follows input.
         foreach (LengthUnit unit in new[] { LengthUnit.Inches, LengthUnit.Centimeters })
         {
             WrapOptions options = new PlanWrapInput { InputUnit = unit }.ToOptions();

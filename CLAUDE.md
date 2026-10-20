@@ -115,7 +115,7 @@ tests/
     Components/MainLayoutTests.cs
     Features/                   # one file per production concern
   WrapCal.FunctionalTests/      # Reqnroll + Playwright — separate project, own runner
-    Features/                   # PlanWrap (behaviour), CutPlans (spec tables), Layout, Assets, Theme
+    Features/                   # PlanWrap (behavior), CutPlans (spec tables), Layout, Assets, Theme
     StepDefinitions/            # StepsBase + Form / Planning / Layout / Asset / Theme
     Hooks/
     Support/
@@ -205,9 +205,9 @@ Read this before changing the maths. Every point here has been got wrong once al
 - **The search has to be able to return something other than what it started from.** Reinserting
   a ruined box by best fit alone is a fixed point — take a box out and the same plan puts it
   back — and measured **no improvement at all** until both reinsertion *and* the sheet choice for
-  a new shelf were randomised. Strict hill climbing was the second half: refusing every worse
+  a new shelf were randomized. Strict hill climbing was the second half: refusing every worse
   plan cannot walk down into a better valley, hence `UphillChance`.
-- **Opening a shelf with a box's shortest sheet can be the wrong default.** It minimises that
+- **Opening a shelf with a box's shortest sheet can be the wrong default.** It minimizes that
   shelf's height but may be too wide for a second box to share, so the box beside it opens a
   shelf of its own. The search therefore sometimes opens with the shortest sheet that still
   leaves half the roll free — measured on mixed-size lists at 151.2 → 146.6 for fourteen boxes
@@ -270,7 +270,7 @@ Read this before changing the maths. Every point here has been got wrong once al
   bypass the form, and where it needs a limit the form also applies — the box count — it reads
   the same `const` rather than restating the number.
 - **Validation reports when a field is left, not on every keystroke.** That is Mud's timing,
-  chosen over the old on-change behaviour. Box fields carry `HelperText=" "` and the global
+  chosen over the old on-change behavior. Box fields carry `HelperText=" "` and the global
   `.wrapcal-message-slot` rule so the message line is always reserved — without it, reporting a
   problem grows the row and pushes the Plan button down. That rule is global because the class
   lands on markup MudBlazor renders, which a component's scoped CSS cannot reach.
@@ -296,14 +296,14 @@ Read this before changing the maths. Every point here has been got wrong once al
   the roll, which the CSS pins to the frame and the roll width, so it holds however long the plan
   is and cannot be made vacuous by a better packer. Both are mutation checked: dropping `flex:
   none` fails the vertical one and unclamping the horizontal `height` fails the other.
-- **Every colour in the drawing comes from the palette, never from a literal.** `WrapPlanDiagram`
+- **Every color in the drawing comes from the palette, never from a literal.** `WrapPlanDiagram`
   is styled entirely by `--mud-palette-*`, so it is drawn in whichever theme is showing; the two
-  fills that need a tint (the paper and the cut sections) are the primary colour at 12%
-  `fill-opacity` rather than a colour of their own, because the same 12% reads as a pale wash on
+  fills that need a tint (the paper and the cut sections) are the primary color at 12%
+  `fill-opacity` rather than a color of their own, because the same 12% reads as a pale wash on
   light and a deep one on dark. The hatch `<pattern>` lives inside `<defs>` and is styled by
   class like everything else — the scope attribute does reach in there, but it is the one place
-  where a scoping failure would leave the band invisible rather than merely off-colour, so
-  `Theme.feature` holds the hatch to the same computed colour as the paper.
+  where a scoping failure would leave the band invisible rather than merely off-color, so
+  `Theme.feature` holds the hatch to the same computed color as the paper.
 - **The roll never touches the diagram's frame.** A gutter of 15% of the roll width frames the
   paper on whichever axis the roll spans — the margins on the other axis already carry the two
   end annotations. Without it the drawing read as zoomed in too far, since the paper sat flush
@@ -318,12 +318,12 @@ Read this before changing the maths. Every point here has been got wrong once al
   short plan has no dead space beside it for a reversed scroller to pack it against. Without this
   a Left or Up diagram that fits sat against the far edge — right or bottom — with a large empty
   gap, which reads as the drawing being shoved out of place. Do not "restore" `xMidYMid`: that
-  re-centres the content in the filled frame. `justify-content: flex-end` and auto margins were
-  both tried first and both push overflowing content towards a start the scrollbar cannot reach,
-  taking the origin out of view; `safe flex-end` is the right idea but WebKit does not honour it.
+  re-centers the content in the filled frame. `justify-content: flex-end` and auto margins were
+  both tried first and both push overflowing content toward a start the scrollbar cannot reach,
+  taking the origin out of view; `safe flex-end` is the right idea but WebKit does not honor it.
 - **Re-keying the scroller resets the scroll.** It is keyed on `(Plan, Direction)`, so a new
   plan or a new direction starts at the origin instead of wherever the previous drawing was
-  left. Don't "optimise" the key away.
+  left. Don't "optimize" the key away.
 - **The origin dot moves with the drawing.** It sits on the corner where plan X and plan Y
   are both zero: top-left going Down, bottom-left going Up and Right, bottom-right going
   Left. The horizontal layouts also flip X downwards so that corner really is the origin.
@@ -479,14 +479,14 @@ Reqnroll (Gherkin) driving Playwright against the app running for real.
   answer by stubbing `mudThemeProvider.isDarkMode`, since bUnit has no media query and no
   operating system. `Theme.feature` covers what only a real browser can: `EmulateMediaAsync`
   sets `prefers-color-scheme`, the palette is read off the document root (where a theme is
-  visible at all) and compared by luminance rather than against exact colours, and the cookie
+  visible at all) and compared by luminance rather than against exact colors, and the cookie
   is a real one on a real document.
   Mutation-checked: forcing the system preference to light fails "The page follows a dark
   system" and nothing else.
 - **The `Then` for a theme waits, and has to.** On a first visit the system preference is not
   knowable until the app has booted and can ask the browser, so the palette moves *after* the
   page is on screen. The step waits up to `ThemeSettleTimeout` for the expected side of
-  mid-grey and only then reports. A theme assertion that reads once will flake.
+  mid-gray and only then reports. A theme assertion that reads once will flake.
 - **Match a validation message past its own number.** "Width must be between" is a substring of
   "Roll Width must be between", so a prefix assertion about box width is satisfied by the roll
   width's message and passes with no box-width message on the page at all. `PlanningSteps`
@@ -530,7 +530,7 @@ Reqnroll (Gherkin) driving Playwright against the app running for real.
 - **Served uncompressed, deliberately.** Each scenario gets a fresh browser context, so the
   ~19 MB runtime is fetched again for every one of them. Compressing it was measured at 65s
   against 49s for the whole suite — over loopback the transfer is nearly free and the CPU is
-  not. Do not "optimise" this back on without measuring.
+  not. Do not "optimize" this back on without measuring.
 - **The publish is cached.** `AppHost` publishes into `bin/<config>/<tfm>/app-publish` and
   reuses it while nothing under `src/WrapCal` (or `Directory.Build.props` / `global.json`) is
   newer than the stamp file. Publishing runs the IL linker on every core, and repeating that

@@ -273,7 +273,7 @@ internal static class ShelfPacker
     /// <paramref name="random"/> is what makes a ruin-and-recreate move able to return something
     /// other than what it started from. Reinserting by best fit alone is close to a fixed point:
     /// take a box out of a plan and the same plan is what puts it back, which is why the search
-    /// did nothing at all until this was randomised.
+    /// did nothing at all until this was randomized.
     /// </para>
     /// </summary>
     private static void TryPlace(

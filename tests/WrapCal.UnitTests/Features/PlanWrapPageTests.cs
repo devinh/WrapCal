@@ -92,7 +92,7 @@ public class PlanWrapPageTests : WrapCalBunitContext
 
         await SelectUnitAsync(cut, LengthUnit.Centimeters);
 
-        // 30in, 0.5in, and a 9 x 6 x 1.5in box, all restated in centimetres.
+        // 30in, 0.5in, and a 9 x 6 x 1.5in box, all restated in centimeters.
         await Assert.That(cut.Find(RollWidth).GetAttribute("value")).IsEqualTo("76.2");
         await Assert.That(cut.Find(OverlapMargin).GetAttribute("value")).IsEqualTo("1.27");
 
@@ -156,7 +156,7 @@ public class PlanWrapPageTests : WrapCalBunitContext
     [Test]
     public async Task Reports_roll_option_problems_on_change_too()
     {
-        // The behaviour being matched: a roll option reports without submitting.
+        // The behavior being matched: a roll option reports without submitting.
         var cut = Render<PlanWrap>();
 
         await cut.Find(RollWidth).ChangeAsync("0");

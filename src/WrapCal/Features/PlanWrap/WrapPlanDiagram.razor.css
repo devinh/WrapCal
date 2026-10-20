@@ -56,11 +56,11 @@
     flex-direction: row-reverse;
 }
 
-/* Every colour comes from MudBlazor's palette, so the drawing is drawn in the theme it is shown
+/* Every color comes from MudBlazor's palette, so the drawing is drawn in the theme it is shown
    in rather than being a fixed light-mode picture dropped onto a dark page.
 
-   The two washes — the paper and the cut sections — are the primary colour at low opacity over
-   whatever is beneath, not a colour of their own. The same 12% reads as a pale tint on light
+   The two washes — the paper and the cut sections — are the primary color at low opacity over
+   whatever is beneath, not a color of their own. The same 12% reads as a pale tint on light
    paper and a deep one on dark, and it keeps the cut outlines legible against both. */
 .paper {
     fill: var(--mud-palette-surface, #fffdf8);

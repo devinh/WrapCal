@@ -15,14 +15,14 @@ Enter the roll you have and the boxes you want to wrap:
 
 - **A cut plan** — the roll length the boxes consume, the paper cut, the waste, and an
   efficiency figure.
-- **A paper layout** — an SVG diagram of the sheet with each cut drawn to scale and labelled
+- **A paper layout** — an SVG diagram of the sheet with each cut drawn to scale and labeled
   with the box name and its size. The origin is marked, and a hatched band shows which side
   the unused roll is on — top, bottom, left or right, your choice. A long plan scrolls
   along the roll rather than shrinking to fit: the more boxes you add, the longer the
   drawing gets, and it opens at the origin.
 - **A wrapping note per box** — which pair of the box's own sides the paper goes around.
 
-Units switch between inches and centimetres, converting what you have already typed.
+Units switch between inches and centimeters, converting what you have already typed.
 
 ## Requirements
 
@@ -121,7 +121,7 @@ tests/
     Common/ Components/ Features/
 
   WrapCal.FunctionalTests/   # TUnit + Reqnroll + Playwright — BDD against a real browser
-    Features/                #   PlanWrap (behaviour), CutPlans (spec tables), Layout
+    Features/                #   PlanWrap (behavior), CutPlans (spec tables), Layout
     StepDefinitions/         #   StepsBase + Form / Planning / Layout steps
     Hooks/                   #   app + browser lifecycle
     Support/                 #   AppHost, UiContext
@@ -145,7 +145,7 @@ Two test projects, deliberately separate — run either on its own.
 | `tests/WrapCal.FunctionalTests` | TUnit + Reqnroll + Playwright | The real page in a real browser | a few seconds |
 
 `CutPlans.feature` is the readable specification: concrete roll and box inputs, with the
-sheet each box should get back. `PlanWrap.feature` covers behaviour and errors.
+sheet each box should get back. `PlanWrap.feature` covers behavior and errors.
 `Layout.feature` measures where things sit on the page, and that the paper layout overflows
 its frame rather than shrinking into it. `Assets.feature` checks what a browser cannot
 show but a diff can hide: that Bootstrap is neither linked nor served, and that MudBlazor
@@ -154,7 +154,7 @@ is doing the styling.
 The functional suite runs two scenarios at a time. Every scenario boots the WebAssembly runtime
 in its own browser context and that is a whole-machine burst, so TUnit's default of running
 everything at once left the machine unusable for the length of a run. Set
-`WRAPCAL_SCENARIO_PARALLELISM=1` to serialise them when you need the machine back — it takes
+`WRAPCAL_SCENARIO_PARALLELISM=1` to serialize them when you need the machine back — it takes
 about as long as the unbounded run did, at a fraction of the load.
 
 Both run on **Microsoft.Testing.Platform**, opted into via `global.json`. Consequences:

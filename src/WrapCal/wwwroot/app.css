@@ -13,7 +13,7 @@ html, body {
 }
 
 /* The background of the shell that stands in for the page while the runtime downloads. index.html
-   picks one of these from the reader's theme cookies, so the page opens in the right colour
+   picks one of these from the reader's theme cookies, so the page opens in the right color
    rather than flashing white. The values are MudBlazor's defaults for the theme the app uses.
 
    Once the app has rendered, MudBlazor sets --mud-palette-background on the root and the first

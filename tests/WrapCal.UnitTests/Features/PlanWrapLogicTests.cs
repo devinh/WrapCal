@@ -446,7 +446,7 @@ public class PlanWrapLogicTests
         WrapPlan searched = PlanWrapLogic.Plan(boxes, new WrapOptions(60, 0.5, Seed: 42)).Value;
 
         // Nothing but the first guess, and no re-partitioning either — which is what makes this
-        // test fail if the optimiser stops working, in either half.
+        // test fail if the optimizer stops working, in either half.
         WrapPlan firstGuess = PlanWrapLogic
             .Plan(boxes, new WrapOptions(60, 0.5, SearchIterations: 0)).Value;
 
@@ -499,7 +499,7 @@ public class PlanWrapLogicTests
         // check that it is *good*. A refactor could quietly double the roll length used and
         // every other test here would still pass. This pins the actual output.
         //
-        // Seeded, so it is reproducible. If these numbers move, the optimiser's behaviour
+        // Seeded, so it is reproducible. If these numbers move, the optimizer's behavior
         // changed — treat that as a deliberate decision to re-baseline, not an accident.
         //
         // Eight varied boxes on a 40in roll. Eight is under the exhaustive solver's limit, so

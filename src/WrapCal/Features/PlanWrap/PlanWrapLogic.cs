@@ -7,7 +7,7 @@ namespace WrapCal.Features.PlanWrap;
 /// Turns a set of boxes plus roll options into a cut plan.
 /// <para>
 /// Ported from the reference implementation at the repository root. All maths runs in
-/// centimetres; units are converted in once at the start and out once at the end, which keeps
+/// centimeters; units are converted in once at the start and out once at the end, which keeps
 /// the packing code free of unit handling.
 /// </para>
 /// </summary>
@@ -145,8 +145,8 @@ public static class PlanWrapLogic
 
         LengthUnit outputUnit = inputOptions.OutputUnit;
         double scale = UnitConverter.FromCm(1, outputUnit);
-        double ToOutput(double centimetres) => UnitConverter.FromCm(centimetres, outputUnit);
-        double AreaToOutput(double squareCentimetres) => squareCentimetres * scale * scale;
+        double ToOutput(double centimeters) => UnitConverter.FromCm(centimeters, outputUnit);
+        double AreaToOutput(double squareCentimeters) => squareCentimeters * scale * scale;
 
         List<CutSection> converted =
         [
@@ -250,7 +250,7 @@ public static class PlanWrapLogic
     /// Gives every box of the same size the same piece of paper.
     /// <para>
     /// A plan is instructions for someone with scissors, and three identical presents cut from
-    /// three differently sized sheets reads as a mistake even where the packer gains a centimetre
+    /// three differently sized sheets reads as a mistake even where the packer gains a centimeter
     /// by mixing them. Each group is reduced to one piece — the sheet that wraps that box best on
     /// its own, which is the choice a single-box plan already makes — while both rotations of it
     /// stay available, so the pieces can still be turned to share a shelf.

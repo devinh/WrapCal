@@ -47,7 +47,7 @@ public class WrapPlanViewTests : WrapCalBunitContext
     }
 
     [Test]
-    public async Task Uses_squared_centimetres_for_areas_on_a_metric_plan()
+    public async Task Uses_squared_centimeters_for_areas_on_a_metric_plan()
     {
         var cut = Render<WrapPlanView>(parameters =>
             parameters.Add(p => p.Plan, Plan(LengthUnit.Centimeters)));
