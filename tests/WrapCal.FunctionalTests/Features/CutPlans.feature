@@ -21,17 +21,17 @@ Feature: Cut plans
     When I plan the wrap
     Then the cuts should be:
       | name | width | length |
-      | Book | 38.5  | 37.5   |
-    And the cut plan should use 37.5 of roll
+      | Book | 52.5  | 19.5   |
+    And the cut plan should use 19.5 of roll
 
-  Scenario: A crate that only fits one way
+  Scenario: A crate on a narrow roll
     Given a roll 50 cm wide with an overlap of 1
     And a box "Crate" measuring 30 by 20 by 10
     When I plan the wrap
     Then the cuts should be:
       | name  | width | length |
-      | Crate | 41.0  | 101.0  |
-    And the cut plan should use 101.0 of roll
+      | Crate | 41.0  | 61.0   |
+    And the cut plan should use 61.0 of roll
 
   Scenario: A box measured in inches
     Given a roll 30 in wide with an overlap of 0.5
@@ -39,8 +39,8 @@ Feature: Cut plans
     When I plan the wrap
     Then the cuts should be:
       | name   | width | length |
-      | Gadget | 15.5  | 14.5   |
-    And the cut plan should use 14.5 of roll
+      | Gadget | 24.5  | 7.5    |
+    And the cut plan should use 7.5 of roll
 
   Scenario: Two boxes side by side
     Given a roll 60 cm wide with an overlap of 0.5
@@ -49,9 +49,9 @@ Feature: Cut plans
     When I plan the wrap
     Then the cuts should be:
       | name | width | length |
-      | Book | 37.5  | 38.5   |
-      | Mug  | 20.5  | 40.5   |
-    And the cut plan should use 40.5 of roll
+      | Book | 52.5  | 19.5   |
+      | Mug  | 40.5  | 20.5   |
+    And the cut plan should use 40.0 of roll
     And the cut plan should report 2 cuts
 
   Scenario: A crate and a cube
@@ -61,9 +61,9 @@ Feature: Cut plans
     When I plan the wrap
     Then the cuts should be:
       | name  | width | length |
-      | Crate | 61.0  | 51.0   |
+      | Crate | 31.0  | 81.0   |
       | Cube  | 41.0  | 81.0   |
-    And the cut plan should use 132.0 of roll
+    And the cut plan should use 81.0 of roll
     And the cut plan should report 2 cuts
 
   Scenario: A frame and a shirt
@@ -73,7 +73,7 @@ Feature: Cut plans
     When I plan the wrap
     Then the cuts should be:
       | name  | width | length |
-      | Shirt | 24.5  | 25.5   |
-      | Frame | 70.5  | 100.5  |
+      | Shirt | 17.5  | 24.5   |
+      | Frame | 60.5  | 100.5  |
     And the cut plan should use 100.5 of roll
     And the cut plan should report 2 cuts

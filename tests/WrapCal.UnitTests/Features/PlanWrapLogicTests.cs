@@ -198,19 +198,25 @@ public class PlanWrapLogicTests
     [Test]
     public async Task Overlap_margin_is_exactly_the_seam_overlap()
     {
-        // A 20cm cube goes around in 2 * (20 + 20) = 80cm, and needs 20 + max(20, 20) = 40cm
-        // along the box for the fold-over (10cm per end, meeting in the middle of the end
-        // face). Each of those dimensions has exactly one seam to close, so the margin is
-        // added once to each: with 0 the paper meets without overlapping anywhere.
-        WrapPlan without = OneBox(new GiftBox("Cube", 20, 20, 20), overlapMargin: 0);
-        WrapPlan with = OneBox(new GiftBox("Cube", 20, 20, 20), overlapMargin: 2);
+        // A 20 x 20 x 10 box wrapped around its length goes around the 20 x 10 end in
+        // 2 * (20 + 10) = 60cm, and needs 20 + min(20, 10) = 30cm along the box: the fold-over
+        // closes the 20 x 10 end face, and half its SHORTER side per end is enough, because the
+        // flaps that meet in the middle already span the longer direction. Each dimension has
+        // exactly one seam to close, so the margin is added once to each: with 0 the paper meets
+        // without overlapping anywhere.
+        //
+        // Deliberately not a cube — here the two cross-section sides differ, so this pins min
+        // against max. It was a cube until the fold-over was found to be using the larger side,
+        // and a cube cannot tell those apart.
+        WrapPlan without = OneBox(new GiftBox("Brick", 20, 20, 10), overlapMargin: 0);
+        WrapPlan with = OneBox(new GiftBox("Brick", 20, 20, 10), overlapMargin: 2);
 
-        await Assert.That(without.Sections[0].Width).IsEqualTo(80.0);
-        await Assert.That(without.Sections[0].Length).IsEqualTo(40.0);
+        await Assert.That(without.Sections[0].Width).IsEqualTo(60.0);
+        await Assert.That(without.Sections[0].Length).IsEqualTo(30.0);
 
         // Both dimensions grow by exactly the margin — not twice it.
-        await Assert.That(with.Sections[0].Width).IsEqualTo(82.0);
-        await Assert.That(with.Sections[0].Length).IsEqualTo(42.0);
+        await Assert.That(with.Sections[0].Width).IsEqualTo(62.0);
+        await Assert.That(with.Sections[0].Length).IsEqualTo(32.0);
     }
 
     private static WrapPlan OneBox(GiftBox box, double overlapMargin) =>
@@ -224,16 +230,15 @@ public class PlanWrapLogicTests
     {
         using var culture = InvariantCulture();
 
-        // A flat book wraps about its length, so the paper encircles the 15 and 4 sides. It used
-        // to be the 4 and 22 sides: that sheet is 52.5 wide where this one is 38.5, and no
-        // shorter, so another sheet for the same box dominated it and the roll gained nothing by
-        // carrying it. See Drops_a_dominated_sheet below.
+        // A flat book wraps about its width, so the paper encircles the 4 and 22 sides. Which
+        // sides get encircled follows the shortest sheet, and that moved when the fold-over
+        // stopped charging for the longer cross-section side: 52.5 x 19.5 now beats 38.5 x 26.5.
         WrapPlan book = PlanWrapLogic.Plan(
             [new GiftBox("Book", 22, 15, 4)],
             new WrapOptions(60, 0.5, SearchIterations: 0)).Value;
 
         await Assert.That(book.Sections[0].Note)
-            .IsEqualTo("Wrapped around the box's 15.0 × 4.0 cm sides.");
+            .IsEqualTo("Wrapped around the box's 4.0 × 22.0 cm sides.");
 
         // An upright crate wraps about its height, so the paper goes around the 30 and 20 sides.
         WrapPlan crate = PlanWrapLogic.Plan(
@@ -241,7 +246,7 @@ public class PlanWrapLogicTests
             new WrapOptions(50, 1, SearchIterations: 0)).Value;
 
         await Assert.That(crate.Sections[0].Note)
-            .IsEqualTo("Wrapped around the box's 30.0 × 20.0 cm sides.");
+            .IsEqualTo("Wrapped around the box's 20.0 × 10.0 cm sides.");
     }
 
     [Test]
@@ -256,7 +261,7 @@ public class PlanWrapLogicTests
                 SearchIterations: 0)).Value;
 
         await Assert.That(plan.Sections[0].Note)
-            .IsEqualTo("Wrapped around the box's 5.0 × 2.0 in sides.");
+            .IsEqualTo("Wrapped around the box's 2.0 × 10.0 in sides.");
     }
 
     [Test]
@@ -308,49 +313,87 @@ public class PlanWrapLogicTests
     }
 
     [Test]
-    public async Task Drops_a_dominated_sheet()
+    public async Task Never_offers_a_dominated_sheet()
     {
-        // A 22 x 15 x 4 book can be cut 52.5 x 37.5, wrapping around the 15 x 4 sides, or
-        // 38.5 x 37.5 around the 22 x 15 ones. The wider sheet is no shorter, so it fits
-        // wherever the narrower one does and can never make the roll shorter — it only spends
-        // paper. It used to be chosen, for exactly that width.
-        WrapPlan plan = PlanWrapLogic.Plan(
-            [new GiftBox("Book", 22, 15, 4)],
-            new WrapOptions(60, 0.5, SearchIterations: 0)).Value;
+        // A 9 x 6 x 1.5 box wrapped around its 1.5 height is 30.5 around and 8 along, and the
+        // same box wrapped around its 6 width is 21.5 around and 8 along. Both are the same
+        // width on the roll, so the 30.5 one fits wherever the 8 x 21.5 one does and can never
+        // shorten the plan — it only spends paper. It must not be offered at all.
+        List<PlanWrapLogic.SheetOption> options =
+            PlanWrapLogic.SheetOptions(new GiftBox("Box", 9, 6, 1.5), new WrapOptions(30, 0.5));
 
-        await Assert.That(plan.Sections.Count).IsEqualTo(1);
-        await Assert.That(plan.Sections[0].Width).IsEqualTo(38.5);
-        await Assert.That(plan.Sections[0].Length).IsEqualTo(37.5);
+        await Assert.That(options.Any(option => Is(option.Width, 8) && Is(option.Length, 30.5)))
+            .IsFalse();
 
-        // The roll is the same either way; what changes is how much of it gets cut up.
-        await Assert.That(plan.RollLengthUsed).IsEqualTo(37.5);
-        await Assert.That(Math.Round(plan.PaperAreaCut, 6)).IsEqualTo(38.5 * 37.5);
+        // The sheet that dominates it survives, along with every sheet it did not dominate.
+        await Assert.That(options.Any(option => Is(option.Width, 8) && Is(option.Length, 21.5)))
+            .IsTrue();
+        await Assert.That(options.Count).IsEqualTo(4);
+
+        static bool Is(double actual, double expected) => Math.Abs(actual - expected) <= 1e-9;
     }
 
     [Test]
-    public async Task Changes_a_boxes_orientation_when_that_shortens_the_roll()
+    public async Task Cuts_identical_boxes_from_identical_paper()
     {
-        // Twelve identical boxes are the case the first guess gets most wrong. It opens every
-        // shelf with that box's shortest sheet, 28.5 x 12.5 — minimal in height, but too wide
-        // for a second box to share the shelf, so twelve boxes draw twelve shelves. Rotating to
-        // the 14.5 x 20.5 sheet costs height per shelf and halves the number of shelves.
+        // The reported case, as reported: three 9 x 6 x 1.5 boxes came back as 15.5 x 15.5,
+        // 11 x 30.5 and 15.5 x 15.5, using 46 of roll. Both halves of that were wrong — the
+        // fold-over was cutting far more paper than wrapping needs, and nothing stopped two
+        // identically sized boxes being cut differently.
+        GiftBox[] boxes = [.. Enumerable.Range(1, 3).Select(n => new GiftBox($"Box {n}", 9, 6, 1.5))];
+
+        WrapPlan plan = PlanWrapLogic.Plan(boxes, new WrapOptions(30, 0.5)).Value;
+
+        await Assert.That(plan.Sections.Count).IsEqualTo(3);
+        await Assert.That(Math.Round(plan.RollLengthUsed, 3)).IsEqualTo(21.5);
+
+        // One piece of paper for all three. Any of them may be laid out either way round — that
+        // is the same rectangle of paper, so the pair is compared unordered.
+        var pieces = plan.Sections
+            .Select(section => (Small: Math.Min(section.Width, section.Length),
+                Large: Math.Max(section.Width, section.Length)))
+            .Distinct();
+
+        await Assert.That(pieces.Count()).IsEqualTo(1);
+        await Assert.That(Math.Round(pieces.Single().Small, 3)).IsEqualTo(8.0);
+        await Assert.That(Math.Round(pieces.Single().Large, 3)).IsEqualTo(21.5);
+    }
+
+    [Test]
+    public async Task Still_cuts_differently_sized_boxes_differently()
+    {
+        // The grouping is on the dimensions, not on the plan: boxes that are not the same size
+        // must each get the sheet that suits them.
+        GiftBox[] boxes =
+        [
+            new("Book", 22, 15, 4), new("Mug", 10, 10, 10), new("Book", 22, 15, 4),
+        ];
+
+        WrapPlan plan = PlanWrapLogic.Plan(boxes, new WrapOptions(60, 0.5)).Value;
+
+        var books = plan.Sections.Where(section => section.ItemName == "Book").ToList();
+
+        await Assert.That(books.Count).IsEqualTo(2);
+        await Assert.That(Math.Abs(books[0].Width - books[1].Width)).IsLessThan(1e-9);
+        await Assert.That(Math.Abs(books[0].Length - books[1].Length)).IsLessThan(1e-9);
+        await Assert.That(Math.Abs(books[0].Width - plan.Sections.Single(s => s.ItemName == "Mug").Width))
+            .IsGreaterThan(1e-9);
+    }
+
+    [Test]
+    public async Task Picks_the_rotation_that_shortens_the_roll()
+    {
+        // An 8 x 6 x 4 box is cut from a 24.5 x 10.5 piece once the fold-over is right. Laid
+        // down 24.5 wide it needs a shelf each — twelve shelves of 10.5 — while laid down 10.5
+        // wide two fit across a 30cm roll but every strip would be 24.5 deep. One per shelf wins
+        // by 21cm of roll, so the rotation is not a detail.
         GiftBox[] boxes = [.. Enumerable.Range(0, 12).Select(_ => new GiftBox("Tile", 8, 6, 4))];
 
-        WrapPlan firstGuess = PlanWrapLogic
-            .Plan(boxes, new WrapOptions(30, 0.5, SearchIterations: 0)).Value;
+        WrapPlan plan = PlanWrapLogic.Plan(boxes, new WrapOptions(30, 0.5)).Value;
 
-        WrapPlan searched = PlanWrapLogic
-            .Plan(boxes, new WrapOptions(30, 0.5, SearchIterations: 500, Seed: 42)).Value;
-
-        await Assert.That(firstGuess.RollLengthUsed).IsEqualTo(150.0);
-        await Assert.That(firstGuess.Sections.All(section => section.Width == 28.5)).IsTrue();
-
-        // Every box on the narrower sheet, six shelves holding two each — the optimum for this
-        // input, which the exhaustive solver now reaches rather than approximates.
-        await Assert.That(searched.RollLengthUsed).IsEqualTo(123.0);
-        await Assert.That(searched.Sections.All(section => section.Width == 14.5)).IsTrue();
-        await Assert.That(searched.Sections.Count).IsEqualTo(12);
-        await Assert.That(searched.PaperAreaCut).IsLessThan(firstGuess.PaperAreaCut);
+        await Assert.That(Math.Round(plan.RollLengthUsed, 3)).IsEqualTo(126.0);
+        await Assert.That(plan.Sections.Count).IsEqualTo(12);
+        await Assert.That(plan.Sections.All(section => section.Width == 24.5)).IsTrue();
     }
 
     [Test]
@@ -381,9 +424,10 @@ public class PlanWrapLogicTests
     {
         // The same guard as the golden test, for the half of the planner it cannot reach: sixteen
         // boxes is over the exhaustive solver's limit, so this input exercises the search and the
-        // exact re-partitioning that follows it. Four sizes, four of each — the shape where which
-        // boxes share a shelf decides the answer.
-        GiftBox[] boxes = ManyBoxes();
+        // exact re-partitioning that follows it. Every box is a different size on purpose — when
+        // sizes repeat, the uniform-piece rule makes them interchangeable and the first guess
+        // usually lands on the answer by itself, which would prove nothing.
+        GiftBox[] boxes = DifferentSizes(16);
 
         WrapPlan searched = PlanWrapLogic.Plan(boxes, new WrapOptions(60, 0.5, Seed: 42)).Value;
 
@@ -393,8 +437,15 @@ public class PlanWrapLogicTests
             .Plan(boxes, new WrapOptions(60, 0.5, SearchIterations: 0)).Value;
 
         await Assert.That(firstGuess.RollLengthUsed).IsGreaterThan(searched.RollLengthUsed);
-        await Assert.That(Math.Round(searched.RollLengthUsed, 1)).IsEqualTo(448.0);
+        await Assert.That(Math.Round(searched.RollLengthUsed, 1)).IsEqualTo(67.0);
     }
+
+    /// <summary>Boxes that differ from one another, so nothing can be shared between them.</summary>
+    private static GiftBox[] DifferentSizes(int count) =>
+    [
+        .. Enumerable.Range(0, count).Select(i => new GiftBox(
+            $"Box {i + 1}", 4 + (i % 9), 3 + (i % 7), 2 + (i % 5))),
+    ];
 
     [Test]
     public async Task A_missing_iteration_cap_means_the_work_budget()
@@ -438,7 +489,7 @@ public class PlanWrapLogicTests
         // changed — treat that as a deliberate decision to re-baseline, not an accident.
         //
         // Eight varied boxes on a 40in roll. Eight is under the exhaustive solver's limit, so
-        // this now pins an *optimal* plan rather than a searched one — 371.5, which the solver
+        // this pins an *optimal* plan rather than a searched one — 265, which the solver
         // confirms is the best layout there is for these boxes. The guard on the search itself
         // lives in Produces_a_known_plan_above_the_exact_threshold, because nothing here
         // exercises the search any more.
@@ -462,11 +513,11 @@ public class PlanWrapLogicTests
         await Assert.That(result.IsSuccess).IsTrue();
         await Assert.That(result.Value.Sections.Count).IsEqualTo(8);
 
-        // Exact values are 371.5 and 0.8583109017496634, identical in Debug and Release.
+        // Exact values are 265 and the efficiency below, identical in Debug and Release.
         // Rounded to survive harmless float noise, but finely enough that any real change in
         // packing quality fails the test rather than slipping through.
-        await Assert.That(Math.Round(result.Value.RollLengthUsed, 3)).IsEqualTo(371.5);
-        await Assert.That(Math.Round(result.Value.Efficiency, 6)).IsEqualTo(0.858311);
+        await Assert.That(Math.Round(result.Value.RollLengthUsed, 3)).IsEqualTo(265.0);
+        await Assert.That(Math.Round(result.Value.Efficiency, 6)).IsEqualTo(0.84184);
     }
 
     /// <summary>

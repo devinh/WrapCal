@@ -129,9 +129,22 @@ Read this before changing the maths. Every point here has been got wrong once al
   is added once to the wrap-around length (where the two ends of the wrap lap) and once to
   the along-the-box length (where the two folded end flaps lap). Not once per edge — that
   reads a typed 0.5 as an overlap of 1.0, and has been fixed twice.
-- **Along-the-box length is `axis + max(p, q) + margin`.** The `max(p, q)` is the fold-over:
-  half the larger cross-section side per end, enough for both flaps to meet in the middle of
-  the end face. Without the margin they meet exactly and never lap.
+- **Along-the-box length is `axis + min(p, q) + margin`.** The fold-over closes the end face, a
+  `p × q` rectangle, and the paper hangs past it by the same distance all the way round — so
+  folding in gives a frame of that width, and the face is covered as soon as the two flaps across
+  its **shorter** side meet, at half of it per end. The longer direction needs nothing extra:
+  those same flaps already span it. This read `max(p, q)` for a long time, which cut 41% too much
+  paper off a book; the test that should have caught it used a cube, where the two sides are
+  equal. Without the margin the flaps meet exactly and never lap.
+- **Identical boxes are cut from identical paper.** A plan is instructions for someone with
+  scissors, and three identical presents cut from three differently sized sheets reads as a
+  mistake. `UniformPieces` groups boxes by dimension and reduces each group of two or more to the
+  two rotations of one piece — both rotations, because a piece is the paper, not the way it is
+  laid down, and turning it is what lets two of them share a shelf. It is not free: measured at
+  2% on twelve identical boxes and up to 7% on four sizes repeated, so if that trade ever needs
+  revisiting, the place to start is choosing the group's piece by how the copies pack rather than
+  by which sheet suits one box best. A group of one keeps every sheet — narrowing those was a
+  real bug, and it stopped two differently sized boxes from sharing a strip.
 - **The note names the box sides the paper goes around**, e.g. `Wrapped around the box's
   4.0 × 22.0 cm sides.` It deliberately never mentions the roll: by the time anyone wraps,
   the sheet is cut off it and the roll is away.

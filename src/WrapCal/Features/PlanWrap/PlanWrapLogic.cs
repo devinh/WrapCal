@@ -99,6 +99,8 @@ public static class PlanWrapLogic
             }
         }
 
+        optionsPerBox = UniformPieces(boxes, optionsPerBox);
+
         // Deterministic first guess (tallest first), then the search. Seeded, so a given plan is
         // reproducible.
         var random = new Random(options.Seed);
@@ -191,7 +193,7 @@ public static class PlanWrapLogic
     private static string One(double value) => value.ToString("F1", CultureInfo.CurrentCulture);
 
     /// <summary>Every distinct sheet size that wraps this box and fits across the roll.</summary>
-    private static List<SheetOption> SheetOptions(GiftBox box, WrapOptions options)
+    internal static List<SheetOption> SheetOptions(GiftBox box, WrapOptions options)
     {
         double[] dimensions = [box.Length, box.Width, box.Height];
         List<SheetOption> result = [];
@@ -210,9 +212,13 @@ public static class PlanWrapLogic
             //  without the margin they only just meet — there is no lap at all
             double circumference = (2 * (p + q)) + options.OverlapMargin;
 
-            // The fold-over is half of the larger cross-section side per end: enough to reach
-            // the middle of the end face from both sides.
-            double axisLength = axis + Math.Max(p, q) + options.OverlapMargin;
+            // The fold-over closes the end face, a p x q rectangle, and the paper hangs past it
+            // by the same distance all the way round — so folding in gives a frame of that width.
+            // The face is covered as soon as the two flaps across its SHORTER side meet, at half
+            // of it per end: the longer direction needs nothing extra, because those same flaps
+            // already span it. Taking the longer side instead is what cut 41% too much paper off
+            // a book — the fold-over allowance is min(p, q), not max(p, q).
+            double axisLength = axis + Math.Min(p, q) + options.OverlapMargin;
 
             if (circumference <= options.RollWidth + 1e-9)
             {
@@ -238,6 +244,67 @@ public static class PlanWrapLogic
         // plan exists to conserve. A box always keeps at least one option: nothing can dominate
         // a sheet that is already the smallest in each direction.
         return [.. distinct.Where(option => !distinct.Any(other => Dominates(other, option)))];
+    }
+
+    /// <summary>
+    /// Gives every box of the same size the same piece of paper.
+    /// <para>
+    /// A plan is instructions for someone with scissors, and three identical presents cut from
+    /// three differently sized sheets reads as a mistake even where the packer gains a centimetre
+    /// by mixing them. Each group is reduced to one piece — the sheet that wraps that box best on
+    /// its own, which is the choice a single-box plan already makes — while both rotations of it
+    /// stay available, so the pieces can still be turned to share a shelf.
+    /// </para>
+    /// </summary>
+    private static List<List<SheetOption>> UniformPieces(
+        List<GiftBox> boxes,
+        List<List<SheetOption>> optionsPerBox)
+    {
+        List<SheetOption>[] result = [.. optionsPerBox];
+
+        // Grouped on the dimensions alone: two boxes are the same size or they are not, and the
+        // name is only a label for the reader.
+        foreach (IGrouping<(double, double, double), int> group in Enumerable.Range(0, boxes.Count)
+                     .GroupBy(i => (
+                         Math.Round(boxes[i].Length, 6),
+                         Math.Round(boxes[i].Width, 6),
+                         Math.Round(boxes[i].Height, 6))))
+        {
+            int[] members = [.. group];
+
+            // A box nobody has to agree with keeps every sheet it could be cut to. Narrowing a
+            // group of one was a real mistake here: it threw away the sheet that pairs with a
+            // neighbouring box, and a crate that could have shared a strip with a cube beside it
+            // was pushed onto a strip of its own.
+            if (members.Length < 2)
+            {
+                continue;
+            }
+
+            List<SheetOption> options = optionsPerBox[members[0]];
+
+            SheetOption chosen = options.OrderBy(option => option.Length)
+                .ThenByDescending(option => option.Width)
+                .First();
+
+            // A piece is the paper, not the way it is laid down, so the transposed sheet is the
+            // same piece and stays — that is what lets two of them sit side by side.
+            List<SheetOption> piece =
+            [
+                .. options.Where(option =>
+                    (Near(option.Width, chosen.Width) && Near(option.Length, chosen.Length))
+                    || (Near(option.Width, chosen.Length) && Near(option.Length, chosen.Width))),
+            ];
+
+            foreach (int index in members)
+            {
+                result[index] = piece;
+            }
+        }
+
+        return [.. result];
+
+        static bool Near(double a, double b) => Math.Abs(a - b) <= 1e-9;
     }
 
     /// <summary>
