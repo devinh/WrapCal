@@ -39,6 +39,25 @@ Feature: Layout stability
     Then the cut plan table should fit inside its card
     And the page should not scroll sideways
 
+  Scenario Outline: Adding boxes does not shrink the drawing
+    # The guard that does not depend on the plan being long. The scale comes from the roll
+    # width, so the paper's extent across the roll is fixed — and a drawing that were scaled to
+    # fit its frame would shrink as boxes arrived. The scroll scenario below depends on the plan
+    # outgrowing the frame, which better packing can take away; this one cannot be taken away.
+    Given a roll 30 cm wide with an overlap of 0.5
+    And 2 identical boxes measuring 8 by 6 by 4
+    When I plan the wrap
+    And I set the roll orientation to <Direction>
+    And I note the drawing's scale
+    And I add 10 boxes measuring 8 by 6 by 4
+    And I plan the wrap
+    Then the drawing's scale should be unchanged
+
+    Examples:
+      | Direction |
+      | Top       |
+      | Right     |
+
   Scenario Outline: A long plan scrolls along the roll instead of shrinking to fit
     # 24 boxes, not 12: the packer learned to lay identical boxes two to a shelf, which halved
     # this plan and left it short enough to fit — a plan that fits proves nothing about whether

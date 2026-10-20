@@ -13,6 +13,9 @@ internal static class ShelfPacker
     /// <summary>How often the search keeps a plan that is worse than the one it started from.</summary>
     private const double UphillChance = 0.1;
 
+    /// <summary>How many times the search and the exact re-solve take turns.</summary>
+    private const int Rounds = 3;
+
     internal sealed class Shelf
     {
         public double Height;
@@ -31,9 +34,15 @@ internal static class ShelfPacker
     internal readonly record struct Cost(double Length, double Area);
 
     /// <summary>
-    /// Keeps the first arrangement and nothing else, solves small lists outright, and searches
-    /// the rest — then re-solves groups of shelves exactly, since which boxes share a shelf is
-    /// what the heuristic gets wrong and what a move has no way to see.
+    /// Keeps the first arrangement and nothing else, solves small lists outright, and alternates
+    /// searching with re-solving groups of shelves exactly — which boxes share a shelf is what
+    /// the heuristic gets wrong and what a move has no way to see.
+    /// <para>
+    /// The two alternate rather than run once each: polishing improves the plan, and a search
+    /// that never saw the improved plan cannot build on it. Each step only ever improves what the
+    /// one before produced, so a round cannot undo the last, and the polished plan becomes the
+    /// next round's starting point instead of the last word.
+    /// </para>
     /// </summary>
     public static List<Shelf> Solve(
         IReadOnlyList<int> order,
@@ -52,10 +61,17 @@ internal static class ShelfPacker
             return ShelfOptimum.Solve(optionsPerBox, rollWidth);
         }
 
-        return ShelfOptimum.Polish(
-            Search(order, optionsPerBox, rollWidth, iterations, random),
-            optionsPerBox,
-            rollWidth);
+        // Split, not add: the budget still bounds the whole run.
+        int chunk = Math.Max(1, iterations / Rounds);
+        List<Shelf> plan = Pack(order, optionsPerBox, rollWidth);
+
+        for (int round = 0; round < Rounds; round++)
+        {
+            plan = Search(order, optionsPerBox, rollWidth, chunk, random, plan);
+            plan = ShelfOptimum.Polish(plan, optionsPerBox, rollWidth);
+        }
+
+        return plan;
     }
 
     private static List<Shelf> Pack(
@@ -88,9 +104,12 @@ internal static class ShelfPacker
         IReadOnlyList<List<PlanWrapLogic.SheetOption>> optionsPerBox,
         double rollWidth,
         int iterations,
-        Random random)
+        Random random,
+        List<Shelf>? from = null)
     {
-        List<Shelf> best = Pack(order, optionsPerBox, rollWidth);
+        // Starting from a plan rather than from the first guess is what lets a round build on
+        // the last one. The incumbent is never modified: every perturbation works on a clone.
+        List<Shelf> best = from ?? Pack(order, optionsPerBox, rollWidth);
         Cost bestCost = Measure(best);
 
         if (iterations == 0)

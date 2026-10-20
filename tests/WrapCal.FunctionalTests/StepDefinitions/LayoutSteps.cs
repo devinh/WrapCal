@@ -11,6 +11,7 @@ namespace WrapCal.FunctionalTests.StepDefinitions;
 public sealed class LayoutSteps : StepsBase
 {
     private const string PlanButtonTop = "planButtonTop";
+    private const string DrawingScale = "drawingScale";
 
     public LayoutSteps(ScenarioContext scenarioContext)
         : base(scenarioContext)
@@ -217,6 +218,46 @@ public sealed class LayoutSteps : StepsBase
 
         await Assert.That(originX).IsBetween(visible.X, visible.X + visible.Width);
         await Assert.That(originY).IsBetween(visible.Y, visible.Y + visible.Height);
+    }
+
+    [When("I note the drawing's scale")]
+    public async Task WhenINoteTheDrawingsScaleAsync() =>
+        Context.Set(await CrossRollExtentAsync(), DrawingScale);
+
+    [Then("the drawing's scale should be unchanged")]
+    public async Task ThenTheDrawingsScaleShouldBeUnchangedAsync()
+    {
+        // Nobody reading the page can tell a scale from a plan, but the browser can: a drawing
+        // shrunk to fit its frame gets smaller as boxes arrive, and this does not care how long
+        // the plan is. That is the point — the scroll scenario depends on the plan outgrowing
+        // its frame, so better packing can quietly make it prove nothing. This cannot.
+        double before = Context.Get<double>(DrawingScale);
+        double after = await CrossRollExtentAsync();
+
+        await Assert.That(Math.Abs(after - before)).IsLessThanOrEqualTo(1.0);
+    }
+
+    /// <summary>
+    /// How many pixels the paper spans across the roll. The scale is pinned by the roll width, so
+    /// this is constant however many boxes there are — unless the drawing is scaled to fit, when
+    /// it shrinks with every box added. Read off the drawn paper rather than the &lt;svg&gt;: the
+    /// element is told to fill its frame either way, so only its contents show the scale.
+    /// </summary>
+    private async Task<double> CrossRollExtentAsync()
+    {
+        double extent = await Ui.Page.EvaluateAsync<double>(
+            """
+            () => {
+                const scroller = document.querySelector('.diagram-scroller');
+                const paper = scroller.querySelector('.paper').getBoundingClientRect();
+
+                // The roll runs across the page when the drawing is horizontal, so across the
+                // roll is the paper's height; otherwise it is its width.
+                return scroller.classList.contains('is-horizontal') ? paper.height : paper.width;
+            }
+            """);
+
+        return extent;
     }
 
     /// <summary>

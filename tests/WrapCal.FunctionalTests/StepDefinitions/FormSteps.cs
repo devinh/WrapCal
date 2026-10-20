@@ -50,6 +50,15 @@ public sealed class FormSteps : StepsBase
         }
     }
 
+    [When("I add {int} boxes measuring {double} by {double} by {double}")]
+    public async Task WhenIAddBoxesAsync(int count, double length, double width, double height)
+    {
+        for (int i = 1; i <= count; i++)
+        {
+            await GivenABoxAsync($"Extra {i}", length, width, height);
+        }
+    }
+
     [When("I remove the last box")]
     public async Task WhenIRemoveTheLastBoxAsync()
     {

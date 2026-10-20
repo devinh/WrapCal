@@ -190,6 +190,13 @@ Read this before changing the maths. Every point here has been got wrong once al
   partition that beats the one they are holding; re-solving a pair outright does. Worth 7.5% at
   15 boxes down to 2% at 30, and it beats giving the plain search eight times the compute.
   Groups larger than `MaxBoxes` are skipped — those are the expensive case the limit exists for.
+- **The search and the re-solve take turns, `Rounds` times, and the budget is split not added.**
+  Polishing improves a plan, and a search that never saw the improved plan cannot build on it.
+  Each step only ever improves what the one before produced, so a round cannot undo the last.
+  At three rounds: 3.1% shorter at fourteen boxes, 2.6% at thirty, 2.1% at sixty and 18.4% at a
+  hundred, for about 1.5× the time of a single pass. Do not add the rounds' iterations on top of
+  the budget — `SearchWorkBudget` still bounds the whole run, which is what keeps a long list
+  from freezing the page it is drawn on.
 - **A shelf's sheets are chosen for the least paper, not the least width.** Once a shelf's height
   is settled, every sheet no longer than the shelf is equally good for the roll, so the choice
   must fall on paper — the same tie-break the search applies between plans. Choosing the narrowest
@@ -219,12 +226,16 @@ Read this before changing the maths. Every point here has been got wrong once al
   the same count now costs less, and raising it is a separate measured decision.
 - **`SearchIterations` is a cap, and its default is no cap at all.** `null` means "as much as the
   budget allows", because the budget is already the thing stopping a long list from blocking the
-  page — capping below it only spends less of the time that was available. Measured against a
-  flat 500 on mixed-size lists: 8.7% shorter at fourteen boxes, 1.6% at thirty, and a hair
-  *worse* at sixty — the re-partitioning pass is not monotone in where the search starts from, so
-  a longer search is not reliably a better one. Identical at 100 boxes, where the budget is 500
-  anyway. `0` still means "first arrangement and nothing else", which is what tests pinning a
-  specific plan rely on.
+  page — capping below it only spends less of the time that was available. `0` still means "first
+  arrangement and nothing else", which is what tests pinning a specific plan rely on.
+- **A bigger iteration count is not reliably a smaller plan, and that is not waste.** Within one
+  run nothing goes backwards: the search only replaces its best when a trial beats it, and the
+  re-solve only replaces a pair of shelves when they get shorter. Across *different* caps the
+  answer moves a little either way, because the budget is split between rounds, so a different
+  cap walks a different path rather than extending the same one — measured at sixty boxes, a
+  100-iteration run beat the full budget's plan. Nobody can choose a cap: the form always passes
+  `null`, so this only shows up in tests. Do not "fix" it by making the rounds fixed-size; that
+  would either tie the work to nothing or reintroduce the freeze the budget exists to prevent.
 - **Numbers the reader sees follow their culture; numbers in SVG attributes do not.**
   `WrapPlanView.Format`, `WrapPlanDiagram.F` and the note use `CurrentCulture`, matching the
   form's numeric fields. `WrapPlanDiagram.N` stays invariant — it writes `viewBox` and
@@ -277,8 +288,14 @@ Read this before changing the maths. Every point here has been got wrong once al
   change as boxes are added, so a longer plan draws a longer diagram and the rest is reached
   by scrolling — the scroll axis follows the roll (`is-vertical` / `is-horizontal` on
   `.diagram-scroller`). Scaling the whole plan into the figure is what used to make the
-  drawing shrink with every box, and `Layout.feature` measures the overflow to catch its
-  return.
+  drawing shrink with every box.
+- **`Layout.feature` guards that with the scale, not with the length.** Two scenarios look
+  similar and are not: "a long plan scrolls" measures *overflow*, which needs the plan to outgrow
+  its frame — better packing shortens plans, so that input has already had to grow twice and can
+  be improved away. "Adding boxes does not shrink the drawing" measures the paper's extent across
+  the roll, which the CSS pins to the frame and the roll width, so it holds however long the plan
+  is and cannot be made vacuous by a better packer. Both are mutation checked: dropping `flex:
+  none` fails the vertical one and unclamping the horizontal `height` fails the other.
 - **Every colour in the drawing comes from the palette, never from a literal.** `WrapPlanDiagram`
   is styled entirely by `--mud-palette-*`, so it is drawn in whichever theme is showing; the two
   fills that need a tint (the paper and the cut sections) are the primary colour at 12%
