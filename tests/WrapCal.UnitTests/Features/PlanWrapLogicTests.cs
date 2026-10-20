@@ -186,13 +186,24 @@ public class PlanWrapLogicTests
     [Test]
     public async Task Is_repeatable_for_a_fixed_seed()
     {
-        var options = new WrapOptions(30, 0.5, SearchIterations: 50, Seed: 12345);
-        GiftBox[] boxes = [Box(), Box("Mug", 12, 12, 12)];
+        // Sixteen boxes of different sizes, so this exercises the seeded path: the search, the
+        // re-partitioning and the rounds between them. Two boxes would land on the exhaustive
+        // solver, which takes no random number at all and would be repeatable without a seed.
+        var options = new WrapOptions(60, 0.5, Seed: 12345);
+        GiftBox[] boxes = DifferentSizes(16);
 
-        var first = PlanWrapLogic.Plan(boxes, options);
-        var second = PlanWrapLogic.Plan(boxes, options);
+        WrapPlan first = PlanWrapLogic.Plan(boxes, options).Value;
+        WrapPlan second = PlanWrapLogic.Plan(boxes, options).Value;
 
-        await Assert.That(second.Value.RollLengthUsed).IsEqualTo(first.Value.RollLengthUsed);
+        await Assert.That(second.RollLengthUsed).IsEqualTo(first.RollLengthUsed);
+
+        // The same plan, not merely the same length — the layout has to be identical too.
+        await Assert.That(second.Sections.Count).IsEqualTo(first.Sections.Count);
+
+        for (int i = 0; i < first.Sections.Count; i++)
+        {
+            await Assert.That(second.Sections[i]).IsEqualTo(first.Sections[i]);
+        }
     }
 
     [Test]
@@ -508,7 +519,6 @@ public class PlanWrapLogicTests
             OverlapMargin: 0.5,
             InputUnit: LengthUnit.Inches,
             OutputUnit: LengthUnit.Inches,
-            SearchIterations: 200,
             Seed: 42);
 
         var result = PlanWrapLogic.Plan(boxes, options);
@@ -516,7 +526,9 @@ public class PlanWrapLogicTests
         await Assert.That(result.IsSuccess).IsTrue();
         await Assert.That(result.Value.Sections.Count).IsEqualTo(8);
 
-        // Exact values are 265 and the efficiency below, identical in Debug and Release.
+        // No iteration count: eight boxes never reach the search, so passing one would suggest
+        // it does something here. Exact values are 265 and 0.84184, identical in Debug and
+        // Release.
         // Rounded to survive harmless float noise, but finely enough that any real change in
         // packing quality fails the test rather than slipping through.
         await Assert.That(Math.Round(result.Value.RollLengthUsed, 3)).IsEqualTo(265.0);
