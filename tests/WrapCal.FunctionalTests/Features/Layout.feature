@@ -27,7 +27,7 @@ Feature: Layout stability
 
   Scenario: The sign-off sits in the middle of the page
     Given the plan page
-    Then the sign-off should be centred
+    Then the sign-off should be centered
 
   Scenario: The option descriptions line up across the row
     Given the plan page

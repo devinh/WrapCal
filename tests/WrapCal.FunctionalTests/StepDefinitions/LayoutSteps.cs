@@ -220,14 +220,14 @@ public sealed class LayoutSteps : StepsBase
         await Assert.That(originY).IsBetween(visible.Y, visible.Y + visible.Height);
     }
 
-    [Then("the sign-off should be centred")]
-    public async Task ThenTheSignOffShouldBeCentredAsync()
+    [Then("the sign-off should be centered")]
+    public async Task ThenTheSignOffShouldBeCenteredAsync()
     {
         // Measured against the parent, not against the element's own box: an inline element hugs its
-        // text, so its own box is centred on its text by definition however far left it sits. That
+        // text, so its own box is centered on its text by definition however far left it sits. That
         // is exactly how a <span> left this looking right in markup and standing against the left
         // edge on screen.
-        double[] centres = await Ui.Page.EvaluateAsync<double[]>(
+        double[] centers = await Ui.Page.EvaluateAsync<double[]>(
             """
             () => {
                 const el = document.querySelector("[data-testid='sign-off']");
@@ -240,7 +240,7 @@ public sealed class LayoutSteps : StepsBase
             }
             """);
 
-        await Assert.That(Math.Abs(centres[0] - centres[1])).IsLessThanOrEqualTo(1.0);
+        await Assert.That(Math.Abs(centers[0] - centers[1])).IsLessThanOrEqualTo(1.0);
     }
 
     [When("I note the drawing's scale")]
