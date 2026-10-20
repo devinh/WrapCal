@@ -180,7 +180,9 @@
     <WrapPlanView Plan="_plan" Direction="_rollDirection" />
 }
 
-@* Outside the plan block, so it is the last line of the page whether or not a plan is showing. *@
-<MudText Typo="Typo.caption" Align="Align.Center" Class="mt-8">
+@* Outside the plan block, so it is the last line of the page whether or not a plan is showing.
+   HtmlTag="div" is load-bearing: MudText renders a <span> by default, and text-align has nothing
+   to centre inside an inline box, so Align on its own left the line against the left edge. *@
+<MudText Typo="Typo.caption" HtmlTag="div" Align="Align.Center" Class="mt-8" data-testid="sign-off">
     Vibed With 🫶
 </MudText>

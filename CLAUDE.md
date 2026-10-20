@@ -278,7 +278,7 @@ Read this before changing the maths. Every point here has been got wrong once al
   `roll-options`, `unit-select`, `boxes`, `box-row`, `box-name`, `box-length`, `box-width`,
   `box-height`, `add-box`, `remove-box`, `plan-button`, `plan-error`, `roll-direction`,
   `diagram`, `sections`, `roll-length`, `paper-area`, `waste-area`, `efficiency`,
-  `plan-orientation`, `theme-menu`, `theme-system`, `theme-light`, `theme-dark`. MudBlazor puts unmatched attributes
+  `plan-orientation`, `sign-off`, `theme-menu`, `theme-system`, `theme-light`, `theme-dark`. MudBlazor puts unmatched attributes
   on the element it renders — for an input that is the `<input>` itself, but for `MudSelect` it
   is a hidden input that cannot be clicked, so the two selects are wrapped in a `<div>` carrying
   the id, and `MudMenu` is wrapped for the same reason (its activator is the button *inside* the
