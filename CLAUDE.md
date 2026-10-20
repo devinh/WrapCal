@@ -442,6 +442,17 @@ Reqnroll (Gherkin) driving Playwright against the app running for real.
   knowable until the app has booted and can ask the browser, so the palette moves *after* the
   page is on screen. The step waits up to `ThemeSettleTimeout` for the expected side of
   mid-grey and only then reports. A theme assertion that reads once will flake.
+- **Match a validation message past its own number.** "Width must be between" is a substring of
+  "Roll Width must be between", so a prefix assertion about box width is satisfied by the roll
+  width's message and passes with no box-width message on the page at all. `PlanningSteps`
+  therefore matches from the label through the first bound, and the component tests assert each
+  message whole.
+- **The error paths are covered in both suites, split the way the theme is.** `PlanWrapPageTests`
+  holds one case per field rule; `PlanWrap.feature` holds what only a real page can prove — a
+  rejected field, two rejected at once, a plan still blocked while either is wrong, values
+  exactly on each limit, and a plan that appears once a rejected field is corrected. Mutation
+  checked: turning `> MaxDimension` into `>=` fails the boundary test, and dropping the name
+  trim fails the trim test.
 - **Every concrete step class needs `[Binding]`.** Without it Reqnroll finds no steps at all
   and every scenario fails as "undefined", naming no file — not an obvious error to trace
   back to a new class.

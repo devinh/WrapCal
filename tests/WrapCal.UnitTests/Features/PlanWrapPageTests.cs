@@ -18,6 +18,9 @@ public class PlanWrapPageTests : WrapCalBunitContext
     private const string UnitSelect = "[data-testid='unit-select']";
     private const string PlanButton = "[data-testid='plan-button']";
     private const string BoxLength = "[data-testid='box-length']";
+    private const string BoxWidth = "[data-testid='box-width']";
+    private const string BoxHeight = "[data-testid='box-height']";
+    private const string BoxName = "[data-testid='box-name']";
 
     [Test]
     public void Plan_page_renders_the_roll_inputs()
@@ -160,6 +163,170 @@ public class PlanWrapPageTests : WrapCalBunitContext
         await cut.Find(RollWidth).BlurAsync();
 
         await Assert.That(cut.Markup).Contains("Roll Width must be between 1 and 1000.");
+    }
+
+    [Test]
+    public async Task Reports_an_overlap_margin_outside_its_range()
+    {
+        var cut = Render<PlanWrap>();
+
+        await cut.Find(OverlapMargin).ChangeAsync("200");
+        await cut.Find(OverlapMargin).BlurAsync();
+
+        await Assert.That(cut.Markup).Contains("Overlap Margin must be between 0 and 100.");
+
+        // A range has two ends, and the message alone cannot tell which one was tripped, so the
+        // valid value in between is what proves both sides are checked.
+        await cut.Find(OverlapMargin).ChangeAsync("10");
+        await cut.Find(OverlapMargin).BlurAsync();
+        await Assert.That(cut.Markup.Contains("Overlap Margin must be between")).IsFalse();
+
+        await cut.Find(OverlapMargin).ChangeAsync("-1");
+        await cut.Find(OverlapMargin).BlurAsync();
+
+        await Assert.That(cut.Markup).Contains("Overlap Margin must be between 0 and 100.");
+    }
+
+    [Test]
+    public async Task Reports_a_bad_box_width()
+    {
+        var cut = Render<PlanWrap>();
+
+        await cut.Find(BoxWidth).ChangeAsync("0");
+        await cut.Find(BoxWidth).BlurAsync();
+
+        // The whole message, upper bound included: "Width must be between" is a substring of the
+        // roll width's message, so a shorter assertion here would pass on the wrong field's text.
+        await Assert.That(cut.Markup).Contains("Width must be between 0.1 and 1000.");
+    }
+
+    [Test]
+    public async Task Reports_a_bad_box_height()
+    {
+        var cut = Render<PlanWrap>();
+
+        await cut.Find(BoxHeight).ChangeAsync("0");
+        await cut.Find(BoxHeight).BlurAsync();
+
+        await Assert.That(cut.Markup).Contains("Height must be between 0.1 and 1000.");
+    }
+
+    [Test]
+    public async Task Reports_a_roll_wider_than_the_limit()
+    {
+        var cut = Render<PlanWrap>();
+
+        await cut.Find(RollWidth).ChangeAsync("1000.1");
+        await cut.Find(RollWidth).BlurAsync();
+
+        await Assert.That(cut.Markup).Contains("Roll Width must be between 1 and 1000.");
+    }
+
+    [Test]
+    public async Task Reports_a_name_longer_than_the_limit()
+    {
+        var cut = Render<PlanWrap>();
+
+        await cut.Find(BoxName).ChangeAsync(new string('x', PlanWrapInput.MaxNameLength + 1));
+        await cut.Find(BoxName).BlurAsync();
+
+        await Assert.That(cut.Markup).Contains("Name must be 50 characters or fewer.");
+
+        // The limit is inclusive, so a name exactly at it is allowed.
+        await cut.Find(BoxName).ChangeAsync(new string('x', PlanWrapInput.MaxNameLength));
+        await cut.Find(BoxName).BlurAsync();
+
+        await Assert.That(cut.Markup.Contains("Name must be 50 characters or fewer.")).IsFalse();
+    }
+
+    [Test]
+    public async Task Measures_the_name_after_trimming_it()
+    {
+        // The rule trims before measuring, so padding a name to the limit is fine and padding it
+        // past the limit is not — the two differ only in whitespace, which is exactly what a
+        // length check on the raw text would get wrong.
+        string atLimit = new('x', PlanWrapInput.MaxNameLength);
+        var cut = Render<PlanWrap>();
+
+        await cut.Find(BoxName).ChangeAsync($"   {atLimit}   ");
+        await cut.Find(BoxName).BlurAsync();
+
+        await Assert.That(cut.Markup.Contains("Name must be 50 characters or fewer.")).IsFalse();
+
+        await cut.Find(BoxName).ChangeAsync($"   {atLimit}x   ");
+        await cut.Find(BoxName).BlurAsync();
+
+        await Assert.That(cut.Markup).Contains("Name must be 50 characters or fewer.");
+    }
+
+    [Test]
+    public async Task Reports_every_bad_field_at_once()
+    {
+        // One message per field, not one per submit: a person fixing a row usually has more than
+        // one thing wrong with it, and being told one at a time is a loop of failed submits.
+        var cut = Render<PlanWrap>();
+
+        await cut.Find(BoxLength).ChangeAsync("0");
+        await cut.Find(BoxLength).BlurAsync();
+        await cut.Find(BoxWidth).ChangeAsync("0");
+        await cut.Find(BoxWidth).BlurAsync();
+
+        await Assert.That(cut.Markup).Contains("Length must be between 0.1 and 1000.");
+        await Assert.That(cut.Markup).Contains("Width must be between 0.1 and 1000.");
+    }
+
+    [Test]
+    public async Task Accepts_values_exactly_on_the_limits()
+    {
+        // Every rule is written `value is < Min or > Max`, so a value sitting exactly on a limit
+        // is valid. That is the off-by-one this shape of guard invites, so each end of each rule
+        // is pinned — including the lower ends, which are one character away from the bounds
+        // above them and would otherwise go untested.
+        var cut = Render<PlanWrap>();
+
+        foreach (string atLimit in (string[])["1", "1000"])
+        {
+            await cut.Find(RollWidth).ChangeAsync(atLimit);
+            await cut.Find(RollWidth).BlurAsync();
+            await Assert.That(cut.Markup.Contains("Roll Width must be between")).IsFalse();
+        }
+
+        foreach (string atLimit in (string[])["0", "100"])
+        {
+            await cut.Find(OverlapMargin).ChangeAsync(atLimit);
+            await cut.Find(OverlapMargin).BlurAsync();
+            await Assert.That(cut.Markup.Contains("Overlap Margin must be between")).IsFalse();
+        }
+
+        foreach (string atLimit in (string[])["0.1", "1000"])
+        {
+            await cut.Find(BoxLength).ChangeAsync(atLimit);
+            await cut.Find(BoxLength).BlurAsync();
+            await cut.Find(BoxWidth).ChangeAsync(atLimit);
+            await cut.Find(BoxWidth).BlurAsync();
+            await cut.Find(BoxHeight).ChangeAsync(atLimit);
+            await cut.Find(BoxHeight).BlurAsync();
+
+            await Assert.That(cut.Markup.Contains("must be between")).IsFalse();
+        }
+    }
+
+    [Test]
+    public async Task Rejects_a_dimension_just_past_the_limit()
+    {
+        // The companion to the boundary test: a guard that accepted everything would pass that
+        // one, so the far side of the same limit has to be pinned too.
+        var cut = Render<PlanWrap>();
+
+        await cut.Find(BoxLength).ChangeAsync("1000.1");
+        await cut.Find(BoxLength).BlurAsync();
+
+        await Assert.That(cut.Markup).Contains("Length must be between 0.1 and 1000.");
+
+        await cut.Find(BoxWidth).ChangeAsync("0.05");
+        await cut.Find(BoxWidth).BlurAsync();
+
+        await Assert.That(cut.Markup).Contains("Width must be between 0.1 and 1000.");
     }
 
     [Test]

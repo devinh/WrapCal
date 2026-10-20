@@ -77,12 +77,34 @@ public sealed class PlanningSteps : StepsBase
         await Assert.That(await Ui.Page.Locator("[data-testid='sections']").CountAsync()).IsEqualTo(0);
     }
 
-    [Then("I should see a validation message about the length")]
-    public async Task ThenIShouldSeeAValidationMessageAboutTheLengthAsync()
+    [Then("I should see a validation message about the {word}")]
+    public async Task ThenIShouldSeeAValidationMessageAboutAsync(string field)
     {
+        // Each message is matched past its own number, because "Width must be between" is a
+        // substring of "Roll Width must be between" — a shorter prefix would let the roll's
+        // message stand in for the box width's and the test would pass without one existing.
+        string message = field switch
+        {
+            "roll" => "Roll Width must be between 1 and",
+            "overlap" => "Overlap Margin must be between 0 and",
+            "length" => "Length must be between 0.1 and",
+            "width" => "Width must be between 0.1 and",
+            "height" => "Height must be between 0.1 and",
+            "name" => "Name must be 50 characters or fewer",
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(field), field, "No such field on the form."),
+        };
+
         await Ui.Page.WaitForSelectorAsync(
-            "text=Length must be between",
-            new PageWaitForSelectorOptions { Timeout = 10_000 });
+            $"text={message}", new PageWaitForSelectorOptions { Timeout = 10_000 });
+    }
+
+    [When("I set the length to {double}")]
+    public async Task WhenISetTheLengthToAsync(double length)
+    {
+        ILocator row = Ui.Page.Locator(BoxRowSelector).First;
+
+        await FillAndLeaveAsync(row.Locator("[data-testid='box-length']"), Inv(length));
     }
 
     [Then("the results should be reported in {string}")]
