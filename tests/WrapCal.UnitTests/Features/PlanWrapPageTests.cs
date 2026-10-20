@@ -345,6 +345,19 @@ public class PlanWrapPageTests : WrapCalBunitContext
     }
 
     [Test]
+    public async Task Signs_off_at_the_bottom_of_the_page()
+    {
+        // Outside the plan block, so it is there before a plan exists as well as after.
+        var cut = Render<PlanWrap>();
+
+        await Assert.That(cut.Markup).Contains("Vibed with care");
+
+        await cut.Find(PlanButton).ClickAsync();
+
+        await Assert.That(cut.Markup).Contains("Vibed with care");
+    }
+
+    [Test]
     public async Task Defaults_to_the_roll_continuing_upwards()
     {
         var cut = Render<PlanWrap>();
