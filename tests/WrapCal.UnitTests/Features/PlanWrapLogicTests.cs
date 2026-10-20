@@ -198,25 +198,28 @@ public class PlanWrapLogicTests
     [Test]
     public async Task Overlap_margin_is_exactly_the_seam_overlap()
     {
-        // A 20 x 20 x 10 box wrapped around its length goes around the 20 x 10 end in
-        // 2 * (20 + 10) = 60cm, and needs 20 + min(20, 10) = 30cm along the box: the fold-over
-        // closes the 20 x 10 end face, and half its SHORTER side per end is enough, because the
+        // A 22 x 15 x 4 book wraps around its width, so the paper goes round the 22 x 4 end in
+        // 2 * (22 + 4) = 52cm, and needs 15 + min(22, 4) = 19cm along the box: the fold-over
+        // closes the 22 x 4 end face, and half its SHORTER side per end is enough, because the
         // flaps that meet in the middle already span the longer direction. Each dimension has
         // exactly one seam to close, so the margin is added once to each: with 0 the paper meets
         // without overlapping anywhere.
         //
-        // Deliberately not a cube — here the two cross-section sides differ, so this pins min
-        // against max. It was a cube until the fold-over was found to be using the larger side,
-        // and a cube cannot tell those apart.
-        WrapPlan without = OneBox(new GiftBox("Brick", 20, 20, 10), overlapMargin: 0);
-        WrapPlan with = OneBox(new GiftBox("Brick", 20, 20, 10), overlapMargin: 2);
+        // All three sides differ on purpose. A cube cannot tell min from max — the two sides are
+        // equal — which is how the fold-over came to be using the larger one unnoticed; and a box
+        // with two equal sides is only half better, because its axes produce duplicate sheets
+        // that the dedupe merges, so only two distinct orientations get exercised. Here all three
+        // axes compute differently, and the same one is chosen at both margins, so the "grows by
+        // exactly the margin" claim is about one sheet rather than two.
+        WrapPlan without = OneBox(new GiftBox("Book", 22, 15, 4), overlapMargin: 0);
+        WrapPlan with = OneBox(new GiftBox("Book", 22, 15, 4), overlapMargin: 2);
 
-        await Assert.That(without.Sections[0].Width).IsEqualTo(60.0);
-        await Assert.That(without.Sections[0].Length).IsEqualTo(30.0);
+        await Assert.That(without.Sections[0].Width).IsEqualTo(52.0);
+        await Assert.That(without.Sections[0].Length).IsEqualTo(19.0);
 
         // Both dimensions grow by exactly the margin — not twice it.
-        await Assert.That(with.Sections[0].Width).IsEqualTo(62.0);
-        await Assert.That(with.Sections[0].Length).IsEqualTo(32.0);
+        await Assert.That(with.Sections[0].Width).IsEqualTo(54.0);
+        await Assert.That(with.Sections[0].Length).IsEqualTo(21.0);
     }
 
     private static WrapPlan OneBox(GiftBox box, double overlapMargin) =>
