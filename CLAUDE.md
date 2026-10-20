@@ -173,8 +173,8 @@ Read this before changing the maths. Every point here has been got wrong once al
   orientation change costing paper and buying nothing. Do not make paper area the primary cost:
   at a fixed length that metric always prefers the *largest* legal sheet, rewarding a box
   wrapped in three sheets' worth of paper.
-- **The iteration count is capped by a work budget, not just by `RandomRestarts`.**
-  `RestartWorkBudget / boxes.Count` bounds the whole run; a short list still gets every iteration
+- **The iteration count is capped by a work budget, not just by `SearchIterations`.**
+  `SearchWorkBudget / boxes.Count` bounds the whole run; a short list still gets every iteration
   it asked for, a long one trades iterations for staying responsive. Do not "fix" it back to a
   flat count — 2000 boxes at 500 restarts measured 25 seconds of a frozen tab. The budget is
   stated in units of boxes × iterations; a search iteration is cheaper than a repack was, so

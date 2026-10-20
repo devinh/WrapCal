@@ -20,7 +20,7 @@ public static class PlanWrapLogic
     /// handling the click. A short list keeps every iteration it asked for; a long one trades
     /// iterations for staying responsive.
     /// </summary>
-    private const int RestartWorkBudget = 50_000;
+    private const int SearchWorkBudget = 50_000;
 
     /// <summary>One legal way to cut a sheet: its size, and the box axis it wraps about.</summary>
     internal readonly record struct SheetOption(double Width, double Length, int Axis);
@@ -37,9 +37,9 @@ public static class PlanWrapLogic
             return Result<WrapPlan>.Failure("overlap.margin", "Overlap margin cannot be negative.");
         }
 
-        if (inputOptions.RandomRestarts < 0)
+        if (inputOptions.SearchIterations < 0)
         {
-            return Result<WrapPlan>.Failure("options.restarts", "Random restarts cannot be negative.");
+            return Result<WrapPlan>.Failure("options.iterations", "Search iterations cannot be negative.");
         }
 
         if (inputBoxes.Any(box => box.Length <= 0 || box.Width <= 0 || box.Height <= 0))
@@ -109,8 +109,8 @@ public static class PlanWrapLogic
         ];
 
         int iterations = Math.Min(
-            options.RandomRestarts,
-            Math.Max(1, RestartWorkBudget / boxes.Count));
+            options.SearchIterations,
+            Math.Max(1, SearchWorkBudget / boxes.Count));
 
         List<ShelfPacker.Shelf> best = ShelfPacker.Search(
             order, optionsPerBox, options.RollWidth, iterations, random);

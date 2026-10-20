@@ -10,7 +10,7 @@ public class PlanWrapLogicTests
         LengthUnit inputUnit = LengthUnit.Centimeters,
         LengthUnit outputUnit = LengthUnit.Centimeters) =>
         new(rollWidth, OverlapMargin: 0.5, InputUnit: inputUnit, OutputUnit: outputUnit,
-            RandomRestarts: 25, Seed: 1);
+            SearchIterations: 25, Seed: 1);
 
     private static GiftBox Box(string name = "Book", double length = 22, double width = 15, double height = 4) =>
         new(name, length, width, height);
@@ -38,19 +38,19 @@ public class PlanWrapLogicTests
     {
         var result = PlanWrapLogic.Plan(
             [Box()],
-            new WrapOptions(30, OverlapMargin: -0.5, RandomRestarts: 0));
+            new WrapOptions(30, OverlapMargin: -0.5, SearchIterations: 0));
 
         await Assert.That(result.IsSuccess).IsFalse();
         await Assert.That(result.Error.Code).IsEqualTo("overlap.margin");
     }
 
     [Test]
-    public async Task Rejects_a_negative_restart_count()
+    public async Task Rejects_a_negative_search_iteration_count()
     {
-        var result = PlanWrapLogic.Plan([Box()], new WrapOptions(30, 0.5, RandomRestarts: -1));
+        var result = PlanWrapLogic.Plan([Box()], new WrapOptions(30, 0.5, SearchIterations: -1));
 
         await Assert.That(result.IsSuccess).IsFalse();
-        await Assert.That(result.Error.Code).IsEqualTo("options.restarts");
+        await Assert.That(result.Error.Code).IsEqualTo("options.iterations");
     }
 
     [Test]
@@ -110,7 +110,7 @@ public class PlanWrapLogicTests
         // everything wasted is the roll the summary claims to have used.
         var result = PlanWrapLogic.Plan(
             [Box(), Box("Mug", 12, 12, 12)],
-            new WrapOptions(30, 0.5, InputUnit: unit, OutputUnit: unit, RandomRestarts: 25, Seed: 1));
+            new WrapOptions(30, 0.5, InputUnit: unit, OutputUnit: unit, SearchIterations: 25, Seed: 1));
 
         await Assert.That(result.IsSuccess).IsTrue();
 
@@ -165,7 +165,7 @@ public class PlanWrapLogicTests
         var metric = PlanWrapLogic.Plan(
             [new GiftBox("B", 20.32, 10.16, 5.08)],
             new WrapOptions(30, 0.5, InputUnit: LengthUnit.Centimeters, OutputUnit: LengthUnit.Centimeters,
-                RandomRestarts: 0));
+                SearchIterations: 0));
 
         var imperial = PlanWrapLogic.Plan(
             [new GiftBox("B", 8, 4, 2)],
@@ -174,7 +174,7 @@ public class PlanWrapLogicTests
                 OverlapMargin: 0.5 / UnitConverter.CmPerInch,
                 InputUnit: LengthUnit.Inches,
                 OutputUnit: LengthUnit.Centimeters,
-                RandomRestarts: 0));
+                SearchIterations: 0));
 
         await Assert.That(metric.IsSuccess).IsTrue();
         await Assert.That(imperial.IsSuccess).IsTrue();
@@ -186,7 +186,7 @@ public class PlanWrapLogicTests
     [Test]
     public async Task Is_repeatable_for_a_fixed_seed()
     {
-        var options = new WrapOptions(30, 0.5, RandomRestarts: 50, Seed: 12345);
+        var options = new WrapOptions(30, 0.5, SearchIterations: 50, Seed: 12345);
         GiftBox[] boxes = [Box(), Box("Mug", 12, 12, 12)];
 
         var first = PlanWrapLogic.Plan(boxes, options);
@@ -217,7 +217,7 @@ public class PlanWrapLogicTests
         PlanWrapLogic.Plan(
             [box],
             new WrapOptions(200, overlapMargin, InputUnit: LengthUnit.Centimeters,
-                OutputUnit: LengthUnit.Centimeters, RandomRestarts: 0)).Value;
+                OutputUnit: LengthUnit.Centimeters, SearchIterations: 0)).Value;
 
     [Test]
     public async Task Describes_the_box_sides_the_paper_goes_around()
@@ -230,7 +230,7 @@ public class PlanWrapLogicTests
         // carrying it. See Drops_a_dominated_sheet below.
         WrapPlan book = PlanWrapLogic.Plan(
             [new GiftBox("Book", 22, 15, 4)],
-            new WrapOptions(60, 0.5, RandomRestarts: 0)).Value;
+            new WrapOptions(60, 0.5, SearchIterations: 0)).Value;
 
         await Assert.That(book.Sections[0].Note)
             .IsEqualTo("Wrapped around the box's 15.0 × 4.0 cm sides.");
@@ -238,7 +238,7 @@ public class PlanWrapLogicTests
         // An upright crate wraps about its height, so the paper goes around the 30 and 20 sides.
         WrapPlan crate = PlanWrapLogic.Plan(
             [new GiftBox("Crate", 30, 20, 10)],
-            new WrapOptions(50, 1, RandomRestarts: 0)).Value;
+            new WrapOptions(50, 1, SearchIterations: 0)).Value;
 
         await Assert.That(crate.Sections[0].Note)
             .IsEqualTo("Wrapped around the box's 30.0 × 20.0 cm sides.");
@@ -253,7 +253,7 @@ public class PlanWrapLogicTests
             [new GiftBox("Gadget", 10, 5, 2)],
             new WrapOptions(
                 30, 0.5, InputUnit: LengthUnit.Inches, OutputUnit: LengthUnit.Inches,
-                RandomRestarts: 0)).Value;
+                SearchIterations: 0)).Value;
 
         await Assert.That(plan.Sections[0].Note)
             .IsEqualTo("Wrapped around the box's 5.0 × 2.0 in sides.");
@@ -292,7 +292,7 @@ public class PlanWrapLogicTests
         var result = PlanWrapLogic.Plan(
             [new GiftBox("B", 8, 4, 2)],
             new WrapOptions(30, 0.5, InputUnit: LengthUnit.Centimeters, OutputUnit: LengthUnit.Inches,
-                RandomRestarts: 0));
+                SearchIterations: 0));
 
         await Assert.That(result.IsSuccess).IsTrue();
         await Assert.That(Math.Round(result.Value.RollWidth, 3)).IsEqualTo(11.811);
@@ -316,7 +316,7 @@ public class PlanWrapLogicTests
         // paper. It used to be chosen, for exactly that width.
         WrapPlan plan = PlanWrapLogic.Plan(
             [new GiftBox("Book", 22, 15, 4)],
-            new WrapOptions(60, 0.5, RandomRestarts: 0)).Value;
+            new WrapOptions(60, 0.5, SearchIterations: 0)).Value;
 
         await Assert.That(plan.Sections.Count).IsEqualTo(1);
         await Assert.That(plan.Sections[0].Width).IsEqualTo(38.5);
@@ -337,10 +337,10 @@ public class PlanWrapLogicTests
         GiftBox[] boxes = [.. Enumerable.Range(0, 12).Select(_ => new GiftBox("Tile", 8, 6, 4))];
 
         WrapPlan firstGuess = PlanWrapLogic
-            .Plan(boxes, new WrapOptions(30, 0.5, RandomRestarts: 0)).Value;
+            .Plan(boxes, new WrapOptions(30, 0.5, SearchIterations: 0)).Value;
 
         WrapPlan searched = PlanWrapLogic
-            .Plan(boxes, new WrapOptions(30, 0.5, RandomRestarts: 500, Seed: 42)).Value;
+            .Plan(boxes, new WrapOptions(30, 0.5, SearchIterations: 500, Seed: 42)).Value;
 
         await Assert.That(firstGuess.RollLengthUsed).IsEqualTo(150.0);
         await Assert.That(firstGuess.Sections.All(section => section.Width == 28.5)).IsTrue();
@@ -368,7 +368,7 @@ public class PlanWrapLogicTests
             boxes,
             new WrapOptions(
                 40, 0.5, InputUnit: LengthUnit.Inches, OutputUnit: LengthUnit.Inches,
-                RandomRestarts: 200, Seed: 42)).Value;
+                SearchIterations: 200, Seed: 42)).Value;
 
         await Assert.That(plan.RollWidth * plan.RollLengthUsed)
             .IsLessThanOrEqualTo(plan.PaperAreaCut * 1.3);
@@ -390,8 +390,8 @@ public class PlanWrapLogicTests
         // stops working.
         //
         // Re-check that sensitivity whenever the sheet maths changes. An earlier revision used
-        // six boxes on a 60in roll; a margin change made it restart-insensitive (identical
-        // output at every restart count) without touching a single line of this test, so it
+        // six boxes on a 60in roll; a margin change made it search-insensitive (identical
+        // output at every iteration count) without touching a single line of this test, so it
         // would have passed with the optimiser crippled.
         GiftBox[] boxes =
         [
@@ -405,7 +405,7 @@ public class PlanWrapLogicTests
             OverlapMargin: 0.5,
             InputUnit: LengthUnit.Inches,
             OutputUnit: LengthUnit.Inches,
-            RandomRestarts: 200,
+            SearchIterations: 200,
             Seed: 42);
 
         var result = PlanWrapLogic.Plan(boxes, options);

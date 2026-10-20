@@ -8,7 +8,7 @@ public class WrapPlanViewTests : WrapCalBunitContext
     private static WrapPlan Plan(LengthUnit unit = LengthUnit.Centimeters) =>
         PlanWrapLogic.Plan(
             [new GiftBox("Book", 22, 15, 4)],
-            new WrapOptions(30, 0.5, InputUnit: unit, OutputUnit: unit, RandomRestarts: 0)).Value;
+            new WrapOptions(30, 0.5, InputUnit: unit, OutputUnit: unit, SearchIterations: 0)).Value;
 
     [Test]
     public async Task Renders_a_table_row_per_cut_section()

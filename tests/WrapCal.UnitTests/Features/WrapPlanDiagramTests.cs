@@ -9,7 +9,7 @@ public class WrapPlanDiagramTests : WrapCalBunitContext
     private static WrapPlan OneBoxPlan() =>
         PlanWrapLogic.Plan(
             [new GiftBox("Book", 22, 15, 4)],
-            new WrapOptions(30, 0.5, RandomRestarts: 0)).Value;
+            new WrapOptions(30, 0.5, SearchIterations: 0)).Value;
 
     [Test]
     public async Task Draws_one_rectangle_per_cut_section()
@@ -203,5 +203,5 @@ public class WrapPlanDiagramTests : WrapCalBunitContext
     private static WrapPlan TwoBoxPlan() =>
         PlanWrapLogic.Plan(
             [new GiftBox("Book", 22, 15, 4), new GiftBox("Mug", 12, 12, 12)],
-            new WrapOptions(60, 0.5, RandomRestarts: 0)).Value;
+            new WrapOptions(60, 0.5, SearchIterations: 0)).Value;
 }

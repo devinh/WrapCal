@@ -48,11 +48,11 @@ public sealed record GiftBox(string Name, double Length, double Width, double He
 /// margin is added once to each. With 0 the paper would meet exactly and not overlap at all.
 /// </para>
 /// <para>
-/// <paramref name="RandomRestarts"/> is how much search to attempt — the name predates the
-/// planner keeping its best plan and nudging it instead of repacking from scratch. Zero means
-/// "take the first arrangement and stop", which is what tests that pin a specific plan ask for.
-/// It is a request, not a promise: the work budget in <see cref="PlanWrapLogic"/> overrules it
-/// so a long list cannot block the page it is drawn on.
+/// <paramref name="SearchIterations"/> is how many times the planner may nudge the arrangement
+/// it already has in search of a shorter roll. Zero means "take the first arrangement and stop",
+/// which is what tests that pin a specific plan ask for. It is a request, not a promise: the
+/// work budget in <see cref="PlanWrapLogic"/> overrules it so a long list cannot block the page
+/// it is drawn on.
 /// </para>
 /// </summary>
 public sealed record WrapOptions(
@@ -60,7 +60,7 @@ public sealed record WrapOptions(
     double OverlapMargin,
     LengthUnit InputUnit = LengthUnit.Centimeters,
     LengthUnit OutputUnit = LengthUnit.Centimeters,
-    int RandomRestarts = 500,
+    int SearchIterations = 500,
     int Seed = 1);
 
 /// <summary>
