@@ -350,11 +350,11 @@ public class PlanWrapPageTests : WrapCalBunitContext
         // Outside the plan block, so it is there before a plan exists as well as after.
         var cut = Render<PlanWrap>();
 
-        await Assert.That(cut.Markup).Contains("Vibed with care");
+        await Assert.That(cut.Markup).Contains("Vibed With 🫶");
 
         await cut.Find(PlanButton).ClickAsync();
 
-        await Assert.That(cut.Markup).Contains("Vibed with care");
+        await Assert.That(cut.Markup).Contains("Vibed With 🫶");
     }
 
     [Test]
