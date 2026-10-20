@@ -53,4 +53,17 @@ appsettings.*.local.json
 *.snk
 
 ## Claude Code
+# Shared, committed: .claude/settings.json, commands/, agents/, skills/, hooks/ — anything a
+# second person or a CI run would need. Do not ignore .claude/ as a whole; that hides them.
+
+# Written by whoever approved a tool prompt, per machine, and never shared.
 .claude/settings.local.json
+
+# Session scratch: the wrap-up handoff CLAUDE.md documents, agent plans, and task lists.
+.claude/handoff.md
+.claude/plans/
+.claude/todos/
+.claude/*.log
+
+# Each entry here is a whole checkout; committing one would vendor the repository into itself.
+.claude/worktrees/
