@@ -1,17 +1,11 @@
 namespace WrapCal.Features.PlanWrap;
 
 /// <summary>
-/// The best shelf layout that exists for a set of boxes, found exhaustively rather than guessed.
+/// The best shelf layout for a set of boxes, found exhaustively: a partition of the boxes into
+/// shelves whose heights add up to the least, enumerated by dynamic programming over subsets.
 /// <para>
-/// A shelf's height is its tallest sheet, so a layout is a partition of the boxes into shelves
-/// and the answer is the partition whose heights add up to the least. Partitions are enumerated
-/// by dynamic programming over subsets, which is exact and needs no solver — the reason this is
-/// affordable at all is that all the maths is local to a shelf.
-/// </para>
-/// <para>
-/// Exhaustive costs O(3ⁿ), so it is offered only up to <see cref="MaxBoxes"/>; measured in a
-/// Debug build at 22ms for 12 boxes, 198ms for 14, 890ms for 16. Above that the search does the
-/// partitioning, and this class is used only on small groups of shelves.
+/// Cost is O(3ⁿ), so it is offered up to <see cref="MaxBoxes"/> (measured in a Debug build at 22ms
+/// for 12 boxes, 198ms for 14); above that only small groups of shelves are re-solved.
 /// </para>
 /// </summary>
 internal static class ShelfOptimum

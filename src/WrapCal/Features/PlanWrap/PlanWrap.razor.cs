@@ -37,8 +37,8 @@ public partial class PlanWrap
     }
 
     /// <summary>
-    /// Drops a plan that no longer describes the form. Called whenever an input changes, so the
-    /// figures on screen are only ever the ones the form in front of the user would produce.
+    /// Drops a plan that no longer describes the form, so the figures shown are always the ones the
+    /// current input would produce.
     /// </summary>
     private void DiscardPlan()
     {
@@ -47,9 +47,8 @@ public partial class PlanWrap
     }
 
     /// <summary>
-    /// Re-expresses every length when the unit changes, so the roll and boxes you described stay
-    /// the same physical size and only the numbering changes. Rounded to two decimals — an inch
-    /// is 2.54 cm, so conversions rarely land on something worth reading to full precision.
+    /// Re-expresses every length when the unit changes, so the roll and boxes stay the same physical
+    /// size; rounded to two decimals because an inch is 2.54 cm.
     /// </summary>
     private async Task OnUnitChangedAsync()
     {

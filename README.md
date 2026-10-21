@@ -120,23 +120,28 @@ dotnet test --project tests/WrapCal.FunctionalTests
 
 ### Build automation
 
-`cake/` holds a [Cake](https://cakebuild.net/) build script using the Cake SDK, kept beside
-the solution rather than inside it — a plain `dotnet build` at the root builds the app and
-the tests, never the build script.
+`cake/` holds a [Cake](https://cakebuild.net/) build script using the Cake SDK. It is in the
+solution but marked `<Build Project="false" />`, so a plain `dotnet build` at the root builds
+the app and the tests but never the build script — which could not be rebuilt underneath itself
+while it is the thing running the build.
 
 ```bash
 ./cake.sh                          # Clean → Build → Tests (the default)
 ./cake.sh --target=UnitTests       # just the unit + component suite
 ./cake.sh --target=FunctionalTests # just the browser suite
-./cake.sh --target=Release         # unit suite, then the site to ./output (what CI runs)
+./cake.sh --target=Release         # every suite, then the site to ./output (what CI runs)
 ./cake.sh --target=Publish         # just publish the site to ./output
 ./cake.sh --target=Build --configuration=Debug
+
+# Add --coverage to any target that runs the unit suite to measure it
+./cake.sh --target=UnitTests --coverage
 ```
 
 `Tests` is both suites — it runs each as a target of its own, so running them together and
 running one alone share a single definition. On Windows use `.\cake.ps1` with the same
-arguments. Publishing is a placeholder for now: it drops the site in `./output` and nothing
-more.
+arguments. `Publish` then checks the published `index.html` for unresolved `#[.{fingerprint}]`
+asset placeholders — the one failure that still deploys and still serves, with a blank page as its
+only symptom — and fails the run rather than letting it reach Pages.
 
 ### Publishing and hosting
 
@@ -165,15 +170,16 @@ global.json                  # opts dotnet test into Microsoft.Testing.Platform 
 Directory.Build.props        # shared compiler + analyzer settings
 .editorconfig                # code style, enforced at build time
 CLAUDE.md                    # conventions and architecture notes
+.claude/skills/              # project skills: functional-tests, unit-tests, theme, build-and-deploy
 
-cake/                        # Cake build (Cake SDK, net10.0) — not in the solution
+cake/                        # Cake build (Cake SDK, net10.0) — in the solution, marked not to build
 cake.sh / cake.ps1           # run it: ./cake.sh --target=Tests
 
 src/
   WrapCal/                   # the app (Blazor WebAssembly, styled with MudBlazor)
     Components/
       Layout/                # MainLayout — app bar and content, no navigation
-      Pages/                 # Error, NotFound
+      Pages/                 # NotFound
       Routes.razor, _Imports.razor
     Common/
       Result.cs              # Result<T>
@@ -200,7 +206,10 @@ WrapCal uses **vertical slice architecture** — code is organized by feature, n
 technical layer. The calculator lives in `src/WrapCal/Features/PlanWrap/`, holding its page,
 logic, models, and display component together.
 
-See [CLAUDE.md](CLAUDE.md) for conventions, coding standards, and anti-patterns.
+See [CLAUDE.md](CLAUDE.md) for conventions, coding standards, and anti-patterns, and
+[`src/WrapCal/Features/PlanWrap/README.md`](src/WrapCal/Features/PlanWrap/README.md) for how the
+planner and the diagram work — why the maths is what it is, and what each of the search's knobs
+buys.
 
 ## Testing
 
@@ -232,11 +241,39 @@ Both run on **Microsoft.Testing.Platform**, opted into via `global.json`. Conseq
   silently rejected and the run reports "Zero tests ran". Use `--treenode-filter`:
   `--treenode-filter "/*/*/*/*[Category=Smoke]"`.
 
+### Coverage and reports
+
+Every test run writes reports to `./output/reports`:
+
+| Path | What it is |
+|---|---|
+| `output/reports/unit` | TUnit's HTML report + TRX for the unit and component suite |
+| `output/reports/functional` | The same for the browser suite |
+| `output/reports/coverage` | ReportGenerator's HTML coverage report and `SummaryGithub.md` |
+
+Coverage is **off by default** — instrumenting costs a couple of seconds against a suite that
+runs in under one. Add `--coverage` to switch it on:
+
+```bash
+./cake.sh --target=UnitTests --coverage
+```
+
+That collects Cobertura coverage of the `WrapCal` assembly and runs
+[ReportGenerator](https://github.com/danielpalme/ReportGenerator) over it; the tool installs
+itself from `cake/cake.cs`. Only the **unit** suite is instrumented — the functional suite's code
+under test is WebAssembly in a browser process, so the test process would measure only its own
+steps.
+
+CI uploads `output/reports` as an artifact in both workflows, and `ci.yml` posts the coverage
+summary as a pull request comment that each push edits in place. The reports sit beside
+`output/wwwroot` rather than inside it, so they are not deployed to Pages.
+
 ### Functional tests
 
-The functional suite starts the app as a real process on a free port and drives it with a
-real browser. An in-memory test server can't work here: Playwright talks TCP, and Blazor
-Server needs a real SignalR circuit. Startup costs a few seconds, hence the separate project.
+The functional suite publishes the app, serves that output from an in-process Kestrel under
+`/WrapCal`, and drives it with a real browser. It is deliberately the artifact that ships rather
+than a development host — a `dotnet build` output is not servable at all, since the app's own
+assets only land in the folder on publish.
 
 **Install browsers once.** Playwright .NET ships its installer as `playwright.ps1`, which
 needs PowerShell — not available by default here. The script just calls

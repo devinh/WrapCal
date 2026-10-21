@@ -32,9 +32,20 @@ jobs:
       # One target, because the build lives in Cake and not here: `Release` builds, runs both
       # suites — including the functional one, which installs the browser it needs — and
       # publishes the site to ./output. What the artifact is, and where it lands, is
-      # cake/cake.cs's business; this file only moves it.
+      # cake/cake.cs's business; this file only moves it. --coverage adds the coverage report
+      # the next step uploads; it changes nothing about the site itself.
       - name: Build, test and publish
-        run: ./cake.sh --target=Release
+        run: ./cake.sh --target=Release --coverage
+
+      # The same reports ci.yml uploads, kept with the deploy that produced them. They sit
+      # beside output/wwwroot rather than inside it, so nothing here reaches the published site.
+      - name: Upload test results and coverage
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results
+          path: output/reports
+          if-no-files-found: warn
 
       # Pages is already pointed at GitHub Actions for this repository, so this only reads its
       # configuration — it is not asked to enable anything.

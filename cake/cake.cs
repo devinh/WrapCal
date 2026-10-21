@@ -1,3 +1,10 @@
+using Cake.Common.Tools.ReportGenerator;
+
+// Installed here rather than pinned in a tool manifest: one less file to keep in step, and
+// running the build is all a fresh checkout needs. Cached after the first download, and
+// nothing else tracks the version — bump it here.
+InstallTool("dotnet:?package=dotnet-reportgenerator-globaltool&version=5.5.11");
+
 var target = Argument("target", "Default");
 var configuration = Argument("configuration", "Release");
 
@@ -11,16 +18,22 @@ var functionalTestsBin = $"./tests/WrapCal.FunctionalTests/bin/{configuration}/n
 var playwrightDll = $"{functionalTestsBin}/Microsoft.Playwright.dll";
 var playwrightRuntimeConfig = $"{functionalTestsBin}/WrapCal.FunctionalTests.runtimeconfig.json";
 
+var reports = $"{output}/reports";
+var unitTestResults = $"{reports}/unit";
+var functionalTestResults = $"{reports}/functional";
+var coverageReport = $"{reports}/coverage";
+
 // Which browser the suite drives, following the suite's own rule: WebKit on macOS, because
 // Firefox cannot launch there at all, and Firefox everywhere else. BROWSER overrides it.
 string browser = EnvironmentVariable("BROWSER")
     ?? (OperatingSystem.IsMacOS() ? "webkit" : "firefox");
 
-var testSettings = new DotNetTestSettings
-{
-    Configuration = configuration,
-    NoBuild = true
-};
+// Opt-in: instrumenting costs a couple of seconds against a suite that runs in under one.
+// `Argument<string?>` cannot see a valueless `--coverage` — Cake parses it to an empty value
+// that converts to the default — so the flag is read through HasArgument.
+string? coverageArgument = Argument<string?>("coverage", null);
+var collectCoverage = Context.Arguments.HasArgument("coverage")
+    && !string.Equals(coverageArgument, "false", StringComparison.OrdinalIgnoreCase);
 
 //////////////////////////////////////////////////////////////////////
 // TASKS
@@ -54,7 +67,14 @@ Task("UnitTests")
     .IsDependentOn("Build")
     .Does(() =>
     {
-        DotNetTest(unitTestsProject, testSettings);
+        DotNetTest(unitTestsProject, TestSettings(unitTestResults, collectCoverage));
+
+        // Inline rather than a target of its own: a separate task would be skipped by
+        // `--target=UnitTests --coverage`, the run that asks for it.
+        if (collectCoverage)
+        {
+            GenerateCoverageReport();
+        }
     });
 
 // The functional suite drives a real browser, so a fresh machine — a CI runner especially —
@@ -94,7 +114,7 @@ Task("FunctionalTests")
     .IsDependentOn("InstallBrowsers")
     .Does(() =>
     {
-        DotNetTest(functionalTestsProject, testSettings);
+        DotNetTest(functionalTestsProject, TestSettings(functionalTestResults));
     });
 
 Task("Tests")
@@ -138,6 +158,66 @@ RunTarget(target);
 //////////////////////////////////////////////////////////////////////
 // HELPERS
 //////////////////////////////////////////////////////////////////////
+
+// Each suite's HTML report and TRX go to its own folder under ./output/reports, which is what
+// the workflows upload. Test-app arguments follow `--`: in MTP mode `dotnet test` passes those
+// through instead of parsing them.
+DotNetTestSettings TestSettings(string resultsDirectory, bool withCoverage = false)
+{
+    return new DotNetTestSettings
+    {
+        Configuration = configuration,
+        NoBuild = true,
+        ArgumentCustomization = args =>
+        {
+            args.Append("--")
+                .Append("--results-directory").AppendQuoted(resultsDirectory)
+                .Append("--report-trx");
+
+            if (withCoverage)
+            {
+                args.Append("--coverage")
+                    .Append("--coverage-output-format").Append("cobertura")
+                    .Append("--coverage-output").Append("coverage.cobertura.xml");
+            }
+
+            return args;
+        }
+    };
+}
+
+// Turns the cobertura XML into something a person can read — the HTML report in the artifacts —
+// and into the markdown that ci.yml posts as the pull request comment.
+void GenerateCoverageReport()
+{
+    ReportGenerator(
+        new FilePath($"{unitTestResults}/coverage.cobertura.xml"),
+        new DirectoryPath(coverageReport),
+        new ReportGeneratorSettings
+        {
+            ReportTypes =
+            [
+                ReportGeneratorReportType.Html,
+                ReportGeneratorReportType.MarkdownSummaryGithub
+            ]
+        });
+
+    AssertCoverageReportExists();
+}
+
+// ReportGenerator failing quietly would leave a workflow that uploads nothing and comments
+// nothing, with every exit code zero up to that point.
+void AssertCoverageReportExists()
+{
+    string summary = $"{coverageReport}/SummaryGithub.md";
+
+    if (!FileExists(summary))
+    {
+        throw new CakeException(
+            "Coverage was collected but ReportGenerator wrote no summary: " + summary
+            + " does not exist.");
+    }
+}
 
 // The published index.html is the one file that can be wrong while every exit code is zero:
 // an unresolved #[.{fingerprint}] placeholder still deploys and still serves, and the only

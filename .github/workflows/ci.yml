@@ -6,6 +6,8 @@ on:
 
 permissions:
   contents: read
+  # Only for the coverage comment below. Nothing else here writes to the repository.
+  pull-requests: write
 
 # A new push to the same pull request makes the previous run pointless.
 concurrency:
@@ -22,7 +24,33 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      # Both suites, through Cake — including the functional one, which is what catches a
-      # dependency bump that changes how the page looks. Cake installs the browser it needs.
+      # --coverage is the whole difference from a local run: it instruments the unit suite and
+      # has ReportGenerator write the summary the next two steps publish.
       - name: Build and test
-        run: ./cake.sh --target=Tests
+        run: ./cake.sh --target=Tests --coverage
+
+      # always(), because a failing suite is exactly when its report is worth opening.
+      - name: Upload test results and coverage
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results
+          path: output/reports
+          if-no-files-found: warn
+
+      # --edit-last --create-if-none keeps this to one comment per pull request. The file guard
+      # is for a run that failed before ReportGenerator, where leaving the previous comment
+      # alone beats replacing it with nothing. Forks get a read-only token, and commenting with
+      # one fails the run.
+      - name: Comment the coverage summary
+        if: >-
+          always()
+          && github.event_name == 'pull_request'
+          && github.event.pull_request.head.repo.full_name == github.repository
+          && hashFiles('output/reports/coverage/SummaryGithub.md') != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr comment "${{ github.event.pull_request.number }}" \
+            --edit-last --create-if-none \
+            --body-file output/reports/coverage/SummaryGithub.md

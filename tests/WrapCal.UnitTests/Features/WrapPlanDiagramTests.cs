@@ -79,7 +79,6 @@ public class WrapPlanDiagramTests : WrapCalBunitContext
 
         await Assert.That(cut.Find("[data-testid='zoom-level']").TextContent).IsEqualTo("150%");
 
-        // Once the gesture ends the wheel is heard again.
         await cut.Instance.EndZoomGestureAsync();
         await cut.Instance.ZoomByWheelAsync(-120);
 
@@ -273,9 +272,8 @@ public class WrapPlanDiagramTests : WrapCalBunitContext
         await Assert.That(cy).IsEqualTo(expectedY);
     }
 
-    // The scroller is the element that keeps the drawing at a fixed scale and moves it under the
-    // reader's eye. Its axis follows the roll, and it is laid out from the far end exactly when the
-    // origin is at that end — which is what makes it open on the origin.
+    // The scroller keeps the drawing at a fixed scale and moves it under the reader's eye; its
+    // axis follows the roll.
     [Test]
     [Arguments(RollDirection.Down, "is-vertical")]
     [Arguments(RollDirection.Up, "is-vertical")]

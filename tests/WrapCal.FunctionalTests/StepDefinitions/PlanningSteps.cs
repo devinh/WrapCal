@@ -4,7 +4,6 @@ using Reqnroll;
 
 namespace WrapCal.FunctionalTests.StepDefinitions;
 
-/// <summary>Planning, and what the resulting plan says.</summary>
 [Binding]
 public sealed class PlanningSteps : StepsBase
 {

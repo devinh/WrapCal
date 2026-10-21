@@ -30,6 +30,9 @@ TestResults/
 packages/
 !packages/build/
 
+## Tools Cake installs for itself (InstallTool in cake/cake.cs) — per machine, like a cache.
+tools/
+
 ## Build artifacts
 artifacts/
 output/

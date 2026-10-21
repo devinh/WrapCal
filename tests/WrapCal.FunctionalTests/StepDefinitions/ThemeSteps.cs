@@ -14,10 +14,9 @@ public sealed class ThemeSteps : StepsBase
     private const string ChoiceCookieName = "wrapcal-theme";
 
     /// <summary>
-    /// The palette variable the theme writes onto the document root, which is where a theme
-    /// becomes visible at all — MudBlazor's layout carries its colors as custom properties. Read
-    /// from the theme's own contract rather than a test hook added to the page, so a repaint in
-    /// either direction is caught by the same assertion.
+    /// The palette variable the theme writes onto the document root — MudBlazor carries its colors
+    /// as custom properties, so this is where a theme becomes visible. Read from the theme's own
+    /// contract rather than a test hook, so a repaint in either direction is caught.
     /// </summary>
     private const string BackgroundVariable = "--mud-palette-background";
 
@@ -76,10 +75,6 @@ public sealed class ThemeSteps : StepsBase
             new PageWaitForFunctionOptions { Timeout = 10_000 });
     }
 
-    /// <summary>
-    /// Opens the page with the runtime held back, which leaves it exactly as a reader sees it
-    /// while the WebAssembly is still downloading — the state the boot background exists for.
-    /// </summary>
     [Then("the cut layout should be drawn for a {word} theme")]
     public async Task ThenTheCutLayoutShouldBeDrawnForAThemeAsync(string theme)
     {
@@ -130,6 +125,10 @@ public sealed class ThemeSteps : StepsBase
         }
     }
 
+    /// <summary>
+    /// Opens the page with the runtime held back, which leaves it exactly as a reader sees it
+    /// while the WebAssembly is still downloading — the state the boot background exists for.
+    /// </summary>
     [When("the plan page is opened without letting the app load")]
     public async Task WhenThePlanPageIsOpenedWithoutLettingTheAppLoadAsync()
     {

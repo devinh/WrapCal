@@ -30,8 +30,6 @@ public sealed class AssetSteps : StepsBase
         IAPIResponse response = await Ui.Page.APIRequest.GetAsync(
             Ui.Url("/lib/bootstrap/dist/css/bootstrap.min.css"));
 
-        // The site is static files, so a missing one is simply missing: the status is the whole
-        // answer, and it is the file not being there any more.
         await Assert.That(response.Status).IsEqualTo(404);
     }
 

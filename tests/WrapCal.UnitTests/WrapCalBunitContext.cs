@@ -6,12 +6,9 @@ using WrapCal.Components.Layout;
 namespace WrapCal.UnitTests;
 
 /// <summary>
-/// The bUnit context every WrapCal component test starts from.
-/// <para>
-/// MudBlazor's components resolve their services and a <see cref="TimeProvider"/> from DI — a
-/// form that cannot find one throws rather than degrading, which turns every test that renders a
-/// page into a wall of the same error.
-/// </para>
+/// The bUnit context every WrapCal component test starts from. MudBlazor's components resolve
+/// their services and a <see cref="TimeProvider"/> from DI, and a form that cannot find one
+/// throws rather than degrading.
 /// </summary>
 public abstract class WrapCalBunitContext : BunitContext
 {

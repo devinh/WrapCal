@@ -5,10 +5,7 @@ using WrapCal.FunctionalTests.Support;
 
 namespace WrapCal.FunctionalTests.StepDefinitions;
 
-/// <summary>
-/// Page helpers shared by the step definitions. Bindings are split by concern — setting the form
-/// up, asserting the plan, measuring the layout — and all of them drive the same page.
-/// </summary>
+/// <summary>Page helpers shared by the step definitions.</summary>
 public abstract class StepsBase
 {
     /// <summary>

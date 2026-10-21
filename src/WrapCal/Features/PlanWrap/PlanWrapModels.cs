@@ -1,6 +1,5 @@
 namespace WrapCal.Features.PlanWrap;
 
-/// <summary>The unit a roll width, box dimension, or reported length is expressed in.</summary>
 public enum LengthUnit
 {
     Centimeters,
@@ -19,10 +18,7 @@ public enum RollDirection
     Right
 }
 
-/// <summary>
-/// Converts between centimeters and inches. The planner does all its arithmetic in
-/// centimeters, converting once on the way in and once on the way out.
-/// </summary>
+/// <summary>Converts between centimeters and inches; the planner works in centimeters.</summary>
 public static class UnitConverter
 {
     public const double CmPerInch = 2.54;
@@ -39,21 +35,17 @@ public sealed record GiftBox(string Name, double Length, double Width, double He
 
 /// <summary>
 /// <paramref name="RollWidth"/> and <paramref name="OverlapMargin"/> are in
-/// <paramref name="InputUnit"/>. Everything is converted to centimeters for the maths and
-/// converted back to <paramref name="OutputUnit"/> at the end.
+/// <paramref name="InputUnit"/>; everything is converted to centimeters for the maths and back to
+/// <paramref name="OutputUnit"/> at the end.
 /// <para>
-/// <paramref name="OverlapMargin"/> is how far the paper laps over itself where it meets. Both
-/// sheet dimensions have exactly one such seam — the wrap-around has one where its two ends
-/// meet, and the along-the-box dimension has one where the two folded end flaps meet — so the
-/// margin is added once to each. With 0 the paper would meet exactly and not overlap at all.
+/// <paramref name="OverlapMargin"/> is how far the paper laps over itself where it meets, added
+/// once to each sheet dimension because each has exactly one seam; at 0 the edges meet without
+/// overlapping.
 /// </para>
 /// <para>
-/// <paramref name="SearchIterations"/> is how many times the planner may nudge the arrangement
-/// it already has in search of a shorter roll. <c>null</c> — the default — means "as much as the
-/// work budget allows", which is what a reader wants: the budget already stops a long list from
-/// blocking the page it is drawn on, so capping below it only spends less of the time available.
-/// Zero means "take the first arrangement and stop", which is what tests that pin a specific plan
-/// ask for. A number caps the search under the budget.
+/// <paramref name="SearchIterations"/> caps the search under the work budget. <c>null</c> — the
+/// default — uses the whole budget; zero returns the first arrangement, which is what tests
+/// pinning a specific plan ask for.
 /// </para>
 /// </summary>
 public sealed record WrapOptions(

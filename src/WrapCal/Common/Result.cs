@@ -4,9 +4,8 @@ namespace WrapCal.Common;
 public readonly record struct Error(string Code, string Message);
 
 /// <summary>
-/// The outcome of an operation that can fail for expected reasons — invalid user input, or
-/// a box too large for the roll. Expected failures are values; exceptions stay reserved for
-/// programmer error.
+/// An outcome that can fail for expected reasons — invalid input, a box too large for the roll.
+/// Expected failures are values; exceptions stay reserved for programmer error.
 /// </summary>
 public sealed class Result<T>
 {

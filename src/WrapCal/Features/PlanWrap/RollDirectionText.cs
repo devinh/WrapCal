@@ -1,13 +1,8 @@
 namespace WrapCal.Features.PlanWrap;
 
 /// <summary>
-/// The words for a roll direction, and the two facts behind where the origin sits.
-/// <para>
-/// Shared rather than restated: the drawing places the dot from <see cref="OriginAtFarEnd"/> and
-/// <see cref="OriginAtBottom"/>, and the Cut Plan names the corner from the same two answers — so
-/// the sentence cannot come to disagree with the picture. The menu and the caption take their
-/// words from here for the same reason.
-/// </para>
+/// The words for a roll direction and the two facts behind where the origin sits, kept in one
+/// place so the drawing, the Cut Plan and the menu cannot come to disagree.
 /// </summary>
 internal static class RollDirectionText
 {

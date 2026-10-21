@@ -45,14 +45,9 @@ public partial class MainLayout
     protected override async Task OnInitializedAsync()
     {
         // The app is static files and a browser, so there is no request to read the theme from:
-        // the same script that writes the cookies reads them back. Done while initializing rather
-        // than after the first render, because the first frame should already be the right way
-        // round — a cookie read cannot fail or take time, so there is no reason to draw light
-        // first and correct it afterwards.
-        //
-        // Whatever the browser cannot answer yet — no cookie, no preference recorded — leaves the
-        // two defaults in place: System, drawn light. `OnAfterRenderAsync` is the first moment the
-        // system's real preference is knowable at all.
+        // the same script reads the cookies the boot script wrote. Read while initializing, not
+        // after the first render, so the first frame is already right. Anything the browser cannot
+        // answer yet — no cookie — leaves the defaults: System, drawn light.
         ThemePreferences? preferences = await Js.InvokeAsync<ThemePreferences?>("wrapcalTheme.load");
 
         _choice = ParseChoice(preferences?.Choice);
@@ -66,12 +61,9 @@ public partial class MainLayout
             return;
         }
 
-        // Asked once here, then watched, because in System mode a page left open has to follow
-        // the operating system as it changes.
-        //
-        // Leave MudThemeProvider's ObserveSystemDarkModeChange at its default: it is the provider
-        // that holds the browser listener, and turning it off silences this watcher too. Tried,
-        // and "A page left open follows the system as it changes" is the scenario that caught it.
+        // Asked once, then watched, so a page left open follows the system as it changes. Leave
+        // MudThemeProvider's ObserveSystemDarkModeChange at its default: it holds the browser
+        // listener, and turning it off silences this watcher too.
         await _provider.WatchSystemDarkModeAsync(ApplySystemPreferenceAsync);
         await ApplySystemPreferenceAsync(await _provider.GetSystemDarkModeAsync());
     }

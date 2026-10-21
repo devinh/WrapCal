@@ -1,7 +1,14 @@
 # WrapCal
 
-Conventions and hard-won gotchas for working on this repo. `README.md` says what the app is
-and how to run it; this file says how to change it without breaking it.
+Conventions and hard-won gotchas for working on this repo. `README.md` says what the app is and
+how to run it; this file says how to change it without breaking it.
+
+The calculator's own knowledge — the maths, the packing search, the diagram and zoom — lives
+with the code it describes, in
+[`src/WrapCal/Features/PlanWrap/README.md`](src/WrapCal/Features/PlanWrap/README.md). **Read that
+before touching the planner or the drawing.** The area-specific rules for the test suites, the
+theme and the build live in the project skills under `.claude/skills/`; this file keeps what has
+to be true before you know which of them you are in.
 
 ## Project Context
 
@@ -29,49 +36,23 @@ orthogonal features, accounts, saved plans, or a database.
   to the directory it was loaded from. That script is the one piece of the deployment that is
   app code, and it has to run **before** the links and scripts below it — a relative URL is
   resolved against the base in force when its element is parsed, not when it is fetched.
-  Deploying through Actions skips Jekyll, which is why `_framework/` needs no `.nojekyll`;
-  switching to a branch-based deployment would need one.
-- **Three workflows.** `deploy-pages.yml` on push to `main` runs `--target=Release` and uploads
-  `output/wwwroot`; `ci.yml` on pull requests runs `--target=Tests`, and is what a Renovate PR
-  waits on before it can merge itself; `renovate.yaml` runs daily as the `devinh-renovate` App.
-  All three call Cake rather than `dotnet` — a workflow that rebuilds the way it remembers is a
-  second build definition that drifts from the first.
-- **MudBlazor 9.11** — the entire UI. Bootstrap was removed; there is one styling system and
-  no second one to fight it. Its providers (`MudThemeProvider`, `MudPopoverProvider`,
-  `MudDialogProvider`, `MudSnackbarProvider`) live in `MainLayout`, which wraps the whole page
-  — a `MudSelect` whose popover provider is not an ancestor reports a missing
-  `MudPopoverProvider` and cannot open.
-- **The theme has three choices and System is the default** — `ThemeChoice` in
-  `Components/Layout`, picked from a `MudMenu` in the app bar. Only the browser can answer
-  what the system is set to. `MainLayout.OnInitializedAsync` asks `theme.js` for the two
-  cookies through a single `wrapcalTheme.load` call, so the **first rendered frame already
-  knows the choice** — no flash on a returning visit. A first visit in System mode still
-  flashes light once, because no cookie exists yet and `MudThemeProvider` cannot ask the
-  browser until it has rendered. `GetSystemDarkModeAsync` and `WatchSystemDarkModeAsync` then
-  keep a page left open following the system as it changes.
-- **The shell before the app boots is themed too.** `index.html` reads the same two cookies and
-  sets `data-boot-theme` on `<html>`; `app.css` paints that from `--mud-palette-background` with
-  a fallback of MudBlazor's default (#ffffff / #32333d). Using the palette variable first means
-  the rule keeps following the theme once the app is up, including a runtime switch, instead of
-  going stale. The boot script **mirrors `MainLayout` and deliberately ignores
-  `prefers-color-scheme`**: on a first visit the app has no remembered system preference and
-  draws light, so a shell that were independently "right" would be dark and the page would flash
-  twice instead of once. `Theme.feature` holds it there by aborting `_framework/**` so the page
-  stays in its loading state.
-- **`theme.js` is the only owner of the theme cookies** — it reads them (`load`), writes the
-  choice (`set`) and records what the browser last reported (`rememberSystem`). A component
-  cannot write a cookie itself, and there is no request for one to arrive on, so nothing in C#
-  touches `document.cookie`.
+- **MudBlazor 9.11** — the entire UI, and the only styling system. Its providers
+  (`MudThemeProvider`, `MudPopoverProvider`, `MudDialogProvider`, `MudSnackbarProvider`) live in
+  `MainLayout`, which wraps the whole page — a `MudSelect` whose popover provider is not an
+  ancestor reports a missing `MudPopoverProvider` and cannot open.
+- **The theme has three choices, System is the default, and `theme.js` is the only owner of the
+  cookies** — Light, Dark or System, picked from the app bar, with the shell painted from the
+  same cookies before Blazor boots so a returning visit never flashes. Nothing in C# touches
+  `document.cookie`. The boot script deliberately ignores `prefers-color-scheme`; the `theme`
+  skill says why, and what it costs.
 - **No persistence** — the app is stateless. No database, no EF Core, no Identity.
-  Wrap planning is a pure function of user input. The one exception is the theme, which
-  travels in two cookies — `wrapcal-theme` (the choice) and `wrapcal-system-theme` (the last
-  system preference the browser reported). Both are display preferences rather than
-  application state.
+  Wrap planning is a pure function of user input. The only exception is those two theme
+  cookies, which are display preferences rather than application state.
 - **No logging library and no configuration** — there is nowhere for a log to go in a
-  browser tab, and the app reads no settings, so `appsettings.json` was removed with the
-  server.
-- **TUnit** + **bUnit** — unit and component testing
-- **Reqnroll** (Gherkin BDD) + **Playwright** — functional tests against a real browser
+  browser tab, and the app reads no settings.
+- **TUnit** + **bUnit** for unit and component tests; **Reqnroll** (Gherkin BDD) + **Playwright**
+  for functional tests against a real browser. The runner is Microsoft.Testing.Platform — see
+  the test runner note below.
 
 ## Architecture
 
@@ -92,7 +73,7 @@ src/
       Result.cs                 # Result<T> — cross-cutting, outside any slice
     Features/                   # vertical slices
       _Imports.razor            # REQUIRED — Components/_Imports.razor does NOT reach here
-      PlanWrap/
+      PlanWrap/                 # the calculator — see its README.md for how it decides things
         PlanWrap.razor          # the routable page — "/"
         PlanWrap.razor.cs       # form state, field rules, unit conversion
         PlanWrapLogic.cs        # the planner → Result<WrapPlan>
@@ -100,15 +81,17 @@ src/
         ShelfOptimum.cs         # the exact layout for small lists, and re-partitioning for long ones
         PlanWrapModels.cs       # domain records
         PlanWrapInput.cs        # form model + the field limits
+        RollDirectionText.cs    # which corner the origin is, in words
         WrapPlanView.razor      # summary figures + cut sections table
-        WrapPlanView.razor.css  # that table's styling
+        WrapPlanView.razor.css
         WrapPlanDiagram.razor   # SVG cut layout — needs WrapPlan.RollWidth
         WrapPlanDiagram.razor.css
     Program.cs
     wwwroot/
       index.html              # the document — base href, asset links, the boot scripts
       app.css                 # Roboto @font-face, framework furniture, message slot
-      theme.js                # the theme cookies (the only JS we own)
+      theme.js                # the theme cookies
+      diagram.js              # wheel and touch, which Blazor cannot preventDefault on
 tests/
   WrapCal.UnitTests/
     Common/ResultTests.cs
@@ -121,126 +104,9 @@ tests/
     Support/
 ```
 
-## How the planner decides things
-
-Read this before changing the maths. Every point here has been got wrong once already.
-
-- **Overlap margin is the seam overlap, and each sheet dimension has exactly one seam.** It
-  is added once to the wrap-around length (where the two ends of the wrap lap) and once to
-  the along-the-box length (where the two folded end flaps lap). Not once per edge — that
-  reads a typed 0.5 as an overlap of 1.0, and has been fixed twice.
-- **Along-the-box length is `axis + min(p, q) + margin`.** The fold-over closes the end face, a
-  `p × q` rectangle, and the paper hangs past it by the same distance all the way round — so
-  folding in gives a frame of that width, and the face is covered as soon as the two flaps across
-  its **shorter** side meet, at half of it per end. The longer direction needs nothing extra:
-  those same flaps already span it. This read `max(p, q)` for a long time, which cut 41% too much
-  paper off a book; the test that should have caught it used a cube, where the two sides are
-  equal. Without the margin the flaps meet exactly and never lap.
-- **Identical boxes are cut from identical paper.** A plan is instructions for someone with
-  scissors, and three identical presents cut from three differently sized sheets reads as a
-  mistake. `UniformPieces` groups boxes by dimension and reduces each group of two or more to the
-  two rotations of one piece — both rotations, because a piece is the paper, not the way it is
-  laid down, and turning it is what lets two of them share a shelf. It is not free: measured at
-  2% on twelve identical boxes and up to 7% on four sizes repeated, so if that trade ever needs
-  revisiting, the place to start is choosing the group's piece by how the copies pack rather than
-  by which sheet suits one box best. A group of one keeps every sheet — narrowing those was a
-  real bug, and it stopped two differently sized boxes from sharing a strip.
-- **The note names the box sides the paper goes around**, e.g. `Wrapped around the box's
-  4.0 × 22.0 cm sides.` It deliberately never mentions the roll: by the time anyone wraps,
-  the sheet is cut off it and the roll is away.
-- **`WrapPlan` carries `RollWidth`, not just the length used** — the diagram has no canvas
-  without it.
-- **Changing the unit converts what is already typed**, rounded to 2 decimals, and discards
-  any displayed plan, which is stated in the unit just left.
-- **Any change to the form discards the displayed plan**, not just a unit change: editing a
-  field, adding a box, or removing one. A plan is only ever on screen while it still describes
-  the inputs in front of the reader. `DiscardPlan` is the single place that clears it, wired to
-  every field with `@bind-Value:after`.
-- **A plan holds at most 100 boxes**, `PlanWrapInput.MaxBoxCount`, enforced twice: the Add
-  button disables at the limit, and `PlanWrapLogic` refuses more for callers that never saw the
-  form. Packing is quadratic in the box count and runs on the browser's only thread, so an
-  uncapped list is a way to freeze the page that is drawing it.
-- **A sheet no other sheet for the same box dominates is the only one considered.**
-  `SheetOptions` drops any option that another option for the same box is no wider and no
-  longer than: it fits wherever the larger one fits without raising the shelf, so cutting it can
-  never shorten the roll — it only spends paper. A 9 × 6 × 1.5 box on a 30 cm roll is never
-  offered the 8 × 30.5 sheet, because 8 × 21.5 is the same width and nine shorter. The
-  comparison needs one *strict* improvement, or two sheets a hair apart would dominate each
-  other and leave the box with no option at all.
-- **Lists of twelve boxes or fewer are solved exactly, not searched.** `ShelfOptimum` enumerates
-  every partition of the boxes into shelves by dynamic programming over subsets: a shelf's height
-  is its tallest sheet, so a layout is a partition and the answer is the one whose heights add up
-  to the least. Nothing about that needs a solver or a server, which is why it fits here at all.
-  Measured in a Debug build: 22 ms at 12 boxes, 198 ms at 14, 890 ms at 16 — hence `MaxBoxes = 12`,
-  the largest count that stays invisible inside a click. Twelve identical 8 × 6 × 4 boxes are now
-  126 cm, an answer derived by hand and confirmed independently, rather than the 150 the old
-  search reached.
-- **Packing is a greedy shelf fit plus a search over placements**, seeded, so a given input
-  always produces the same plan. The search keeps its best plan and keeps nudging *it*
-  (ruin-and-recreate, reorientation, and occasional full repacks), rather than repacking from
-  scratch each iteration. It still carries real weight: on lists where every box differs it
-  finds 26% shorter rolls than the greedy first guess at fourteen boxes, 12% at thirty and 4% at
-  sixty. (It was 2–15% better than the old random restarts when that was measured; that
-  comparison predates the fold-over fix, so treat the figure as history rather than a current
-  claim.) `PlanWrapLogicTests` holds a golden test pinning the output — read its comment before
-  touching `Pack` or `SheetOptions`.
-- **Above twelve boxes the search's weak point is the partition, so it is re-solved rather than
-  nudged.** `ShelfOptimum.Polish` takes each pair of shelves in the best plan, re-solves that
-  group exactly, and keeps the result when it is shorter. Box-shuffling moves have no way to see a
-  partition that beats the one they are holding; re-solving a pair outright does. Worth 7.5% at
-  15 boxes down to 2% at 30, and it beats giving the plain search eight times the compute.
-  Groups larger than `MaxBoxes` are skipped — those are the expensive case the limit exists for.
-- **The search and the re-solve take turns, `Rounds` times, and the budget is split not added.**
-  Polishing improves a plan, and a search that never saw the improved plan cannot build on it.
-  Each step only ever improves what the one before produced, so a round cannot undo the last.
-  At three rounds: 3.1% shorter at fourteen boxes, 2.6% at thirty, 2.1% at sixty and 18.4% at a
-  hundred, for about 1.5× the time of a single pass. Do not add the rounds' iterations on top of
-  the budget — `SearchWorkBudget` still bounds the whole run, which is what keeps a long list
-  from freezing the page it is drawn on.
-- **A shelf's sheets are chosen for the least paper, not the least width.** Once a shelf's height
-  is settled, every sheet no longer than the shelf is equally good for the roll, so the choice
-  must fall on paper — the same tie-break the search applies between plans. Choosing the narrowest
-  sheet instead looks tidier and quietly cut 3% more paper on any shelf with width to spare. Width
-  is a constraint, not a preference: it only decides whether the boxes fit on the shelf at all.
-- **The search has to be able to return something other than what it started from.** Reinserting
-  a ruined box by best fit alone is a fixed point — take a box out and the same plan puts it
-  back — and measured **no improvement at all** until both reinsertion *and* the sheet choice for
-  a new shelf were randomized. Strict hill climbing was the second half: refusing every worse
-  plan cannot walk down into a better valley, hence `UphillChance`.
-- **Opening a shelf with a box's shortest sheet can be the wrong default.** It minimizes that
-  shelf's height but may be too wide for a second box to share, so the box beside it opens a
-  shelf of its own. The search therefore sometimes opens with the shortest sheet that still
-  leaves half the roll free — measured on mixed-size lists at 151.2 → 146.6 for fourteen boxes
-  and 309.2 → 301.9 for thirty. It does nothing for identical boxes any more: the uniform-piece
-  rule already settles their shape.
-- **Length is the objective; paper cut is only the tie-break.** Roll length is what the reader
-  buys and cuts. Ties to within `1e-9` go to the plan cutting less paper, which is what stops an
-  orientation change costing paper and buying nothing. Do not make paper area the primary cost:
-  at a fixed length that metric always prefers the *largest* legal sheet, rewarding a box
-  wrapped in three sheets' worth of paper.
-- **The iteration count is capped by a work budget, not just by `SearchIterations`.**
-  `SearchWorkBudget / boxes.Count` bounds the whole run; a short list still gets every iteration
-  it asked for, a long one trades iterations for staying responsive. Do not "fix" it back to a
-  flat count — 2000 boxes at 500 restarts measured 25 seconds of a frozen tab. The budget is
-  stated in units of boxes × iterations; a search iteration is cheaper than a repack was, so
-  the same count now costs less, and raising it is a separate measured decision.
-- **`SearchIterations` is a cap, and its default is no cap at all.** `null` means "as much as the
-  budget allows", because the budget is already the thing stopping a long list from blocking the
-  page — capping below it only spends less of the time that was available. `0` still means "first
-  arrangement and nothing else", which is what tests pinning a specific plan rely on.
-- **A bigger iteration count is not reliably a smaller plan, and that is not waste.** Within one
-  run nothing goes backwards: the search only replaces its best when a trial beats it, and the
-  re-solve only replaces a pair of shelves when they get shorter. Across *different* caps the
-  answer moves a little either way, because the budget is split between rounds, so a different
-  cap walks a different path rather than extending the same one — measured at sixty boxes, a
-  100-iteration run beat the full budget's plan. Nobody can choose a cap: the form always passes
-  `null`, so this only shows up in tests. Do not "fix" it by making the rounds fixed-size; that
-  would either tie the work to nothing or reintroduce the freeze the budget exists to prevent.
-- **Numbers the reader sees follow their culture; numbers in SVG attributes do not.**
-  `WrapPlanView.Format`, `WrapPlanDiagram.F` and the note use `CurrentCulture`, matching the
-  form's numeric fields. `WrapPlanDiagram.N` stays invariant — it writes `viewBox` and
-  coordinates, which only parse with a decimal point. Tests that assert the wording of a note
-  pin the culture for exactly this reason.
+`PlanWrapLogic` takes a `PlanWrapInput` and returns a `Result<WrapPlan>`. Nothing outside the
+slice knows how the packing works, and nothing in it knows how the page looks — the page, the
+logic and the models are one unit, and they change together.
 
 ### Slice conventions
 
@@ -259,167 +125,8 @@ Read this before changing the maths. Every point here has been got wrong once al
   page does not exist until the WebAssembly runtime has booted, so a click cannot arrive
   early — there is nothing to click. `RendererInfo.IsInteractive` is always true here and
   reading it says nothing. The functional suite still waits for
-  `[data-testid='plan-button']:not([disabled])`, which now means "the app has rendered" and is
+  `[data-testid='plan-button']:not([disabled])`, which means "the app has rendered" and is
   the same signal after a reload as after a first navigation.
-- **Field rules live in the page's MudForm validation funcs, and only there.** Each field
-  carries a `For` expression plus a `Validation` delegate; returning an empty string means
-  valid. MudBlazor declares `Validation` as `object`, so the delegate type has to come from a
-  typed property on the code-behind — a method group or lambda in markup cannot be inferred.
-  The per-field bounds are `const`s on `PlanWrapInput` and are not duplicated anywhere: there is
-  deliberately no second copy to drift. `PlanWrapLogic` keeps its own guards for callers that
-  bypass the form, and where it needs a limit the form also applies — the box count — it reads
-  the same `const` rather than restating the number.
-- **Validation reports when a field is left, not on every keystroke.** That is Mud's timing,
-  chosen over the old on-change behavior. Box fields carry `HelperText=" "` and the global
-  `.wrapcal-message-slot` rule so the message line is always reserved — without it, reporting a
-  problem grows the row and pushes the Plan button down. That rule is global because the class
-  lands on markup MudBlazor renders, which a component's scoped CSS cannot reach.
-- **Every interactive control carries a `data-testid`**: `roll-width`, `overlap-margin`,
-  `roll-options`, `unit-select`, `boxes`, `box-row`, `box-name`, `box-length`, `box-width`,
-  `box-height`, `add-box`, `remove-box`, `plan-button`, `plan-error`, `roll-direction`,
-  `diagram`, `sections`, `roll-length`, `paper-area`, `waste-area`, `efficiency`,
-  `plan-orientation`, `sign-off`, `zoom-level`, `theme-menu`, `theme-system`, `theme-light`, `theme-dark`. MudBlazor puts unmatched attributes
-  on the element it renders — for an input that is the `<input>` itself, but for `MudSelect` it
-  is a hidden input that cannot be clicked, so the two selects are wrapped in a `<div>` carrying
-  the id, and `MudMenu` is wrapped for the same reason (its activator is the button *inside* the
-  wrapper, which is what a click has to hit). The functional suite drives the page through
-  these, so renaming one breaks tests rather than the app.
-- **The diagram never scales to fit.** Its scale comes from the roll width, which does not
-  change as boxes are added, so a longer plan draws a longer diagram and the rest is reached
-  by scrolling — the scroll axis follows the roll (`is-vertical` / `is-horizontal` on
-  `.diagram-scroller`). Scaling the whole plan into the figure is what used to make the
-  drawing shrink with every box.
-- **`Layout.feature` guards that with the scale, not with the length.** Two scenarios look
-  similar and are not: "a long plan scrolls" measures *overflow*, which needs the plan to outgrow
-  its frame — better packing shortens plans, so that input has already had to grow twice and can
-  be improved away. "Adding boxes does not shrink the drawing" measures the paper's extent across
-  the roll, which the CSS pins to the frame and the roll width, so it holds however long the plan
-  is and cannot be made vacuous by a better packer. Both are mutation checked: dropping `flex:
-  none` fails the vertical one and unclamping the horizontal `height` fails the other.
-- **Every color in the drawing comes from the palette, never from a literal.** `WrapPlanDiagram`
-  is styled entirely by `--mud-palette-*`, so it is drawn in whichever theme is showing; the two
-  fills that need a tint (the paper and the cut sections) are the primary color at 12%
-  `fill-opacity` rather than a color of their own, because the same 12% reads as a pale wash on
-  light and a deep one on dark. The hatch `<pattern>` lives inside `<defs>` and is styled by
-  class like everything else — the scope attribute does reach in there, but it is the one place
-  where a scoping failure would leave the band invisible rather than merely off-color, so
-  `Theme.feature` holds the hatch to the same computed color as the paper.
-- **The roll never touches the diagram's frame.** A gutter of 15% of the roll width frames the
-  paper on whichever axis the roll spans — the margins on the other axis already carry the two
-  end annotations. Without it the drawing read as zoomed in too far, since the paper sat flush
-  against the border. The number is the `Gutter` constant in `WrapPlanDiagram.razor`, tuned by
-  eye rather than derived, so change it there and nowhere else.
-- **The scroller opens at the origin from script, not by being laid out backwards.** Up and Left
-  put the origin at the far end, and the scroller used to be `column-reverse` / `row-reverse` for
-  them so the initial scroll landed there. That reversal cost two things: a reversed row packs its
-  content against the *right* edge, so a left-running drawing sat on the wrong side of its frame,
-  and its scroll offsets run the other way, which made every scroll correction guess its direction.
-  `wrapcalDiagram.openAtOrigin` now sets the offset past the end and lets the browser clamp, once
-  per `(Plan, Direction)` — never per render, or a zoom would drag the reader back to the origin.
-  The cost is honest: this is the one place the layout no longer opens at the origin without
-  script, and the position arrives a frame after the drawing does.
-- **Facing the drawing a different way starts the view afresh.** The scroller is re-keyed on
-  `(Plan, Direction)` so the scroll resets by itself, and `OnParametersSet` puts the zoom back to
-  100% — a zoom chosen for one orientation is not a zoom chosen for another, and keeping it means
-  the drawing arrives at a size the reader never asked for in that direction. A new *plan* resets
-  the scroll the same way but deliberately keeps the zoom: the data changed, not the view.
-- **The drawing hugs the top-left of its frame, and is its own size along the roll.** The vertical
-  scroller's svg takes `min-height: 100%` so a short plan has no dead space above it, while the
-  horizontal one takes `min-width: 0`: a frame-wide box scrolls while the drawing inside it does
-  not, so the far end of a long sideways plan became unreachable — `the drawing should be scrollable
-  across its whole width` pins that. Left alignment then comes free from a plain row, which is what
-  the reversal used to take away. Do not "restore" `xMidYMid`: that
-  re-centers the content in the filled frame. `justify-content: flex-end` and auto margins were
-  both tried first and both push overflowing content toward a start the scrollbar cannot reach,
-  taking the origin out of view; `safe flex-end` is the right idea but WebKit does not honor it.
-- **Re-keying the scroller resets the scroll.** It is keyed on `(Plan, Direction)`, so a new
-  plan or a new direction starts at the origin instead of wherever the previous drawing was
-  left. Don't "optimize" the key away.
-- **The origin dot moves with the drawing.** It sits on the corner where plan X and plan Y
-  are both zero: top-left going Down, bottom-left going Up and Right, bottom-right going
-  Left. The horizontal layouts also flip X downwards so that corner really is the origin.
-- **The Cut Plan says that corner in words, and the words are derived from the dot's own
-  position.** `RollDirectionText.OriginAtFarEnd` / `OriginAtBottom` are what `WrapPlanDiagram`
-  places the dot from *and* what the Cut Plan's `plan-orientation` line names the corner from, so
-  the sentence cannot drift from the picture. The same helper holds the menu labels and the edge
-  word the caption uses. Mutation checked: forcing `OriginAtBottom` true fails the diagram's
-  origin test, the view's text test and the orientation outline together — if it only failed the
-  text, the two would be parallel switches rather than one source.
-- **Zoom is gesture-only, continuous, and 100% is the only value that claims anything.** Ctrl/Cmd
-  + wheel and pinch everywhere, two fingers on a touchscreen, no on-screen control: a slider lived
-  above the drawing briefly and was removed — it competed with the drawing for the eye and was the
-  one part of zoom that nothing else needed. The wheel scales by a **ratio** (`1.5` per 120 of
-  delta), so a mouse notch is one ratio and a trackpad's stream of small deltas glides; that is why
-  nothing accumulates any more. The ratio is a calibration, not a derivation: Safari reports a
-  pinch as the finger spread itself, Chromium and Firefox as ctrl+wheel in pixel deltas, and the two
-  only feel alike if this number is tuned. Expect to adjust it by hand on real trackpads. Scale is applied by multiplying the pinned dimension through
-  `--diagram-zoom` — sizing rather than `transform: scale()`, because a transform leaves the layout
-  box alone and the scrollbars would describe the unscaled drawing.
-- **There is no keyboard path to zoom, and that is a known gap.** Gestures are the only input, so a
-  reader without a wheel or trackpad cannot zoom at all. `+`/`−` buttons are the usual answer and
-  are not there. Worth doing if it matters.
-- **The scale-invariance scenarios cannot catch a wrong default.** They compare before and after
-  adding boxes, so they hold whatever the starting zoom is;
-  `Starts_the_zoom_at_one_hundred_percent` and the readout assertions in `Layout.feature` are what
-  pin it.
-- **Zoom is anchored at the pointer, and the correction does not assume a scroll convention.** The
-  fraction of the drawing under the pointer is recorded before the zoom resizes anything; after the
-  render, `diagram.js` moves the scroll offsets so that fraction is back under the pointer. Which
-  way an offset moves the content depends on the layout — Up and Left lay the scroller out from the
-  far end — so instead of encoding four conventions the code tries one direction, measures, and
-  takes the other if the error did not shrink. Restoring the exact offsets between attempts matters:
-  at the end of the scroll range the browser clamps, so a shift and its "undo" are not equal and
-  opposite, and negating moved the drawing the wrong way.
-- **Anchor in the drawing's own coordinates, not in fractions of the frame.** The `<svg>` is as big
-  as the frame, and a sideways drawing only fills a corner of it, so a fraction of the element is
-  not a fraction of the drawing. The point is captured in user space through the SVG's matrix and
-  mapped back through it after the zoom. Crucially that matrix must be the **drawing group's**, not
-  the `<svg>`'s: a translate on the group is invisible to the svg's matrix, so a drift corrected
-  that way never looks corrected and gets rolled back — which is what kept Left and Right failing
-  while Up and Down passed.
-- **The correction is a scroll correction, and nothing else.** Translating the drawing group looks
-  like it works — the point does land under the pointer — but an `<svg>` clips what lies outside its
-  own box, so a translated drawing loses the part pushed past the edge and no scrolling can bring it
-  back. Scroll only, therefore, and the drawing must be exactly as big as itself: `.is-horizontal svg`
-  sets `min-width: 0` for that reason. A frame-wide box letterboxed the drawing inside itself and
-  the far end could not be reached at all, which is the bug that `the drawing should be scrollable
-  across its whole width` pins.
-- **The horizontal frame needs its own `max-height`.** The vertical scroller's `max-height: 60vh`
-  keeps the frame still while the drawing changes size inside it; without the same on the horizontal
-  one, zooming made the frame taller and pushed the whole page down under the pointer.
-- **Anchoring needs a plan long enough to overflow.** A short sideways drawing fits inside its frame,
-  so there is nothing to scroll and nothing to correct — the anchor scenarios therefore plot twelve
-  boxes rather than three.
-- **A test that can pass without doing anything is worse than no test.** The anchor scenarios first
-  passed while the wheel had been broken by an edit — a drawing that never zooms also never moves.
-  They now assert the readout moved to 150% as well as that the point held. Same shape of mistake
-  as the earlier drag test aimed below the fold.
-- **A pinch in progress silences the wheel.** Safari reports a pinch as gesture events, Chromium and
-  Firefox as ctrl+wheel. If a browser ever reports both, honouring both would zoom twice there and
-  once elsewhere — which reads as "the zoom is faster on Safari". `ZoomByWheelAsync` therefore
-  returns early between `gesturestart` and `gestureend`. Cheap, and a no-op where it does not apply.
-- **Test the interaction a person uses, not a shortcut past it.** Zoom was once on a slider whose
-  tests drove it with an arrow key: they passed on Firefox while the mouse drag did nothing, which
-  is how a broken control reached a reader. Whatever replaces a control like that, drive it the way
-  it will be used. And scroll a control into view before pointing at it — an element below the fold
-  receives no mouse event at all, so the test exercises nothing and "passes" for the wrong reason,
-  as the first attempt at reproducing that report did.
-- **`diagram.js` is the second file of JS the app owns, and it exists for passive listeners.**
-  Blazor registers `wheel` as passive, so `preventDefault` cannot come from C# and Ctrl+wheel would
-  zoom the page along with the drawing. Its listeners sit on the **document** and scope themselves
-  by where the pointer is, not by the event's target: the scroller is re-keyed on
-  `(Plan, Direction)` and would take a listener with it, and WebKit dispatches a wheel aimed at the
-  page root rather than at the element under the cursor. A trackpad pinch arrives as ctrl+wheel on
-  Chromium — fractional deltas, hence the accumulator — and as `gesture*` events on Safari. The
-  two-finger touch path has **no automated test**: Playwright's multi-touch is Chromium-only through
-  CDP, and this suite runs WebKit on macOS and Firefox elsewhere.
-
-- **The diagram transposes for Left/Right, it does not rotate.** A section at `(X, Y)`
-  drawn rightwards lands at `(Y, X)` with width and length swapped — a mirror across the
-  roll-width axis, not a 90° rotation (which would be `(Y, RollWidth - X - W)`). This is
-  deliberate: a true rotation would turn the box labels with the drawing, and Up is 180°,
-  so labels would render upside-down. Keeping text upright in all four directions is worth
-  the transpose. The plan itself is identical either way.
 
 ## Coding Standards
 
@@ -440,69 +147,41 @@ These are backed by `.editorconfig` and enforced during build via
 ## Commands
 
 ```bash
-# Build
-dotnet build
+dotnet build                         # build the app and the tests
+dotnet run --project src/WrapCal     # run it
+dotnet watch --project src/WrapCal   # run with hot reload
+dotnet format                        # format
+dotnet format --verify-no-changes    # what CI checks
 
-# Run (hot reload)
-dotnet watch --project src/WrapCal
-
-# Run
-dotnet run --project src/WrapCal
-
-# Test everything (unit + component + functional)
-dotnet test
-
-# Test one project at a time — the normal way to work, since the functional
-# suite starts a server and a browser and takes seconds rather than milliseconds
-dotnet test --project tests/WrapCal.UnitTests
+dotnet test                                        # everything
+dotnet test --project tests/WrapCal.UnitTests      # the suite to work against
 dotnet test --project tests/WrapCal.FunctionalTests
 
-# Format
-dotnet format
-
-# Format check (CI)
-dotnet format --verify-no-changes
-
-# Cake — Clean → Build → Tests (the default target), or publish to ./output
-./cake.sh
-./cake.sh --target=Publish
-
-# One suite at a time
+./cake.sh                            # Clean → Build → Tests (the default target)
 ./cake.sh --target=UnitTests
 ./cake.sh --target=FunctionalTests
-
-# What CI runs: every suite, then publish
-./cake.sh --target=Release
-
-# Provision the browser the functional suite drives
+./cake.sh --target=Publish           # the site, into ./output
+./cake.sh --target=Release           # every suite, then publish — what CI runs
 ./cake.sh --target=InstallBrowsers
+./cake.sh --target=UnitTests --coverage   # + Cobertura and the HTML coverage report
 ```
 
-`Release` runs `Tests`, so the deploy is gated on the functional suite as well as the unit one.
-That is deliberate: a dependency bump that changes how the page looks is exactly what would
-otherwise reach the live site unnoticed. `FunctionalTests` depends on `InstallBrowsers`, so a
-clean machine — a runner especially — provisions its own browser; the target is idempotent and
-takes about two seconds once the browser is there.
+The functional suite starts a browser and boots WebAssembly per scenario, so it takes seconds
+rather than milliseconds — run the unit suite while working, both before calling it done.
 
-The Cake project in `cake/` is deliberately **not in `WrapCal.slnx`**, so `dotnet build` at
-the root never builds the build script itself. It targets `net10.0` via `Cake.Sdk`, and its
-script runs with the repository root as the working directory (`RunWorkingDirectory`), which
-is why every path inside `cake.cs` is relative to the root.
+**Reports live in `./output/reports`**, written by Cake on every test run: TUnit's HTML report and
+TRX per suite, plus `coverage/` when `--coverage` is passed. Coverage is opt-in because
+instrumenting costs a couple of seconds against a suite that runs in under one, and only the unit
+suite is instrumented — the functional suite's code under test is WebAssembly in a browser
+process. ReportGenerator is installed by `InstallTool` in `cake/cake.cs`, so running the build is
+the only step a fresh checkout needs and no tool manifest is kept in step. Both workflows upload
+`output/reports`; `ci.yml` also posts the summary as a PR comment that each push edits in place.
+Nothing here is published to Pages — `deploy-pages.yml` uploads `output/wwwroot` only.
 
-`Tests` is not a `dotnet test` of the solution — it depends on `UnitTests` and
-`FunctionalTests`, one target per test project, so a suite runs the same way alone as it does
-in the pair. Both depend on `Build`, which Cake runs once. Add a third suite as another task
-and a third dependency, not as a branch inside `Tests`.
-
-**The deploy workflow calls Cake and nothing else.** `Release` is the target it asks for —
-`UnitTests` then `Publish` — so what the artifact is, where it lands and what gates it are all
-`cake/cake.cs`'s business. `.github/workflows/deploy-pages.yml` only moves the result onto
-Pages. Do not add `dotnet` steps there: a workflow that rebuilds the way it remembers is a
-second build definition that drifts from the first.
-
-`cake.csproj` pins `System.Security.Cryptography.Pkcs` forward: `Cake.Sdk` pulls 10.0.12
-transitively, which trips NU1902 and NU1903. Without the pin the Cake build reports four
-vulnerability warnings, so keep it until `Cake.Sdk` moves to a fixed version.
+Cake is the definition of what a build is: the workflows call it and nothing else, `Release`
+gates the deploy on every suite, and the `cake/` project is in the solution but marked
+`<Build Project="false" />` so a running build script is never rebuilt underneath itself. All
+of that, and the hosting setup it publishes to, is in the `build-and-deploy` skill.
 
 ### Test runner note
 
@@ -524,227 +203,49 @@ Two test projects, deliberately separate. Run either on its own, or `dotnet test
 
 ### Unit + component — `tests/WrapCal.UnitTests`
 
-- **TUnit** (`1.75.0`); **bUnit** (`2.11.3`) for component rendering.
-- bUnit v2's context class is **`BunitContext`** — inherit and call `Render<T>()`.
-  (It still exposes `TestContext`, but `BunitContext` avoids a clash with TUnit's own.)
-- TUnit auto-configures global usings, so `[Test]` and `Assert.That(...)` need no `using`.
-- TUnit assertions are **awaited**: `await Assert.That(cut.Markup).Contains("WrapCal");`
-- **`.razor` test files require TUnit's reflection mode.** In the default
-  source-generation mode, TUnit and the Razor SDK are both source generators and neither
-  can see the other's output, so Razor-generated test classes are invisible to discovery.
-  Adding `[assembly: ReflectionMode]` (`TUnit.Core`) — or `TUNIT_EXECUTION_MODE=reflection`
-  — makes them discoverable; that is the documented purpose of reflection mode, and it is
-  what bUnit's own docs omit when they say TUnit "does not work with razor files".
-  **This project stays on the default mode:** our tests are `.cs`, which source generation
-  handles, and reflection mode is the slower of the two. Reach for it only to author
-  `.razor` test components, which additionally needs `Microsoft.NET.Sdk.Razor`.
-  (If you go fully reflection, `<EnableTUnitSourceGeneration>false</EnableTUnitSourceGeneration>`
-  skips generation entirely for faster builds.)
-- Test files mirror production: `Common/ResultTests.cs`, `Components/MainLayoutTests.cs`,
-  `Features/*Tests.cs`.
-- The theme is arranged through `SetThemePreference(choice, system)`, which stubs
-  `wrapcalTheme.load` — the same single interop call the layout makes at runtime. With no
-  setup the call answers nothing, which is what a first visit looks like.
+TUnit with bUnit for rendering. The three things that bite: the context class is `BunitContext`
+(not bUnit's `TestContext`, which clashes with TUnit's), assertions are awaited, and `.razor`
+test files are invisible to discovery unless TUnit runs in reflection mode — which this project
+deliberately does not. The `unit-tests` skill has the details.
 
 ### Functional — `tests/WrapCal.FunctionalTests`
 
-Reqnroll (Gherkin) driving Playwright against the app running for real.
-
-- `Features/*.feature` bind to step definitions in `StepDefinitions/`, split by concern:
-  `StepsBase` (shared page helpers), `FormSteps` (setting the form up), `PlanningSteps`
-  (planning and what the plan says), `LayoutSteps` (geometry measured in the browser),
-  `ThemeSteps` (the cookie and what the page does with it).
-- **The theme is split between the two suites, and only `Theme.feature` can test System.**
-  `MainLayoutTests` covers which of the three choices is in force — it arranges the browser's
-  answer by stubbing `mudThemeProvider.isDarkMode`, since bUnit has no media query and no
-  operating system. `Theme.feature` covers what only a real browser can: `EmulateMediaAsync`
-  sets `prefers-color-scheme`, the palette is read off the document root (where a theme is
-  visible at all) and compared by luminance rather than against exact colors, and the cookie
-  is a real one on a real document.
-  Mutation-checked: forcing the system preference to light fails "The page follows a dark
-  system" and nothing else.
-- **The `Then` for a theme waits, and has to.** On a first visit the system preference is not
-  knowable until the app has booted and can ask the browser, so the palette moves *after* the
-  page is on screen. The step waits up to `ThemeSettleTimeout` for the expected side of
-  mid-gray and only then reports. A theme assertion that reads once will flake.
-- **Match a validation message past its own number.** "Width must be between" is a substring of
-  "Roll Width must be between", so a prefix assertion about box width is satisfied by the roll
-  width's message and passes with no box-width message on the page at all. `PlanningSteps`
-  therefore matches from the label through the first bound, and the component tests assert each
-  message whole.
-- **The error paths are covered in both suites, split the way the theme is.** `PlanWrapPageTests`
-  holds one case per field rule; `PlanWrap.feature` holds what only a real page can prove — a
-  rejected field, two rejected at once, a plan still blocked while either is wrong, values
-  exactly on each limit, and a plan that appears once a rejected field is corrected. Mutation
-  checked: turning `> MaxDimension` into `>=` fails the boundary test, and dropping the name
-  trim fails the trim test.
-- **A binding is keyword-specific unless it says otherwise.** `[Given]`/`[When]`/`[Then]` match
-  only their own keyword, and an `And` inherits the one before it — so a `Given` step whose
-  definition is `[When]` fails as undefined, naming no file. `[StepDefinition]` is the escape hatch
-  and matches all three. It is not used here on purpose: every step's *meaning* depends on where it
-  sits. "I set the roll orientation" is the tempting candidate, but its control only exists inside
-  `@if (_plan is not null)` (`PlanWrap.razor`), so moving it before a plan would bind and then wait
-  out the locator timeout — a worse failure than the undefined step it replaces.
-- **Every concrete step class needs `[Binding]`.** Without it Reqnroll finds no steps at all
-  and every scenario fails as "undefined", naming no file — not an obvious error to trace
-  back to a new class.
-- **Scenarios state their own inputs** — roll width, unit, overlap, and every box by name and
-  size. None rely on the page's defaults, so a reader can check the expected result without
-  knowing them.
-- Generated `*.feature.cs` goes to `obj/`, never source control
-  (`ReqnrollUseIntermediateOutputPathForCodeBehind`).
-- **Reqnroll maps `@tags` to TUnit `[Category]` attributes automatically** — verified in
-  the generated code, despite Reqnroll's docs only documenting NUnit/MSTest/xUnit.
-- **The suite serves the app from `/WrapCal`, never the root.** That is the only shape it is
-  ever deployed in — a GitHub project page — and serving the root as well would let the suite
-  pass while `index.html` was failing to raise its base href, which is the one part of the
-  deployment that can break silently. `Hosting.feature` does not exist for this: every
-  scenario is the proof.
-- **`Support/AppHost.cs` publishes the app and serves the output as static files.** Publish,
-  not build: a build leaves the app's own assets out of the output folder — only `_framework/`
-  lands there — so a built app is not servable, while publish flattens everything into one
-  tree. The suite therefore drives the artifact that ships rather than a development host that
-  production never runs, and there is no child process, no port to race and no readiness poll.
-  Kestrel needs an explicit `application/wasm` mapping or the browser refuses to stream-compile
-  the modules.
-- **Served uncompressed, deliberately.** Each scenario gets a fresh browser context, so the
-  ~19 MB runtime is fetched again for every one of them. Compressing it was measured at 65s
-  against 49s for the whole suite — over loopback the transfer is nearly free and the CPU is
-  not. Do not "optimize" this back on without measuring.
-- **The publish is cached.** `AppHost` publishes into `bin/<config>/<tfm>/app-publish` and
-  reuses it while nothing under `src/WrapCal` (or `Directory.Build.props` / `global.json`) is
-  newer than the stamp file. Publishing runs the IL linker on every core, and repeating that
-  each run is a load burst for no reason.
-- **Scenarios are limited to two at a time**, `Support/ScenarioParallelism.cs`. TUnit
-  parallelises by default, which here means several browser contexts compiling WebAssembly at
-  once and pinning every core — measured at 44s with the machine unusable throughout, against
-  31s at two. `WRAPCAL_SCENARIO_PARALLELISM=1` is the gentler setting when something else
-  needs the machine; it costs the same 44s the unbounded run did, for far less load. Do not
-  remove the limiter to "speed up" the suite.
-- Publishing takes a few seconds per run, and a cold first run longer, which is why
-  `PageTimeout` is 60s: the first scenario pays for a WebAssembly boot against a cold file
-  cache.
-- `Hooks/TestRunHooks.cs` starts the app and browser once per run.
-  `Hooks/ScenarioHooks.cs` gives each scenario a fresh context and screenshots failures
-  to `bin/.../playwright-artifacts/`.
-- Steps receive browser state by Reqnroll context injection: `[BeforeScenario]` puts a
-  `UiContext` into `ScenarioContext`; step constructors resolve it.
-
-#### Browser selection
-
-Override with `BROWSER=webkit|firefox|chromium`; `HEADED=1` makes the run visible.
-
-| OS | Default | Why |
-|----|---------|-----|
-| macOS | `webkit` | Firefox cannot launch on macOS 27 — see below |
-| Linux / Windows | `firefox` | |
-
-#### Installing browsers without PowerShell
-
-**Normally you do not need this:** `./cake.sh --target=InstallBrowsers` does it, and the
-functional suite depends on that target. The manual form below is what the target runs, and is
-worth understanding when it misbehaves.
-
-Playwright .NET ships its installer as `playwright.ps1`, which needs PowerShell — not
-available here. That script's entire job is to load `Microsoft.Playwright.dll` and call
-`Microsoft.Playwright.Program.Main(args)`, so invoke the DLL directly:
-
-```bash
-# Requires a prior `dotnet build` — the DLL lives in the build output.
-BIN=tests/WrapCal.FunctionalTests/bin/Debug/net10.0
-dotnet exec --runtimeconfig "$BIN/WrapCal.FunctionalTests.runtimeconfig.json" \
-  "$BIN/Microsoft.Playwright.dll" install webkit firefox
-```
-
-Platform-agnostic — no RID-specific paths. Two dead ends worth not repeating:
-
-- The `Microsoft.Playwright.CLI` global tool fails here with *"Couldn't find project
-  using Playwright"*, even with `-p` pointing at the project.
-- Reaching past `Program.Main` to the bundled Node driver (`$BIN/.playwright/node/...`)
-  also works, but only if you hardcode the RID directory (`darwin-arm64`), so it breaks
-  on Intel macOS. Prefer the form above.
-
-### Known blocker: Firefox on macOS 27
-
-Firefox **cannot start** on macOS 27, with or without Playwright. The macOS sandbox denies
-Firefox's `plugin-container` a sandbox extension, the child is killed on signal 9, and
-startup never completes — surfacing as `Could not find profile folder`, which is a red
-herring (the profile directory *is* created). Confirmed against stock Firefox Nightly from
-mozilla.org with Playwright uninvolved; microsoft/playwright#42082 was closed as *not
-planned*, being upstream in Firefox. Chromium and WebKit are unaffected — hence the macOS
-default above. Firefox is already the non-macOS default, so nothing needs changing when
-this is fixed.
+Reqnroll driving Playwright against the published site served from `/WrapCal`. The `functional-tests`
+skill covers the step-definition layout, the hosting, the parallelism limiter, and the assertions
+that would otherwise pass without testing anything — read it before touching a `.feature` file.
+Browser selection and the Firefox-on-macOS-27 blocker are in the root `README.md`.
 
 ## MCP Tools
 
-`cwm-roslyn-navigator` is installed globally (`dotnet tool list -g` → `cwm.roslynnavigator
-0.8.0`) and registered at **user scope by the dotnet-claude-kit plugin**. There is
-deliberately **no project-level `.mcp.json`** — adding one registers a second, identical
-server that needs its own approval and then shows up as a duplicate.
+`cwm-roslyn-navigator` is installed globally and registered at **user scope by the
+dotnet-claude-kit plugin**. There is deliberately **no project-level `.mcp.json`** — adding one
+registers a second, identical server that needs its own approval and then shows up as a
+duplicate. Solution discovery is automatic (the server scans the working directory, skipping
+`bin`, `obj`, `.git`), so it needs no `--solution` argument.
 
-Solution discovery is automatic: the server scans the working directory (3 levels deep,
-skipping `bin`, `obj`, `.git`), so **no `--solution` argument is needed**. Verified working
-via its startup log (`Discovered solution: .../WrapCal.slnx`).
+Use it to save tokens: `find_symbol` to locate a type, `get_public_api` for its surface,
+`find_references` before adding one, `find_implementations` instead of grep, `get_diagnostics`
+after a change.
 
-Use it to save tokens:
-
-- **Before modifying a type** — `find_symbol` to locate, `get_public_api` for its surface
-- **Before adding a reference** — `find_references` for existing usage
-- **Interface implementations** — `find_implementations`, not grep
-- **After changes** — `get_diagnostics`
-
-### Known limitation: it cannot see Razor-generated types
-
-The workspace loads through `MSBuildWorkspace`, which **does not execute source
-generators**. Razor compiles components with the Razor source generator (there are no
-`.razor.g.cs` files on disk), so `App`, `Routes`, `PlanWrap`, `WrapPlanView`, and the
-`WrapCal.Components` / `WrapCal.Features.PlanWrap` namespaces **do not exist in the
-tool's view**. This is expected, not broken config:
+**It cannot see Razor-generated types.** The workspace loads through `MSBuildWorkspace`, which
+does not execute source generators, and Razor compiles components with one — so `App`, `Routes`,
+`PlanWrap`, `WrapPlanView` and their namespaces do not exist in the tool's view.
 
 - `get_diagnostics` reports phantom `CS0246`/`CS0234` errors for every reference to a
-  Razor-generated type — `Program.cs`, and any test that renders a component.
-  **`dotnet build` is the source of truth** — it reports 0 errors. Ignore these and
-  never "fix" them. (Do not cite specific line numbers here; they drift constantly.)
-- Any test that references a component inherits the same phantom errors. Unavoidable,
-  and not a defect in the test.
-- `find_symbol`, `find_references`, and `get_public_api` return nothing for Razor
-  components. Use `grep` or read the `.razor` file directly.
-- `get_test_coverage_map` counts only non-Razor types, so its percentage is meaningless
-  for this project — treat that dimension as *Not assessed*. It **does** correctly return
-  `applicable: false` with a `notApplicableReason`, which is what makes it safely
-  ignorable (verified after a clean restart; see below).
+  Razor-generated type, in `Program.cs` and in any test that renders a component. **`dotnet
+  build` is the source of truth** — it reports 0 errors. Ignore these and never "fix" them.
+- `find_symbol`, `find_references` and `get_public_api` return nothing for Razor components. Use
+  grep or read the `.razor` file.
+- `find_dead_code` reports members called only from markup — `AddBox`, `RemoveBox`,
+  `ToggleThemeAsync`, the `*Validation` properties — as unreferenced with `Confidence: high`, for
+  the same reason. Every one of them is called from a `.razor` file. Grep before deleting.
+- `get_test_coverage_map` counts only non-Razor types, so its percentage is meaningless here. It
+  returns `applicable: false` with a reason, which is what makes that safely ignorable.
 
-### Corrected: the `obj/` "leak" was stale-workspace noise, not a detector bug
-
-An earlier revision of this file claimed the detectors reported generated files under
-`obj/`, citing `AP002` in `tests/WrapCal.Tests/obj/.../XunitAutoGeneratedEntryPoint.cs`
-and `ValidatableTypeAttribute` in `src/WrapCal/obj/`.
-
-**That was wrong.** Both cases came from a workspace that had never reloaded after the
-xUnit → TUnit migration and the project rename. On the same commit, after a restart:
-
-- `detect_antipatterns` → 0 violations, correctly classifying
-  `ScannedFiles: 41, ProductionFiles: 5, TestFiles: 7, GeneratedFiles: 29`
-- `find_dead_code` → 0 symbols, `ConventionFiltered: 0`
-- `get_test_coverage_map` → no `obj/` artifacts at all
-
-**`find_dead_code` now returns hits, and they are all the same false positive.** Once the
-pages and components grew members used only from markup — `AddBox`, `RemoveBox`,
-`ToggleThemeAsync`, the `*Validation` properties — it reports them as unreferenced, with
-`Confidence: high`, because a `.razor` file is not in the tool's view (see the limitation
-below, which is the same cause). Every one of them is called from markup. Ignore the list,
-and do not "clean up" a member on its say-so: grep the `.razor` file first.
-
-Generated code **is** filtered, as the tool's README promises. The general lesson: a stale
-workspace does not merely return old data — it returns materially *wrong* data, including
-files and projects that no longer exist, and silently drops response fields like `Summary`
-and `Applicable`. Verify the workspace is fresh before concluding a tool is broken.
-
-### Workspace freshness
-
-The workspace loads **once at server start**. After adding or removing a *project*, or
-making large structural changes, restart the session so it reloads the solution.
-Otherwise tools silently report a stale project list.
+The workspace loads **once at server start**. After adding or removing a *project*, or making a
+large structural change, restart the session — otherwise tools silently report a stale project
+list, which is worse than reporting nothing: it comes back with files and projects that no longer
+exist, and silently drops response fields.
 
 ## Workflow
 
@@ -760,13 +261,6 @@ Otherwise tools silently report a stale project list.
 
 Do NOT generate code that:
 
-- **Uses `DateTime.Now` / `DateTime.UtcNow`** — inject `TimeProvider` instead
-- **Creates `new HttpClient()`** — use `IHttpClientFactory` or a typed client
-- **Uses `async void`** — return `Task`; the only exception is component lifecycle
-  event handlers where the framework requires it
-- **Blocks on `.Result` or `.Wait()`** — await instead
-- **Uses `JSRuntime` where CSS or Blazor suffices** — prefer `@bind`,
-  `NavigationManager`, `FocusAsync()`
 - **Adds `@rendermode`** — there is one render mode and it is the whole app; the attribute
   has nothing left to select
 - **Puts heavy work in `OnInitializedAsync`** — blocks the first paint, and here that is the
@@ -775,21 +269,39 @@ Do NOT generate code that:
   handlers and lifecycle methods
 - **Uses `[CascadingParameter]` as general state management** — cascading values
   re-render the whole subtree; use a scoped DI service
+- **Uses `JSRuntime` where CSS or Blazor suffices** — prefer `@bind`,
+  `NavigationManager`, `FocusAsync()`
+- **Uses `async void`** — return `Task`; the only exception is component lifecycle event
+  handlers where the framework requires it
+- **Blocks on `.Result` or `.Wait()`** — await instead
 - **Catches bare `Exception`** — catch specific types; use `ErrorBoundary` for UI-level
   error handling
-- **Interpolates strings into log messages** — use structured logging templates
 - **Reintroduces `Microsoft.NET.Test.Sdk`** — this repo runs MTP mode (see above)
+
+Two general rules that have no code to point at yet, because this app has neither: inject
+`TimeProvider` rather than reading `DateTime.Now` / `DateTime.UtcNow`, and never construct an
+`HttpClient` by hand — the app makes no outbound calls at all, so a new one means something has
+gone wrong.
 
 ## Skills
 
-Load these dotnet-claude-kit skills for context:
+Four project skills in `.claude/skills/` carry the detail this file used to repeat. Each is
+loaded when its description matches the task, so the one-line summary above each pointer is what
+has to be true for it to be found.
+
+| Skill | Read it when |
+|---|---|
+| `functional-tests` | touching `tests/WrapCal.FunctionalTests` — Reqnroll, Playwright, AppHost, assertions |
+| `unit-tests` | touching `tests/WrapCal.UnitTests` — TUnit, bUnit, the `.razor` reflection trap |
+| `theme` | touching the theme — cookies, boot script, `theme.js`, what only a browser can test |
+| `build-and-deploy` | touching Cake, the workflows, the solution, or hosting — including what ships |
+
+Load these dotnet-claude-kit skills for general .NET context:
 
 - `modern-csharp` — C# 14 features and idioms
 - `architecture-advisor` — structuring the app
 - `testing` — TUnit, bUnit component testing (the kit's own copy says xUnit; this repo uses TUnit)
-- `configuration` — options pattern, secrets
 - `dependency-injection` — lifetimes and registration
-- `logging` — structured logging, OpenTelemetry
 - `error-handling` — Result pattern, error boundaries
 - `workflow-mastery` — parallel worktrees, verification loops, subagents
 - `wrap-up` — session handoff to `.claude/handoff.md`
