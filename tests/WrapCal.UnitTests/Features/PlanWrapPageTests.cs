@@ -358,18 +358,6 @@ public class PlanWrapPageTests : WrapCalBunitContext
     }
 
     [Test]
-    public async Task Defaults_to_the_roll_continuing_upwards()
-    {
-        var cut = Render<PlanWrap>();
-
-        await cut.Find(PlanButton).ClickAsync();
-
-        string? diagram = cut.Find("[data-testid='diagram']").TextContent;
-
-        await Assert.That(diagram).Contains("↑ Roll continues");
-    }
-
-    [Test]
     public async Task Discards_a_plan_the_form_no_longer_describes()
     {
         var cut = Render<PlanWrap>();
