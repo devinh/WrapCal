@@ -74,7 +74,7 @@ public class WrapPlanDiagramTests : WrapCalBunitContext
         var cut = Render<WrapPlanDiagram>(parameters => parameters.Add(p => p.Plan, OneBoxPlan()));
 
         await cut.Instance.BeginZoomGestureAsync();
-        await cut.Instance.ZoomByRatioAsync(1.5);
+        await cut.Instance.ZoomByRatioAsync(2.25);
         await cut.Instance.ZoomByWheelAsync(-120);
 
         await Assert.That(cut.Find("[data-testid='zoom-level']").TextContent).IsEqualTo("150%");
@@ -96,11 +96,13 @@ public class WrapPlanDiagramTests : WrapCalBunitContext
         await cut.Instance.BeginZoomGestureAsync();
         await cut.Instance.ZoomByRatioAsync(1.5);
 
-        await Assert.That(cut.Find("[data-testid='zoom-level']").TextContent).IsEqualTo("150%");
+        // Damped: a spread of 1.5 zooms 1.5^0.5, not 1.5, so Safari answers about as gently as a
+        // wheel does in the browsers that report pixel deltas.
+        await Assert.That(cut.Find("[data-testid='zoom-level']").TextContent).IsEqualTo("122%");
 
         await cut.Instance.ZoomByRatioAsync(1.5);
 
-        await Assert.That(cut.Find("[data-testid='zoom-level']").TextContent).IsEqualTo("150%");
+        await Assert.That(cut.Find("[data-testid='zoom-level']").TextContent).IsEqualTo("122%");
     }
 
     [Test]

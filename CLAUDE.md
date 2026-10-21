@@ -351,6 +351,23 @@ Read this before changing the maths. Every point here has been got wrong once al
   adding boxes, so they hold whatever the starting zoom is;
   `Starts_the_zoom_at_one_hundred_percent` and the readout assertions in `Layout.feature` are what
   pin it.
+- **Zoom is anchored at the pointer, and the correction does not assume a scroll convention.** The
+  fraction of the drawing under the pointer is recorded before the zoom resizes anything; after the
+  render, `diagram.js` moves the scroll offsets so that fraction is back under the pointer. Which
+  way an offset moves the content depends on the layout — Up and Left lay the scroller out from the
+  far end — so instead of encoding four conventions the code tries one direction, measures, and
+  takes the other if the error did not shrink. Restoring the exact offsets between attempts matters:
+  at the end of the scroll range the browser clamps, so a shift and its "undo" are not equal and
+  opposite, and negating moved the drawing the wrong way.
+- **Anchoring is only proven for the vertical layouts.** Up and Down are covered by tests (reversed
+  and not); with Left and Right the drawing scales, but its frame grows with it, so there is no
+  internal scroll left to correct and the point under the pointer drifts. The horizontal frame has
+  no `max-height` the way the vertical one has `max-height: 60vh`, and adding one was tried and did
+  not fix it. Worth understanding before claiming zoom works in every direction.
+- **A test that can pass without doing anything is worse than no test.** The anchor scenarios first
+  passed while the wheel had been broken by an edit — a drawing that never zooms also never moves.
+  They now assert the readout moved to 150% as well as that the point held. Same shape of mistake
+  as the earlier drag test aimed below the fold.
 - **A pinch in progress silences the wheel.** Safari reports a pinch as gesture events, Chromium and
   Firefox as ctrl+wheel. If a browser ever reports both, honouring both would zoom twice there and
   once elsewhere — which reads as "the zoom is faster on Safari". `ZoomByWheelAsync` therefore

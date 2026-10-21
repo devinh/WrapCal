@@ -13,6 +13,7 @@ public sealed class LayoutSteps : StepsBase
 {
     private const string PlanButtonTop = "planButtonTop";
     private const string DrawingScale = "drawingScale";
+    private const string CutUnderPointer = "cutUnderPointer";
 
     public LayoutSteps(ScenarioContext scenarioContext)
         : base(scenarioContext)
@@ -259,6 +260,58 @@ public sealed class LayoutSteps : StepsBase
             percent / 100.0);
     }
 
+    [When("I note the cut under the pointer")]
+    public async Task WhenINoteTheCutUnderThePointerAsync()
+    {
+        // A point inside a cut, not the middle of the drawing: the middle can fall in the gap
+        // between slices, which anchors nothing and would have made this test pass vacuously.
+        double[] noted = await Ui.Page.EvaluateAsync<double[]>(
+            """
+            () => {
+                const cuts = [...document.querySelectorAll(".wrap-diagram g.cut rect")];
+
+                for (let i = 0; i < cuts.length; i++) {
+                    const r = cuts[i].getBoundingClientRect();
+
+                    if (r.width > 12 && r.height > 12) {
+                        return [i, r.left + (r.width / 2), r.top + (r.height / 2)];
+                    }
+                }
+
+                return [-1, 0, 0];
+            }
+            """);
+
+        Context.Set(noted, CutUnderPointer);
+    }
+
+    [Then("the cut under the pointer should not have moved")]
+    public async Task ThenTheCutUnderThePointerShouldNotHaveMovedAsync()
+    {
+        double[] noted = Context.Get<double[]>(CutUnderPointer);
+        int index = (int)noted[0];
+
+        await Assert.That(index).IsGreaterThanOrEqualTo(0);
+
+        double[] now = await Ui.Page.EvaluateAsync<double[]>(
+            """
+            (args) => {
+                const [index, x, y] = args;
+                const r = document.querySelectorAll(".wrap-diagram g.cut rect")[index].getBoundingClientRect();
+                const inside = x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+
+                return [inside ? 1 : 0, (x - r.left) / r.width, (y - r.top) / r.height];
+            }
+            """,
+            new[] { (double)index, noted[1], noted[2] });
+
+        // The same cut, still under the same point, at the same place within it. Without the
+        // correction the drawing slides out from under the pointer instead.
+        await Assert.That(now[0]).IsEqualTo(1.0);
+        await Assert.That(Math.Abs(now[1] - 0.5)).IsLessThan(0.05);
+        await Assert.That(Math.Abs(now[2] - 0.5)).IsLessThan(0.05);
+    }
+
     [Then("the zoom should read {word}")]
     public async Task ThenTheZoomShouldReadAsync(string expected)
     {
@@ -291,27 +344,38 @@ public sealed class LayoutSteps : StepsBase
         // this gives the handler exactly the fields a browser would.
         //
         // The cost is real: no automated test now proves a physical mouse wheel reaches the
-        // handler on Firefox. The slider scenario remains the genuine-input case, and this one
-        // covers everything downstream of the event arriving.
+        // handler on Firefox. This covers everything downstream of the event arriving.
+        //
+        // Delivered at the noted cut when a scenario has noted one, so a zoom can be aimed at a
+        // point the test then checks stayed put; otherwise at the middle of the drawing.
+        double[]? noted = Context.ContainsKey(CutUnderPointer)
+            ? Context.Get<double[]>(CutUnderPointer)
+            : null;
+
+        double[] point = noted is { Length: 3 } ? [noted[1], noted[2]] : [];
+
         for (int i = 0; i < turns; i++)
         {
             await Ui.Page.EvaluateAsync(
                 """
-                (delta) => {
+                (args) => {
+                    const [delta, point] = args;
                     const figure = document.querySelector(".wrap-diagram");
                     const box = figure.getBoundingClientRect();
+                    const x = point.length ? point[0] : box.left + (box.width / 2);
+                    const y = point.length ? point[1] : box.top + (box.height / 2);
 
                     figure.dispatchEvent(new WheelEvent("wheel", {
                         deltaY: delta,
                         ctrlKey: true,
                         bubbles: true,
                         cancelable: true,
-                        clientX: box.left + (box.width / 2),
-                        clientY: box.top + (box.height / 2)
+                        clientX: x,
+                        clientY: y
                     }));
                 }
                 """,
-                deltaPerTurn);
+                new object[] { deltaPerTurn, point });
         }
     }
 

@@ -13,14 +13,96 @@ window.wrapcalDiagram = {
     attach: function (element, dotNetRef) {
         const owner = element;
 
+        // Where the gesture began and what part of the drawing was under it at the time. Recorded
+        // before the zoom resizes anything, so the scroll can be corrected afterwards to put that
+        // same part back under the pointer — which is what makes zooming feel like a map.
+        let anchor = null;
+
+        // The listeners live on the document, so they see every wheel on the page; this decides
+        // which ones belong to the drawing.
         function pointerOverFigure(x, y) {
             const box = owner.getBoundingClientRect();
+
             return x >= box.left && x <= box.right && y >= box.top && y <= box.bottom;
         }
 
-        // Spread between two fingers on a touchscreen, captured at the start of a pinch so the
-        // ratio sent to C# is relative to the gesture rather than absolute.
-        let pinchFrom = null;
+        function rememberAnchor(clientX, clientY) {
+            const svg = owner.querySelector(".diagram-scroller svg");
+
+            if (!svg) {
+                return;
+            }
+
+            const box = svg.getBoundingClientRect();
+            const fractionX = (clientX - box.left) / box.width;
+            const fractionY = (clientY - box.top) / box.height;
+
+            // A gesture that began off the drawing has nothing to stay anchored to.
+            anchor = fractionX < 0 || fractionX > 1 || fractionY < 0 || fractionY > 1
+                ? null
+                : { fractionX: fractionX, fractionY: fractionY, x: clientX, y: clientY };
+        }
+
+        owner.wrapcalAnchor = function () {
+            const scroller = owner.querySelector(".diagram-scroller");
+            const svg = scroller && scroller.querySelector("svg");
+
+            if (!anchor || !svg) {
+                return;
+            }
+
+            // The drawing has been resized by now. How far is the anchored part from the pointer?
+            function errorX() {
+                const box = svg.getBoundingClientRect();
+                return (box.left + (anchor.fractionX * box.width)) - anchor.x;
+            }
+
+            function errorY() {
+                const box = svg.getBoundingClientRect();
+                return (box.top + (anchor.fractionY * box.height)) - anchor.y;
+            }
+
+            function shift(axis, amount) {
+                if (axis === "x") {
+                    scroller.scrollLeft += amount;
+                } else {
+                    scroller.scrollTop += amount;
+                }
+            }
+
+            // Which way a scroll offset moves the content depends on the layout: Up and Left lay
+            // the scroller out from the far end, so the same correction runs the other way. Rather
+            // than encode four conventions, try one direction and keep it only if the error
+            // actually shrank; otherwise undo and take the other. An offset clamped at its end
+            // cannot move at all, and is left alone.
+            function correct(axis, measure) {
+                const before = measure();
+
+                if (Math.abs(before) < 0.5) {
+                    return;
+                }
+
+                for (const direction of [-1, 1]) {
+                    const left = scroller.scrollLeft;
+                    const top = scroller.scrollTop;
+
+                    shift(axis, direction * before);
+
+                    if (Math.abs(measure()) < Math.abs(before) - 0.5) {
+                        return;
+                    }
+
+                    // Restore the exact offsets rather than subtracting the shift again: at the end
+                    // of the scroll range the browser clamps, so the shift and its "undo" are not
+                    // equal and opposite — negating moved the drawing the wrong way.
+                    scroller.scrollLeft = left;
+                    scroller.scrollTop = top;
+                }
+            }
+
+            correct("x", errorX);
+            correct("y", errorY);
+        };
 
         function onWheel(event) {
             // Ctrl (or Cmd) marks a zoom; a plain wheel has to keep scrolling the drawing, which is
@@ -37,6 +119,7 @@ window.wrapcalDiagram = {
             }
 
             event.preventDefault();
+            rememberAnchor(event.clientX, event.clientY);
             dotNetRef.invokeMethodAsync("ZoomByWheelAsync", event.deltaY);
         }
 
@@ -56,6 +139,7 @@ window.wrapcalDiagram = {
             }
 
             event.preventDefault();
+            rememberAnchor(event.clientX, event.clientY);
             dotNetRef.invokeMethodAsync("ZoomByRatioAsync", event.scale);
         }
 
@@ -79,6 +163,10 @@ window.wrapcalDiagram = {
             event.preventDefault();
 
             const current = spread(event.touches);
+
+            rememberAnchor(
+                (event.touches[0].clientX + event.touches[1].clientX) / 2,
+                (event.touches[0].clientY + event.touches[1].clientY) / 2);
 
             if (pinchFrom === null) {
                 pinchFrom = current;
@@ -120,6 +208,14 @@ window.wrapcalDiagram = {
             document.removeEventListener("touchcancel", onTouchEnd);
             delete owner.wrapcalDetach;
         };
+    },
+
+    /// Puts the point a gesture started on back under the pointer. Called after the zoom has been
+    /// rendered, since it has to measure the drawing at its new size.
+    anchor: function (element) {
+        if (element && element.wrapcalAnchor) {
+            element.wrapcalAnchor();
+        }
     },
 
     detach: function (element) {

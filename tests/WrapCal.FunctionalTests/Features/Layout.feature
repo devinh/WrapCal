@@ -46,14 +46,32 @@ Feature: Layout stability
     And the drawing's scale should match the zoom
 
   Scenario: A Safari gesture pinch enlarges the drawing
-    # Safari reports a trackpad pinch as gesture events carrying a scale, not as ctrl+wheel.
+    # Safari reports a trackpad pinch as gesture events carrying a scale, not as ctrl+wheel, and
+    # the spread is damped so it answers no more eagerly than a wheel does elsewhere.
     Given a roll 30 cm wide with an overlap of 0.5
     And 2 identical boxes measuring 8 by 6 by 4
     When I plan the wrap
     And I note the drawing's scale
-    And a trackpad pinch of 150 percent arrives
+    And a trackpad pinch of 225 percent arrives
     Then the zoom should read 150%
     And the drawing's scale should match the zoom
+
+  Scenario Outline: Zooming keeps the drawing under the pointer
+    # Up and Left lay the scroller out from the far end, so a scroll correction runs the other way
+    # there — and Up is the default, which makes the reversed case the common one.
+    Given a roll 30 cm wide with an overlap of 0.5
+    And 3 identical boxes measuring 8 by 6 by 4
+    When I plan the wrap
+    And I set the roll orientation to <direction>
+    And I note the cut under the pointer
+    And a Ctrl wheel of one notch arrives over the diagram
+    Then the zoom should read 150%
+    And the cut under the pointer should not have moved
+
+    Examples:
+      | direction |
+      | Top       |
+      | Bottom    |
 
   Scenario: The sign-off sits in the middle of the page
     Given the plan page

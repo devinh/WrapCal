@@ -130,11 +130,18 @@ else
 
     /// <summary>
     /// How much one notch's worth of delta (120) changes the scale: a ratio, so zooming out undoes
-    /// zooming in. Chrome and Firefox deliver a trackpad pinch as ctrl+wheel in pixel deltas, so
-    /// this is what decides whether a pinch feels like Safari's, which reports the finger spread
-    /// directly and is taken at face value.
+    /// zooming in.
     /// </summary>
     private const double ZoomPerNotch = 1.5;
+
+    /// <summary>
+    /// What a reported finger spread is raised to. Safari reports the spread itself, where Chrome
+    /// and Firefox report far gentler pixel deltas, so a spread of 2 zooms 2 in Safari and about
+    /// 1.2 elsewhere. Damping it to a root is what makes the three agree; the drawing then zooms
+    /// less than the fingers spread, which is the compromise chosen over speeding up the two
+    /// browsers whose feel is the reference.
+    /// </summary>
+    private const double GestureDamping = 0.5;
 
     private string _uid = string.Empty;
 
@@ -148,6 +155,10 @@ else
     // Chromium and Firefox report it as ctrl+wheel; if a browser ever reports both, honouring both
     // would apply the pinch twice and zoom further there than anywhere else.
     private bool _gestureActive;
+
+    // Set when a zoom is applied, so the render that follows can put the pointer's point back
+    // under the pointer. Cleared once that has happened.
+    private bool _zoomApplied;
 
     private ElementReference _figure;
     private DotNetObjectReference<WrapPlanDiagram>? _self;
@@ -163,14 +174,26 @@ else
         // Attached to the figure rather than the scroller: the scroller is re-keyed whenever the
         // plan or the direction changes, which would take the listener with it. Wheel and gesture
         // events bubble, so one listener on the parent outlives every re-key.
-        if (_listening || !HasDrawing)
+        if (!HasDrawing)
         {
             return;
         }
 
-        _self = DotNetObjectReference.Create(this);
-        await Js.InvokeVoidAsync("wrapcalDiagram.attach", _figure, _self);
-        _listening = true;
+        if (!_listening)
+        {
+            _self = DotNetObjectReference.Create(this);
+            await Js.InvokeVoidAsync("wrapcalDiagram.attach", _figure, _self);
+            _listening = true;
+            return;
+        }
+
+        if (_zoomApplied)
+        {
+            // After the render, so the drawing is measured at its new size: the point a gesture
+            // started on goes back under the pointer.
+            _zoomApplied = false;
+            await Js.InvokeVoidAsync("wrapcalDiagram.anchor", _figure);
+        }
     }
 
     public async ValueTask DisposeAsync()
@@ -210,8 +233,8 @@ else
     });
 
     [JSInvokable]
-    public Task ZoomByRatioAsync(double ratio) =>
-        InvokeAsync(() => ApplyZoom(_gestureBaseZoomPercent * ratio));
+    public Task ZoomByRatioAsync(double ratio) => InvokeAsync(() =>
+        ApplyZoom(_gestureBaseZoomPercent * Math.Pow(Math.Max(ratio, 0.01), GestureDamping)));
 
     [JSInvokable]
     public Task EndZoomGestureAsync() => InvokeAsync(() => _gestureActive = false);
@@ -228,6 +251,7 @@ else
         }
 
         _zoomPercent = clamped;
+        _zoomApplied = true;
         StateHasChanged();
     }
 
