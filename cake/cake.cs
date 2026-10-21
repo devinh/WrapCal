@@ -24,16 +24,17 @@ var functionalTestResults = $"{reports}/functional";
 var coverageReport = $"{reports}/coverage";
 
 // Which browser the suite drives, following the suite's own rule: WebKit on macOS, because
-// Firefox cannot launch there at all, and Firefox everywhere else. BROWSER overrides it.
-string browser = EnvironmentVariable("BROWSER")
-    ?? (OperatingSystem.IsMacOS() ? "webkit" : "firefox");
+// Firefox cannot launch there at all, and Firefox everywhere else. --browser overrides it, and is
+// handed down to the suite as BROWSER — the variable it already reads — so the browser installed
+// and the browser launched cannot disagree. Left null when the argument is absent, because then
+// the suite's own rule, and any BROWSER already in the environment, still decide.
+var browserArgument = Argument<string?>("browser", null);
+var browser = browserArgument ?? (OperatingSystem.IsMacOS() ? "webkit" : "firefox");
 
 // Opt-in: instrumenting costs a couple of seconds against a suite that runs in under one.
-// `Argument<string?>` cannot see a valueless `--coverage` — Cake parses it to an empty value
-// that converts to the default — so the flag is read through HasArgument.
-string? coverageArgument = Argument<string?>("coverage", null);
-var collectCoverage = Context.Arguments.HasArgument("coverage")
-    && !string.Equals(coverageArgument, "false", StringComparison.OrdinalIgnoreCase);
+// Passed as --coverage=true. A valueless --coverage reaches the script as an empty value, which
+// converts to false, so the bare flag would silently skip coverage rather than fail.
+var collectCoverage = Argument("coverage", false);
 
 //////////////////////////////////////////////////////////////////////
 // TASKS
@@ -70,7 +71,7 @@ Task("UnitTests")
         DotNetTest(unitTestsProject, TestSettings(unitTestResults, collectCoverage));
 
         // Inline rather than a target of its own: a separate task would be skipped by
-        // `--target=UnitTests --coverage`, the run that asks for it.
+        // `--target=UnitTests --coverage=true`, the run that asks for it.
         if (collectCoverage)
         {
             GenerateCoverageReport();
@@ -114,7 +115,7 @@ Task("FunctionalTests")
     .IsDependentOn("InstallBrowsers")
     .Does(() =>
     {
-        DotNetTest(functionalTestsProject, TestSettings(functionalTestResults));
+        DotNetTest(functionalTestsProject, TestSettings(functionalTestResults, browser: browserArgument));
     });
 
 Task("Tests")
@@ -162,9 +163,9 @@ RunTarget(target);
 // Each suite's HTML report and TRX go to its own folder under ./output/reports, which is what
 // the workflows upload. Test-app arguments follow `--`: in MTP mode `dotnet test` passes those
 // through instead of parsing them.
-DotNetTestSettings TestSettings(string resultsDirectory, bool withCoverage = false)
+DotNetTestSettings TestSettings(string resultsDirectory, bool withCoverage = false, string? browser = null)
 {
-    return new DotNetTestSettings
+    var settings = new DotNetTestSettings
     {
         Configuration = configuration,
         NoBuild = true,
@@ -184,6 +185,15 @@ DotNetTestSettings TestSettings(string resultsDirectory, bool withCoverage = fal
             return args;
         }
     };
+
+    // The suite reads the browser from the environment, and a test process inherits this one, so
+    // this is how --browser reaches the launch rather than only the installer.
+    if (browser is not null)
+    {
+        settings.EnvironmentVariables["BROWSER"] = browser;
+    }
+
+    return settings;
 }
 
 // Turns the cobertura XML into something a person can read — the HTML report in the artifacts —
