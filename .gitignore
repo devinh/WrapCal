@@ -30,8 +30,7 @@ TestResults/
 packages/
 !packages/build/
 
-## Tools Cake installs for itself (InstallTool in cake/cake.cs). Per machine, like a package
-## cache — a shim downloaded on first use, not something to publish.
+## Tools Cake installs for itself (InstallTool in cake/cake.cs) — per machine, like a cache.
 tools/
 
 ## Build artifacts

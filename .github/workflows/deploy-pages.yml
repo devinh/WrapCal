@@ -37,9 +37,8 @@ jobs:
       - name: Build, test and publish
         run: ./cake.sh --target=Release --coverage
 
-      # The same reports ci.yml uploads, kept with the deploy that produced them. They sit in
-      # output/reports, beside output/wwwroot rather than inside it, so nothing here reaches the
-      # published site. always(), so a run that failed a suite still has its report to look at.
+      # The same reports ci.yml uploads, kept with the deploy that produced them. They sit
+      # beside output/wwwroot rather than inside it, so nothing here reaches the published site.
       - name: Upload test results and coverage
         if: always()
         uses: actions/upload-artifact@v7

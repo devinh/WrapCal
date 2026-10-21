@@ -10,13 +10,9 @@ using Microsoft.Extensions.Logging;
 namespace WrapCal.FunctionalTests.Support;
 
 /// <summary>
-/// Serves a published copy of WrapCal as static files.
-/// <para>
-/// This is what the app now ships as — a folder of files with no server behind it — so the suite
-/// drives the artifact rather than a development host that production never runs. Publishing
-/// once per run and serving the result also means there is no child process to supervise, no
-/// port to race for and no readiness poll.
-/// </para>
+/// Serves a published copy of WrapCal as static files — what the app actually ships as, so the
+/// suite drives the artifact rather than a development host production never runs. Publishing
+/// once per run leaves no child process to supervise, no port to race and no readiness poll.
 /// </summary>
 public sealed class AppHost : IAsyncDisposable
 {
@@ -94,16 +90,12 @@ public sealed class AppHost : IAsyncDisposable
     private const string StampFileName = ".published";
 
     /// <summary>
-    /// Builds and publishes the app. Publishing rather than building is deliberate: a build
-    /// leaves the app's own static files out of the output folder — only <c>_framework/</c>
-    /// lands there, with the rest coming from the project's <c>wwwroot</c> and the MudBlazor
-    /// package — so a built app is not servable on its own. Publish flattens all of it into one
-    /// tree.
+    /// Publishes the app. Publishing rather than building is deliberate: a build leaves the app's
+    /// own static files out of the output folder — only <c>_framework/</c> lands there — so a
+    /// built app is not servable, while publish flattens everything into one tree.
     /// <para>
-    /// The result is cached beside the test binaries and reused while the app's sources are
-    /// older than the last publish. Publishing runs the IL linker, which uses every core, and
-    /// paying that on every test run is a burst of exactly the kind of load this suite is
-    /// supposed to stop producing.
+    /// The result is cached and reused while the app's sources are older than the last publish.
+    /// Publishing runs the IL linker on every core, a load burst this suite exists to avoid.
     /// </para>
     /// </summary>
     private static async Task<string> PublishAsync()
@@ -172,10 +164,6 @@ public sealed class AppHost : IAsyncDisposable
         return outputDirectory;
     }
 
-    /// <summary>
-    /// Whether the cached publish is still current: it exists, it is complete, and nothing the
-    /// app is built from has been written since.
-    /// </summary>
     private static bool IsPublishFresh(string outputDirectory, string projectPath)
     {
         string stamp = Path.Combine(outputDirectory, StampFileName);

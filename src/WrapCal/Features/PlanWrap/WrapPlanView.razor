@@ -3,9 +3,8 @@
 <MudPaper Elevation="2" Class="pa-4 mt-4">
     <MudText Typo="Typo.h6" Class="mb-1">Cut Plan</MudText>
 
-    @* Names the two things the table cannot say for itself: which way the drawing runs, and the
-       corner X and Y are counted from. The words come from RollDirectionText, which the drawing
-       places its origin dot from too — see OriginCorner. *@
+    @* Names what the table cannot say: which way the drawing runs, and the corner X and Y are
+       counted from. The words come from RollDirectionText, which also places the origin dot. *@
     <MudText Typo="Typo.body2" Class="mb-3 wrapcal-orientation" data-testid="plan-orientation">
         @OrientationLine
     </MudText>

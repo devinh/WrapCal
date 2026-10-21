@@ -243,42 +243,37 @@ Both run on **Microsoft.Testing.Platform**, opted into via `global.json`. Conseq
 
 ### Coverage and reports
 
-Every test run writes a report of itself to `./output/reports`, through Cake:
+Every test run writes reports to `./output/reports`:
 
 | Path | What it is |
 |---|---|
 | `output/reports/unit` | TUnit's HTML report + TRX for the unit and component suite |
 | `output/reports/functional` | The same for the browser suite |
-| `output/reports/coverage` | ReportGenerator's HTML coverage report, and `SummaryGithub.md` |
+| `output/reports/coverage` | ReportGenerator's HTML coverage report and `SummaryGithub.md` |
 
-Coverage is **off by default** — instrumenting the suite costs a couple of seconds against a run
-that otherwise takes under one, and that speed is why the unit suite is worth running constantly.
-Add `--coverage` to switch it on:
+Coverage is **off by default** — instrumenting costs a couple of seconds against a suite that
+runs in under one. Add `--coverage` to switch it on:
 
 ```bash
 ./cake.sh --target=UnitTests --coverage
 ```
 
-That collects Cobertura coverage of the `WrapCal` assembly as the unit suite runs, then runs
-[ReportGenerator](https://github.com/danielpalme/ReportGenerator) over it. The tool installs
-itself from `cake/cake.cs` — no separate restore step, and a fresh checkout and a runner get the
-same version.
+That collects Cobertura coverage of the `WrapCal` assembly and runs
+[ReportGenerator](https://github.com/danielpalme/ReportGenerator) over it; the tool installs
+itself from `cake/cake.cs`. Only the **unit** suite is instrumented — the functional suite's code
+under test is WebAssembly in a browser process, so the test process would measure only its own
+steps.
 
-Coverage is only collected from the **unit** suite. The functional suite drives the app in a
-browser, where the code under test is WebAssembly in a separate process — the test process would
-only instrument its own steps.
-
-On a pull request, CI uploads `output/reports` as a run artifact in both workflows, and `ci.yml`
-also posts the coverage summary as a comment that each push replaces in place rather than
-appending to. The reports stay out of `output/wwwroot`, so they are never deployed to Pages.
+CI uploads `output/reports` as an artifact in both workflows, and `ci.yml` posts the coverage
+summary as a pull request comment that each push edits in place. The reports sit beside
+`output/wwwroot` rather than inside it, so they are not deployed to Pages.
 
 ### Functional tests
 
 The functional suite publishes the app, serves that output from an in-process Kestrel under
 `/WrapCal`, and drives it with a real browser. It is deliberately the artifact that ships rather
 than a development host — a `dotnet build` output is not servable at all, since the app's own
-assets only land in the folder on publish. Startup costs a few seconds, hence the separate
-project.
+assets only land in the folder on publish.
 
 **Install browsers once.** Playwright .NET ships its installer as `playwright.ps1`, which
 needs PowerShell — not available by default here. The script just calls

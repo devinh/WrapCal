@@ -1,9 +1,8 @@
 using Cake.Common.Tools.ReportGenerator;
 
-// Installed by the script rather than pinned in a tool manifest, so running the build is the
-// only thing a fresh checkout or a runner has to do — no separate `dotnet tool restore` step
-// and no second file to keep in step with the version below. Cake skips the download once the
-// version is in its tool cache. Bump the version here; nothing else tracks it.
+// Installed here rather than pinned in a tool manifest: one less file to keep in step, and
+// running the build is all a fresh checkout needs. Cached after the first download, and
+// nothing else tracks the version — bump it here.
 InstallTool("dotnet:?package=dotnet-reportgenerator-globaltool&version=5.5.11");
 
 var target = Argument("target", "Default");
@@ -29,13 +28,9 @@ var coverageReport = $"{reports}/coverage";
 string browser = EnvironmentVariable("BROWSER")
     ?? (OperatingSystem.IsMacOS() ? "webkit" : "firefox");
 
-// Coverage is opt-in: instrumenting the suite costs a couple of seconds against a run that
-// otherwise takes under one, and that fast loop is the reason the suite is separate.
-//
-// Both spellings of the flag count. `Argument<string?>` alone is not enough, because Cake
-// parses a valueless `--coverage` to an empty value that converts to the default — the flag is
-// only visible through HasArgument. `--coverage=false` is the opt-out, for a script that sets
-// it unconditionally.
+// Opt-in: instrumenting costs a couple of seconds against a suite that runs in under one.
+// `Argument<string?>` cannot see a valueless `--coverage` — Cake parses it to an empty value
+// that converts to the default — so the flag is read through HasArgument.
 string? coverageArgument = Argument<string?>("coverage", null);
 var collectCoverage = Context.Arguments.HasArgument("coverage")
     && !string.Equals(coverageArgument, "false", StringComparison.OrdinalIgnoreCase);
@@ -74,9 +69,8 @@ Task("UnitTests")
     {
         DotNetTest(unitTestsProject, TestSettings(unitTestResults, collectCoverage));
 
-        // Here rather than in a target of its own: the report is a step of collecting coverage,
-        // and a separate task would be skipped by `--target=UnitTests --coverage`, which is
-        // exactly the run that asks for it.
+        // Inline rather than a target of its own: a separate task would be skipped by
+        // `--target=UnitTests --coverage`, the run that asks for it.
         if (collectCoverage)
         {
             GenerateCoverageReport();
@@ -165,9 +159,9 @@ RunTarget(target);
 // HELPERS
 //////////////////////////////////////////////////////////////////////
 
-// Every suite writes its own HTML report and TRX into its own folder under ./output/reports,
-// which is what the workflows upload. Everything the test app understands goes after `--`: in
-// MTP mode `dotnet test` hands those to the app instead of parsing them itself.
+// Each suite's HTML report and TRX go to its own folder under ./output/reports, which is what
+// the workflows upload. Test-app arguments follow `--`: in MTP mode `dotnet test` passes those
+// through instead of parsing them.
 DotNetTestSettings TestSettings(string resultsDirectory, bool withCoverage = false)
 {
     return new DotNetTestSettings

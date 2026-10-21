@@ -42,7 +42,6 @@ public class WrapPlanViewTests : WrapCalBunitContext
         await Assert.That(paperArea.Length).IsGreaterThan(0);
         await Assert.That(wasteArea.Length).IsGreaterThan(0);
 
-        // Efficiency is formatted as a percentage.
         await Assert.That(efficiency).Contains("%");
     }
 

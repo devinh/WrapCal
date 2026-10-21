@@ -106,23 +106,21 @@ been got wrong once already.
   at a fixed length that metric always prefers the *largest* legal sheet, rewarding a box
   wrapped in three sheets' worth of paper.
 - **The iteration count is capped by a work budget, not just by `SearchIterations`.**
-  `SearchWorkBudget / boxes.Count` bounds the whole run; a short list still gets every iteration
-  it asked for, a long one trades iterations for staying responsive. Do not "fix" it back to a
+  `SearchWorkBudget / boxes.Count` bounds the whole run, so a short list gets every iteration it
+  asked for and a long one trades iterations for staying responsive. Do not "fix" it back to a
   flat count — 2000 boxes at 500 restarts measured 25 seconds of a frozen tab. The budget is
-  stated in units of boxes × iterations; a search iteration is cheaper than a repack was, so
-  the same count now costs less, and raising it is a separate measured decision.
-- **`SearchIterations` is a cap, and its default is no cap at all.** `null` means "as much as the
-  budget allows", because the budget is already the thing stopping a long list from blocking the
-  page — capping below it only spends less of the time that was available. `0` still means "first
-  arrangement and nothing else", which is what tests pinning a specific plan rely on.
-- **A bigger iteration count is not reliably a smaller plan, and that is not waste.** Within one
-  run nothing goes backwards: the search only replaces its best when a trial beats it, and the
-  re-solve only replaces a pair of shelves when they get shorter. Across *different* caps the
-  answer moves a little either way, because the budget is split between rounds, so a different
-  cap walks a different path rather than extending the same one — measured at sixty boxes, a
-  100-iteration run beat the full budget's plan. Nobody can choose a cap: the form always passes
-  `null`, so this only shows up in tests. Do not "fix" it by making the rounds fixed-size; that
-  would either tie the work to nothing or reintroduce the freeze the budget exists to prevent.
+  stated in units of boxes × iterations, and a search iteration is cheaper than a repack was, so
+  the same count now buys more; raising it is a separate measured decision.
+- **`SearchIterations` is a cap whose default is no cap at all.** `null` means "as much as the
+  budget allows": the budget already stops a long list blocking the page, so capping below it
+  only spends less of the time available. `0` still means "first arrangement and nothing else",
+  which tests pinning a specific plan rely on.
+- **A bigger iteration count is not reliably a smaller plan.** Within one run nothing goes
+  backwards, but across *different* caps the answer moves either way, because the budget is split
+  between rounds — a different cap walks a different path rather than extending the same one. At
+  sixty boxes a 100-iteration run beat the full budget's plan. The form always passes `null`, so
+  this only shows up in tests. Do not "fix" it by making the rounds fixed-size: that would either
+  tie the work to nothing or reintroduce the freeze the budget prevents.
 
 ## The page
 
@@ -212,14 +210,11 @@ been got wrong once already.
   per `(Plan, Direction)` — never per render, or a zoom would drag the reader back to the origin.
   The cost is honest: this is the one place the layout no longer opens at the origin without
   script, and the position arrives a frame after the drawing does.
-- **Facing the drawing a different way starts the view afresh.** The scroller is re-keyed on
-  `(Plan, Direction)` so the scroll resets by itself, and `OnParametersSet` puts the zoom back to
-  100% — a zoom chosen for one orientation is not a zoom chosen for another, and keeping it means
-  the drawing arrives at a size the reader never asked for in that direction. A new *plan* resets
-  the scroll the same way but deliberately keeps the zoom: the data changed, not the view.
-- **Re-keying the scroller resets the scroll.** It is keyed on `(Plan, Direction)`, so a new
-  plan or a new direction starts at the origin instead of wherever the previous drawing was
-  left. Don't "optimize" the key away.
+- **The scroller is keyed on `(Plan, Direction)`, and the key is load-bearing.** Re-keying resets
+  the scroll, so a new plan or a new direction opens at the origin instead of wherever the last
+  drawing was left. A new *direction* also puts the zoom back to 100% — a zoom chosen for one
+  orientation is not a zoom chosen for another — while a new *plan* keeps it: the data changed,
+  not the view.
 - **The drawing hugs the top-left of its frame, and is its own size along the roll.** The vertical
   scroller's svg takes `min-height: 100%` so a short plan has no dead space above it, while the
   horizontal one takes `min-width: 0`: a frame-wide box scrolls while the drawing inside it does
@@ -273,10 +268,7 @@ been got wrong once already.
 - **The correction is a scroll correction, and nothing else.** Translating the drawing group looks
   like it works — the point does land under the pointer — but an `<svg>` clips what lies outside its
   own box, so a translated drawing loses the part pushed past the edge and no scrolling can bring it
-  back. Scroll only, therefore, and the drawing must be exactly as big as itself: `.is-horizontal svg`
-  sets `min-width: 0` for that reason. A frame-wide box letterboxed the drawing inside itself and
-  the far end could not be reached at all, which is the bug that `the drawing should be scrollable
-  across its whole width` pins.
+  back.
 - **The horizontal frame needs its own `max-height`.** The vertical scroller's `max-height: 60vh`
   keeps the frame still while the drawing changes size inside it; without the same on the horizontal
   one, zooming made the frame taller and pushed the whole page down under the pointer.

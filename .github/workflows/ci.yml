@@ -24,16 +24,12 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      # Both suites, through Cake — including the functional one, which is what catches a
-      # dependency bump that changes how the page looks. Cake installs the browser it needs.
       # --coverage is the whole difference from a local run: it instruments the unit suite and
       # has ReportGenerator write the summary the next two steps publish.
       - name: Build and test
         run: ./cake.sh --target=Tests --coverage
 
-      # always(), because a failing suite is exactly when its report is worth opening. Whatever
-      # the run got as far as producing is in output/reports: the TUnit HTML report and TRX for
-      # each suite, and the coverage HTML.
+      # always(), because a failing suite is exactly when its report is worth opening.
       - name: Upload test results and coverage
         if: always()
         uses: actions/upload-artifact@v7
@@ -42,12 +38,10 @@ jobs:
           path: output/reports
           if-no-files-found: warn
 
-      # --edit-last --create-if-none keeps this to one comment per pull request: a later run
-      # updates the comment the earlier one left, rather than adding another. Guarded on the
-      # file's existence because a run that failed before reaching ReportGenerator has no
-      # summary — leaving the previous comment alone is better than replacing it with nothing.
-      # The fork check is there because a pull request from a fork gets a read-only token, and
-      # commenting with one fails the whole run.
+      # --edit-last --create-if-none keeps this to one comment per pull request. The file guard
+      # is for a run that failed before ReportGenerator, where leaving the previous comment
+      # alone beats replacing it with nothing. Forks get a read-only token, and commenting with
+      # one fails the run.
       - name: Comment the coverage summary
         if: >-
           always()

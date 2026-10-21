@@ -41,9 +41,8 @@ public class MainLayoutTests : WrapCalBunitContext
         string? choice, bool systemIsDark, bool expectedDark)
     {
         // The choice is a cookie the browser hands back; the system's preference is a browser
-        // fact, and the only thing that can answer it is the same call MudBlazor's provider
-        // makes. An explicit choice has to win over it either way — that is the whole point of
-        // choosing.
+        // fact only the call MudBlazor's provider makes can answer. An explicit choice has to win
+        // over it either way.
         SetSystemPreference(systemIsDark);
         SetThemePreference(choice);
 

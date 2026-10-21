@@ -34,15 +34,9 @@ internal static class ShelfPacker
     internal readonly record struct Cost(double Length, double Area);
 
     /// <summary>
-    /// Keeps the first arrangement and nothing else, solves small lists outright, and alternates
-    /// searching with re-solving groups of shelves exactly — which boxes share a shelf is what
-    /// the heuristic gets wrong and what a move has no way to see.
-    /// <para>
-    /// The two alternate rather than run once each: polishing improves the plan, and a search
-    /// that never saw the improved plan cannot build on it. Each step only ever improves what the
-    /// one before produced, so a round cannot undo the last, and the polished plan becomes the
-    /// next round's starting point instead of the last word.
-    /// </para>
+    /// Solves small lists outright; otherwise alternates a search with exact re-solves of shelf
+    /// groups, which is what fixes the heuristic's real weakness — deciding which boxes share a
+    /// shelf. Each step builds on the last, so a round cannot undo the one before.
     /// </summary>
     public static List<Shelf> Solve(
         IReadOnlyList<int> order,
@@ -270,10 +264,8 @@ internal static class ShelfPacker
     /// shelf of its own. <paramref name="forced"/> restricts every option to one sheet, which is
     /// how the search tries an orientation the greedy fit would not have chosen.
     /// <para>
-    /// <paramref name="random"/> is what makes a ruin-and-recreate move able to return something
-    /// other than what it started from. Reinserting by best fit alone is close to a fixed point:
-    /// take a box out of a plan and the same plan is what puts it back, which is why the search
-    /// did nothing at all until this was randomized.
+    /// <paramref name="random"/> keeps a ruin-and-recreate move from returning what it started
+    /// from: reinserting by best fit alone is close to a fixed point.
     /// </para>
     /// </summary>
     private static void TryPlace(

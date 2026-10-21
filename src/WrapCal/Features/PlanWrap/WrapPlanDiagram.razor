@@ -11,15 +11,9 @@ else
 {
     <figure class="wrap-diagram mb-0" @ref="_figure">
         @* A section's plan coordinates are fixed — X across the roll, Y from the starting end.
-           Direction only decides how those are laid out on the page, so the drawing can face
-           whichever way the roll is actually lying in front of you.
-
-           For Left/Right the roll runs horizontally, so a section's width and length swap on
-           screen and the edge labels are rotated to fit the narrow side margins.
-
-           The scroller keeps the drawing at a fixed scale along the roll — more boxes make it
-           longer, never smaller — and opens on the origin. Re-keying the scroller is what puts
-           it back on the origin: a new plan, or a new direction, starts scrolled afresh. *@
+           Direction only decides how they are laid out, and Left/Right swap width and length and
+           rotate the labels because the roll runs horizontally. The scroller keeps a fixed scale
+           along the roll and is re-keyed so a new plan or direction opens on the origin again. *@
         @* Focusable because it scrolls by keyboard, and named because a focusable region with
            no accessible name is an unlabeled stop on the tab path. *@
         <div class="@ScrollerClass" tabindex="0" role="region" aria-label="Cut layout"
@@ -65,7 +59,6 @@ else
                     0,0
                 </text>
 
-                @* The paper consumed by this plan. *@
                 <rect class="paper" x="0" y="0" width="@N(PaperWidth)" height="@N(PaperHeight)" />
 
                 @for (int i = 0; i < Plan.Sections.Count; i++)
@@ -88,7 +81,6 @@ else
                     </g>
                 }
 
-                @* Paper beyond the last cut: the roll is not used up. *@
                 <rect class="continues" x="@N(BandBox.X)" y="@N(BandBox.Y)"
                       width="@N(BandBox.W)" height="@N(BandBox.H)" fill="url(#@HatchId)" />
 

@@ -36,8 +36,6 @@ orthogonal features, accounts, saved plans, or a database.
   to the directory it was loaded from. That script is the one piece of the deployment that is
   app code, and it has to run **before** the links and scripts below it — a relative URL is
   resolved against the base in force when its element is parsed, not when it is fetched.
-  Deploying through Actions skips Jekyll, which is why `_framework/` needs no `.nojekyll`;
-  a branch-based deployment would need one.
 - **MudBlazor 9.11** — the entire UI, and the only styling system. Its providers
   (`MudThemeProvider`, `MudPopoverProvider`, `MudDialogProvider`, `MudSnackbarProvider`) live in
   `MainLayout`, which wraps the whole page — a `MudSelect` whose popover provider is not an
@@ -92,7 +90,7 @@ src/
     wwwroot/
       index.html              # the document — base href, asset links, the boot scripts
       app.css                 # Roboto @font-face, framework furniture, message slot
-      theme.js                # the theme cookies (the only JS we own)
+      theme.js                # the theme cookies
       diagram.js              # wheel and touch, which Blazor cannot preventDefault on
 tests/
   WrapCal.UnitTests/
@@ -173,16 +171,12 @@ rather than milliseconds — run the unit suite while working, both before calli
 
 **Reports live in `./output/reports`**, written by Cake on every test run: TUnit's HTML report and
 TRX per suite, plus `coverage/` when `--coverage` is passed. Coverage is opt-in because
-instrumenting costs a couple of seconds against a suite that runs in under one. Only the unit
+instrumenting costs a couple of seconds against a suite that runs in under one, and only the unit
 suite is instrumented — the functional suite's code under test is WebAssembly in a browser
-process, so instrumenting the test process would measure the steps and nothing else.
-ReportGenerator is installed by `InstallTool` at the top of `cake/cake.cs`, so running the build
-is the only step a fresh checkout or a runner needs — there is no tool manifest to keep in step,
-and the version is the one literal beside it. Both workflows upload `output/reports` as an
-artifact, and `ci.yml` posts the coverage summary as a pull request comment (`--edit-last
---create-if-none`, so
-one comment per PR rather than one per push). The reports are never published to Pages —
-`deploy-pages.yml` uploads `output/wwwroot` only.
+process. ReportGenerator is installed by `InstallTool` in `cake/cake.cs`, so running the build is
+the only step a fresh checkout needs and no tool manifest is kept in step. Both workflows upload
+`output/reports`; `ci.yml` also posts the summary as a PR comment that each push edits in place.
+Nothing here is published to Pages — `deploy-pages.yml` uploads `output/wwwroot` only.
 
 Cake is the definition of what a build is: the workflows call it and nothing else, `Release`
 gates the deploy on every suite, and the `cake/` project is in the solution but marked

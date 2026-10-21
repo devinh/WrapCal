@@ -84,9 +84,8 @@ public sealed class LayoutSteps : StepsBase
 
     [Given("a phone's width")]
     public async Task GivenAPhonesWidthAsync() =>
-        // Narrow enough to drop below every breakpoint the page uses, and the case the row and the
-        // table were both broken at. Everything after this runs on the same page, so the width
-        // survives the navigations the later steps do.
+        // Narrow enough to drop below every breakpoint — where the row and table were both broken.
+        // The width survives the later navigations on this page.
         await Ui.Page.SetViewportSizeAsync(390, 844);
 
     [Then("the Remove button should share a line with the box's dimensions")]
@@ -440,17 +439,11 @@ public sealed class LayoutSteps : StepsBase
 
     private async Task WheelOverDiagramAsync(int turns, int deltaPerTurn)
     {
-        // Dispatched rather than driven through Playwright's mouse. On Firefox its synthetic wheel
-        // does not arrive carrying the pointer coordinates a real one does, so the handler — which
-        // scopes the gesture by where the pointer is, because the event's target cannot be relied
-        // on — never sees it and the zoom does not move. A real wheel event does carry them, so
-        // this gives the handler exactly the fields a browser would.
-        //
-        // The cost is real: no automated test now proves a physical mouse wheel reaches the
-        // handler on Firefox. This covers everything downstream of the event arriving.
-        //
-        // Delivered at the noted cut when a scenario has noted one, so a zoom can be aimed at a
-        // point the test then checks stayed put; otherwise at the middle of the drawing.
+        // Dispatched, not driven through Playwright's mouse: on Firefox its synthetic wheel arrives
+        // without the pointer coordinates the handler scopes by, so the zoom never moves. A real
+        // wheel carries them. This covers everything downstream of the event arriving, but no
+        // automated test now proves a physical wheel reaches the handler on Firefox. Aimed at the
+        // noted cut when a scenario has one, otherwise the middle of the drawing.
         double[]? noted = Context.ContainsKey(CutUnderPointer)
             ? Context.Get<double[]>(CutUnderPointer)
             : null;
@@ -523,10 +516,9 @@ public sealed class LayoutSteps : StepsBase
     }
 
     /// <summary>
-    /// How many pixels the paper spans across the roll. The scale is pinned by the roll width, so
-    /// this is constant however many boxes there are — unless the drawing is scaled to fit, when
-    /// it shrinks with every box added. Read off the drawn paper rather than the &lt;svg&gt;: the
-    /// element is told to fill its frame either way, so only its contents show the scale.
+    /// Pixels the paper spans across the roll: constant however many boxes there are, unless the
+    /// drawing is scaled to fit, when it shrinks with every box added. Read off the drawn paper
+    /// rather than the &lt;svg&gt;, which is told to fill its frame either way.
     /// </summary>
     private async Task<double> CrossRollExtentAsync()
     {
@@ -546,9 +538,9 @@ public sealed class LayoutSteps : StepsBase
     }
 
     /// <summary>
-    /// Whether the drawing spills out of its scroller, reported as (along the roll, across it).
-    /// The roll's own axis depends on which way the drawing faces, so it is read from the
-    /// scroller's direction class rather than assumed.
+    /// Whether the drawing spills out of its scroller, as (along the roll, across it). Which axis
+    /// is the roll's depends on which way the drawing faces, so it is read from the scroller's
+    /// direction class rather than assumed.
     /// </summary>
     private async Task<(bool AlongRoll, bool AcrossRoll)> OverflowAsync()
     {

@@ -209,19 +209,15 @@ public class PlanWrapLogicTests
     [Test]
     public async Task Overlap_margin_is_exactly_the_seam_overlap()
     {
-        // A 22 x 15 x 4 book wraps around its width, so the paper goes round the 22 x 4 end in
-        // 2 * (22 + 4) = 52cm, and needs 15 + min(22, 4) = 19cm along the box: the fold-over
-        // closes the 22 x 4 end face, and half its SHORTER side per end is enough, because the
-        // flaps that meet in the middle already span the longer direction. Each dimension has
-        // exactly one seam to close, so the margin is added once to each: with 0 the paper meets
-        // without overlapping anywhere.
+        // A 22 x 15 x 4 book wraps around its width: the paper goes round the 22 x 4 end in
+        // 2 * (22 + 4) = 52cm and needs 15 + min(22, 4) = 19cm along the box, because half the
+        // shorter side per end is enough once the flaps meeting in the middle span the longer
+        // direction. Each dimension has exactly one seam to close, so the margin is added once.
         //
-        // All three sides differ on purpose. A cube cannot tell min from max — the two sides are
-        // equal — which is how the fold-over came to be using the larger one unnoticed; and a box
-        // with two equal sides is only half better, because its axes produce duplicate sheets
-        // that the dedupe merges, so only two distinct orientations get exercised. Here all three
-        // axes compute differently, and the same one is chosen at both margins, so the "grows by
-        // exactly the margin" claim is about one sheet rather than two.
+        // All three sides differ on purpose. A cube cannot tell min from max — how the fold-over
+        // came to use the larger one unnoticed — and a box with two equal sides merges duplicate
+        // sheets, so only two orientations get exercised. Here all three axes compute differently,
+        // and the same sheet is chosen at both margins.
         WrapPlan without = OneBox(new GiftBox("Book", 22, 15, 4), overlapMargin: 0);
         WrapPlan with = OneBox(new GiftBox("Book", 22, 15, 4), overlapMargin: 2);
 
@@ -495,18 +491,14 @@ public class PlanWrapLogicTests
     [Test]
     public async Task Produces_a_known_plan_for_a_known_input()
     {
-        // Golden test. The invariant tests above check that a plan is *valid*; none of them
-        // check that it is *good*. A refactor could quietly double the roll length used and
-        // every other test here would still pass. This pins the actual output.
+        // Golden test. The invariant tests above check that a plan is *valid*; this pins that it
+        // is *good* — a refactor could double the roll length used and every other test here would
+        // still pass. Seeded, so it is reproducible: if these numbers move, the optimizer's
+        // behavior changed, and re-baselining is a deliberate decision.
         //
-        // Seeded, so it is reproducible. If these numbers move, the optimizer's behavior
-        // changed — treat that as a deliberate decision to re-baseline, not an accident.
-        //
-        // Eight varied boxes on a 40in roll. Eight is under the exhaustive solver's limit, so
-        // this pins an *optimal* plan rather than a searched one — 265, which the solver
-        // confirms is the best layout there is for these boxes. The guard on the search itself
-        // lives in Produces_a_known_plan_above_the_exact_threshold, because nothing here
-        // exercises the search any more.
+        // Eight boxes is under the exhaustive solver's limit, so this pins an *optimal* plan (the
+        // solver confirms 265 is the best there is); the search is guarded by
+        // Produces_a_known_plan_above_the_exact_threshold instead.
         GiftBox[] boxes =
         [
             new("A", 20, 14, 6), new("B", 15, 15, 15), new("C", 8, 8, 2),

@@ -104,14 +104,10 @@
                                      HelperText=" " Class="wrapcal-message-slot" />
                 </MudItem>
 
-                @* Sits on the line of the inputs rather than the center of the field: a Mud field is
-                   taller than its input by the floating label above it and the reserved message line
-                   below, so a button centered on the control hangs about 16px below the inputs.
-
-                   Full width on a phone gave it a line of its own under the row, which read as a
-                   stray button floating in whitespace. It now sits at the end of the dimensions
-                   instead: the Name takes the first line by itself and the three fields plus the
-                   button share the second, and from sm up all five share one. *@
+                @* Aligned to the top of the input, not the center of the field: a Mud field is taller
+                   than its input by the floating label and the reserved message line, so a centered
+                   button hangs about 16px below the row. Full width put it on a line of its own on a
+                   phone, reading as a stray button, so it ends the dimensions instead. *@
                 <MudItem xs="3" sm="2" md="2" Class="d-flex justify-end"
                          Style="align-self: flex-start; margin-top: 0.5rem">
                     @* Named for its row: every button saying "Remove this box" gives a screen

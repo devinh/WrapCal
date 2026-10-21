@@ -4,12 +4,9 @@ using WrapCal.Common;
 namespace WrapCal.Features.PlanWrap;
 
 /// <summary>
-/// Turns a set of boxes plus roll options into a cut plan.
-/// <para>
-/// Ported from the reference implementation at the repository root. All maths runs in
-/// centimeters; units are converted in once at the start and out once at the end, which keeps
-/// the packing code free of unit handling.
-/// </para>
+/// Turns boxes plus roll options into a cut plan. Ported from the reference implementation at the
+/// repository root; all maths runs in centimeters, converted in once and out once so the packing
+/// code stays free of units.
 /// </summary>
 public static class PlanWrapLogic
 {
@@ -247,14 +244,10 @@ public static class PlanWrapLogic
     }
 
     /// <summary>
-    /// Gives every box of the same size the same piece of paper.
-    /// <para>
-    /// A plan is instructions for someone with scissors, and three identical presents cut from
-    /// three differently sized sheets reads as a mistake even where the packer gains a centimeter
-    /// by mixing them. Each group is reduced to one piece — the sheet that wraps that box best on
-    /// its own, which is the choice a single-box plan already makes — while both rotations of it
-    /// stay available, so the pieces can still be turned to share a shelf.
-    /// </para>
+    /// Gives every box of the same size the same piece of paper: a plan is instructions for someone
+    /// with scissors, and identical presents cut from differently sized sheets reads as a mistake.
+    /// Each group keeps its best single sheet, both rotations included, so pieces can still share a
+    /// shelf.
     /// </summary>
     private static List<List<SheetOption>> UniformPieces(
         List<GiftBox> boxes,

@@ -3,7 +3,6 @@ using Reqnroll;
 
 namespace WrapCal.FunctionalTests.StepDefinitions;
 
-/// <summary>Setting the form up: the roll, the boxes, and the controls that change them.</summary>
 [Binding]
 public sealed class FormSteps : StepsBase
 {
@@ -84,9 +83,8 @@ public sealed class FormSteps : StepsBase
         // badly in a feature file.
         await PickAsync(Ui.Page.Locator("[data-testid='roll-direction']"), direction);
 
-        // Changing direction redraws the diagram, and the scroller is re-keyed, so the previous
-        // drawing's elements are detached for a moment. Waiting for the new scroller to carry this
-        // direction's axis means the next step measures the drawing it means to — reading a
+        // Changing direction re-keys the scroller, detaching the old drawing for a moment. Waiting
+        // for the new scroller means the next step measures the drawing it means to; reading a
         // bounding box in between comes back null.
         await Ui.Page.WaitForFunctionAsync(
             """
@@ -101,9 +99,8 @@ public sealed class FormSteps : StepsBase
     }
 
     /// <summary>
-    /// Returns the row for the next box, clicking Add box when one is needed. The click only adds
-    /// a row after a render, so this waits for the row to appear — re-checking the
-    /// count immediately used to add a row per retry and leave phantom boxes behind.
+    /// Returns the next box row, clicking Add box when needed. The row only appears after a
+    /// render, and re-checking the count immediately used to add a row per retry.
     /// </summary>
     private async Task<ILocator> NextBoxRowAsync()
     {
