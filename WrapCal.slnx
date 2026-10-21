@@ -1,4 +1,11 @@
 <Solution>
+  <Folder Name="/cake/">
+    <!-- Listed so it is edited and formatted like the rest of the repo, but never built by the
+         solution: the build script cannot be rebuilt while it is the thing running the build. -->
+    <Project Path="cake/cake.csproj">
+      <Build Project="false" />
+    </Project>
+  </Folder>
   <Folder Name="/src/">
     <Project Path="src/WrapCal/WrapCal.csproj" />
   </Folder>
