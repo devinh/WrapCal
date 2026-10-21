@@ -337,9 +337,11 @@ Read this before changing the maths. Every point here has been got wrong once al
 - **Zoom is gesture-only, continuous, and 100% is the only value that claims anything.** Ctrl/Cmd
   + wheel and pinch everywhere, two fingers on a touchscreen, no on-screen control: a slider lived
   above the drawing briefly and was removed — it competed with the drawing for the eye and was the
-  one part of zoom that nothing else needed. The wheel scales by a **ratio** (`1.1` per 120 of
+  one part of zoom that nothing else needed. The wheel scales by a **ratio** (`1.5` per 120 of
   delta), so a mouse notch is one ratio and a trackpad's stream of small deltas glides; that is why
-  nothing accumulates any more. Scale is applied by multiplying the pinned dimension through
+  nothing accumulates any more. The ratio is a calibration, not a derivation: Safari reports a
+  pinch as the finger spread itself, Chromium and Firefox as ctrl+wheel in pixel deltas, and the two
+  only feel alike if this number is tuned. Expect to adjust it by hand on real trackpads. Scale is applied by multiplying the pinned dimension through
   `--diagram-zoom` — sizing rather than `transform: scale()`, because a transform leaves the layout
   box alone and the scrollbars would describe the unscaled drawing.
 - **There is no keyboard path to zoom, and that is a known gap.** Gestures are the only input, so a
@@ -349,6 +351,10 @@ Read this before changing the maths. Every point here has been got wrong once al
   adding boxes, so they hold whatever the starting zoom is;
   `Starts_the_zoom_at_one_hundred_percent` and the readout assertions in `Layout.feature` are what
   pin it.
+- **A pinch in progress silences the wheel.** Safari reports a pinch as gesture events, Chromium and
+  Firefox as ctrl+wheel. If a browser ever reports both, honouring both would zoom twice there and
+  once elsewhere — which reads as "the zoom is faster on Safari". `ZoomByWheelAsync` therefore
+  returns early between `gesturestart` and `gestureend`. Cheap, and a no-op where it does not apply.
 - **Test the interaction a person uses, not a shortcut past it.** Zoom was once on a slider whose
   tests drove it with an arrow key: they passed on Firefox while the mouse drag did nothing, which
   is how a broken control reached a reader. Whatever replaces a control like that, drive it the way

@@ -31,7 +31,7 @@ Feature: Layout stability
     When I plan the wrap
     And I note the drawing's scale
     And a Ctrl wheel of one notch arrives over the diagram
-    Then the zoom should read 110%
+    Then the zoom should read 150%
     And the drawing's scale should match the zoom
 
   Scenario: A trackpad pinch zooms as much in small turns as in one
@@ -42,7 +42,7 @@ Feature: Layout stability
     When I plan the wrap
     And I note the drawing's scale
     And a Ctrl wheel of four small turns arrives over the diagram
-    Then the zoom should read 110%
+    Then the zoom should read 150%
     And the drawing's scale should match the zoom
 
   Scenario: A Safari gesture pinch enlarges the drawing

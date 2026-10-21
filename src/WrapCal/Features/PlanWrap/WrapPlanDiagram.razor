@@ -128,8 +128,13 @@ else
     /// <summary>One notch of a mouse wheel. A trackpad sends smaller deltas that scale by less.</summary>
     private const double WheelNotch = 120;
 
-    /// <summary>How much one notch changes the scale: a ratio, so zooming out undoes zooming in.</summary>
-    private const double ZoomPerNotch = 1.1;
+    /// <summary>
+    /// How much one notch's worth of delta (120) changes the scale: a ratio, so zooming out undoes
+    /// zooming in. Chrome and Firefox deliver a trackpad pinch as ctrl+wheel in pixel deltas, so
+    /// this is what decides whether a pinch feels like Safari's, which reports the finger spread
+    /// directly and is taken at face value.
+    /// </summary>
+    private const double ZoomPerNotch = 1.5;
 
     private string _uid = string.Empty;
 
@@ -138,6 +143,11 @@ else
     // What a pinch started at, so the ratio it reports applies to the zoom it began from rather
     // than compounding on every event.
     private double _gestureBaseZoomPercent = 100;
+
+    // True between gesturestart and gestureend. Safari reports a pinch as gesture events while
+    // Chromium and Firefox report it as ctrl+wheel; if a browser ever reports both, honouring both
+    // would apply the pinch twice and zoom further there than anywhere else.
+    private bool _gestureActive;
 
     private ElementReference _figure;
     private DotNetObjectReference<WrapPlanDiagram>? _self;
@@ -180,19 +190,31 @@ else
 
     [JSInvokable]
     public Task ZoomByWheelAsync(double deltaY) => InvokeAsync(() =>
+    {
+        // A pinch in progress is the authority; a wheel alongside it would double it up.
+        if (_gestureActive)
+        {
+            return;
+        }
+
         // Wheel up is a negative delta and should zoom in. A ratio per notch means a trackpad's
         // smaller deltas scale by less, which is what makes it smooth; nothing accumulates.
-        ApplyZoom(_zoomPercent * Math.Pow(ZoomPerNotch, -deltaY / WheelNotch)));
+        ApplyZoom(_zoomPercent * Math.Pow(ZoomPerNotch, -deltaY / WheelNotch));
+    });
 
     [JSInvokable]
-    public Task BeginZoomGestureAsync() => InvokeAsync(() => _gestureBaseZoomPercent = _zoomPercent);
+    public Task BeginZoomGestureAsync() => InvokeAsync(() =>
+    {
+        _gestureActive = true;
+        _gestureBaseZoomPercent = _zoomPercent;
+    });
 
     [JSInvokable]
     public Task ZoomByRatioAsync(double ratio) =>
         InvokeAsync(() => ApplyZoom(_gestureBaseZoomPercent * ratio));
 
     [JSInvokable]
-    public Task EndZoomGestureAsync() => Task.CompletedTask;
+    public Task EndZoomGestureAsync() => InvokeAsync(() => _gestureActive = false);
 
     private void ApplyZoom(double percent)
     {

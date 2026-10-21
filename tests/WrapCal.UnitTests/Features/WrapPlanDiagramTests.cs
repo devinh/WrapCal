@@ -24,10 +24,10 @@ public class WrapPlanDiagramTests : WrapCalBunitContext
     {
         var cut = Render<WrapPlanDiagram>(parameters => parameters.Add(p => p.Plan, OneBoxPlan()));
 
-        // One notch of a mouse wheel, upwards, which zooms in by a ratio rather than a step.
+        // One notch of a mouse wheel, upwards: a ratio of 1.5 rather than a step of 25.
         await cut.Instance.ZoomByWheelAsync(-120);
 
-        await Assert.That(cut.Find("[data-testid='zoom-level']").TextContent).IsEqualTo("110%");
+        await Assert.That(cut.Find("[data-testid='zoom-level']").TextContent).IsEqualTo("150%");
     }
 
     [Test]
@@ -43,7 +43,7 @@ public class WrapPlanDiagramTests : WrapCalBunitContext
             await cut.Instance.ZoomByWheelAsync(-30);
         }
 
-        await Assert.That(cut.Find("[data-testid='zoom-level']").TextContent).IsEqualTo("110%");
+        await Assert.That(cut.Find("[data-testid='zoom-level']").TextContent).IsEqualTo("150%");
     }
 
     [Test]
@@ -64,6 +64,26 @@ public class WrapPlanDiagramTests : WrapCalBunitContext
         }
 
         await Assert.That(cut.Find("[data-testid='zoom-level']").TextContent).IsEqualTo("25%");
+    }
+
+    [Test]
+    public async Task Ignores_the_wheel_while_a_pinch_is_in_progress()
+    {
+        // A browser that reports a pinch as both gesture events and ctrl+wheel would otherwise
+        // zoom twice there and once everywhere else — which is what "faster on Safari" looks like.
+        var cut = Render<WrapPlanDiagram>(parameters => parameters.Add(p => p.Plan, OneBoxPlan()));
+
+        await cut.Instance.BeginZoomGestureAsync();
+        await cut.Instance.ZoomByRatioAsync(1.5);
+        await cut.Instance.ZoomByWheelAsync(-120);
+
+        await Assert.That(cut.Find("[data-testid='zoom-level']").TextContent).IsEqualTo("150%");
+
+        // Once the gesture ends the wheel is heard again.
+        await cut.Instance.EndZoomGestureAsync();
+        await cut.Instance.ZoomByWheelAsync(-120);
+
+        await Assert.That(cut.Find("[data-testid='zoom-level']").TextContent).IsEqualTo("225%");
     }
 
     [Test]
