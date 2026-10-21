@@ -277,13 +277,18 @@ public class WrapPlanDiagramTests : WrapCalBunitContext
     // reader's eye. Its axis follows the roll, and it is laid out from the far end exactly when the
     // origin is at that end — which is what makes it open on the origin.
     [Test]
-    [Arguments(RollDirection.Down, "is-vertical", false)]
-    [Arguments(RollDirection.Up, "is-vertical", true)]
-    [Arguments(RollDirection.Right, "is-horizontal", false)]
-    [Arguments(RollDirection.Left, "is-horizontal", true)]
-    public async Task Scrolls_along_the_roll_from_the_end_the_origin_is_on(
-        RollDirection direction, string axis, bool reversed)
+    [Arguments(RollDirection.Down, "is-vertical")]
+    [Arguments(RollDirection.Up, "is-vertical")]
+    [Arguments(RollDirection.Left, "is-horizontal")]
+    [Arguments(RollDirection.Right, "is-horizontal")]
+    public async Task Lays_the_scroller_out_along_the_roll(
+        RollDirection direction, string axis)
     {
+        // Which end the scroller opens at is no longer a layout trick: a reversed row packed its
+        // content against the right edge, which put a left-running drawing on the wrong side of
+        // its frame and made its scroll offsets run backwards. Opening at the origin is a scroll
+        // call now (wrapcalDiagram.openAtOrigin), exercised by the browser suite's
+        // "the origin should be in view" outline for all four directions.
         var cut = Render<WrapPlanDiagram>(parameters => parameters
             .Add(p => p.Plan, OneBoxPlan())
             .Add(p => p.Direction, direction));
@@ -291,7 +296,7 @@ public class WrapPlanDiagramTests : WrapCalBunitContext
         string classes = cut.Find(".diagram-scroller").GetAttribute("class") ?? string.Empty;
 
         await Assert.That(classes).Contains(axis);
-        await Assert.That(classes.Contains("is-reversed")).IsEqualTo(reversed);
+        await Assert.That(classes.Contains("is-reversed")).IsFalse();
     }
 
     private static WrapPlan TwoBoxPlan() =>

@@ -91,6 +91,18 @@ Feature: Layout stability
       | Left      |
       | Right     |
 
+  Scenario Outline: The drawing hugs the left of its frame
+    Given a roll 30 cm wide with an overlap of 0.5
+    And 2 identical boxes measuring 8 by 6 by 4
+    When I plan the wrap
+    And I set the roll orientation to <direction>
+    Then the drawing should sit at the left of its frame
+
+    Examples:
+      | direction |
+      | Left      |
+      | Right     |
+
   Scenario: The sign-off sits in the middle of the page
     Given the plan page
     Then the sign-off should be centered

@@ -186,8 +186,11 @@ else
             _self = DotNetObjectReference.Create(this);
             await Js.InvokeVoidAsync("wrapcalDiagram.attach", _figure, _self);
             _listening = true;
-            return;
         }
+
+        // After the render that changed the plan or the direction, not on every render: otherwise
+        // a zoom would drag the reader back to the origin.
+        await OpenAtOriginAsync();
 
         if (_zoomApplied)
         {
@@ -262,18 +265,33 @@ else
     private bool IsHorizontal => Direction is RollDirection.Left or RollDirection.Right;
 
     /// <summary>
-    /// The scroll axis follows the roll, and <c>is-reversed</c> marks the directions whose origin
-    /// sits at the far end — laying the scroller out from that end is what makes it open there.
+    /// The scroll axis follows the roll. It is not laid out backwards for the directions whose
+    /// origin is at the far end: a reversed row packs its content against the right edge, which
+    /// put a left-running drawing on the wrong side of its frame, and its scroll offsets run the
+    /// other way so a scroll correction has to guess its direction. Opening at the origin is a
+    /// scroll call instead — see <see cref="OpenAtOriginAsync"/>.
     /// </summary>
-    private string ScrollerClass
-    {
-        get
-        {
-            string axis = IsHorizontal ? "is-horizontal" : "is-vertical";
-            bool reversed = Direction is RollDirection.Up or RollDirection.Left;
+    private string ScrollerClass =>
+        IsHorizontal ? "diagram-scroller is-horizontal" : "diagram-scroller is-vertical";
 
-            return reversed ? $"diagram-scroller {axis} is-reversed" : $"diagram-scroller {axis}";
+    /// <summary>What the scroller is keyed on, so it is only re-opened when that changes.</summary>
+    private (WrapPlan Plan, RollDirection Direction)? _opened;
+
+    private async Task OpenAtOriginAsync()
+    {
+        if (_opened is { } opened && ReferenceEquals(opened.Plan, Plan) && opened.Direction == Direction)
+        {
+            return;
         }
+
+        _opened = (Plan, Direction);
+
+        // Up and Left put the origin at the far end of the drawing; the others start at zero.
+        await Js.InvokeVoidAsync(
+            "wrapcalDiagram.openAtOrigin",
+            _figure,
+            Direction is RollDirection.Left,
+            Direction is RollDirection.Up);
     }
 
     // Extents of the paper as drawn, which swap when the roll runs horizontally.

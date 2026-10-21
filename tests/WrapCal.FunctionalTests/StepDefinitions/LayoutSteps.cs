@@ -210,6 +210,26 @@ public sealed class LayoutSteps : StepsBase
 
         await Assert.That(alongRoll || acrossRoll).IsTrue();
 
+        // Opening at the origin is a scroll call made after the render rather than a layout trick,
+        // so the position has to arrive before it can be read.
+        await Ui.Page.WaitForFunctionAsync(
+            """
+            () => {
+                const scroller = document.querySelector(".diagram-scroller");
+                const dot = document.querySelector(".origin-dot");
+                if (!scroller || !dot) return false;
+
+                const s = scroller.getBoundingClientRect();
+                const d = dot.getBoundingClientRect();
+                const x = d.left + (d.width / 2);
+                const y = d.top + (d.height / 2);
+
+                return x >= s.left && x <= s.right && y >= s.top && y <= s.bottom;
+            }
+            """,
+            null,
+            new PageWaitForFunctionOptions { Timeout = 10_000 });
+
         // Bounding boxes are in viewport coordinates, so this accounts for the scroll position
         // however it was arrived at.
         var origin = (await Ui.Page.Locator(".origin-dot").BoundingBoxAsync())!;
@@ -263,26 +283,70 @@ public sealed class LayoutSteps : StepsBase
     [When("I note the cut under the pointer")]
     public async Task WhenINoteTheCutUnderThePointerAsync()
     {
-        // A point inside a cut, not the middle of the drawing: the middle can fall in the gap
-        // between slices, which anchors nothing and would have made this test pass vacuously.
+        // A point on a cut near the middle of the frame. Picked by proximity rather than by
+        // document order: a mirrored layout puts the first cut at the far end, so "the first big
+        // one" can sit outside the frame entirely and the pointer would never be over the drawing.
         double[] noted = await Ui.Page.EvaluateAsync<double[]>(
             """
             () => {
-                const cuts = [...document.querySelectorAll(".wrap-diagram g.cut rect")];
+                // Start from the middle of the scroll range: Up and Left open at the far end, and
+                // nothing can scroll past an end.
+                const scroller = document.querySelector(".diagram-scroller");
+                scroller.scrollLeft = (scroller.scrollWidth - scroller.clientWidth) / 2;
+                scroller.scrollTop = (scroller.scrollHeight - scroller.clientHeight) / 2;
 
-                for (let i = 0; i < cuts.length; i++) {
-                    const r = cuts[i].getBoundingClientRect();
+                const frame = scroller.getBoundingClientRect();
+                const middleX = frame.left + (frame.width / 2);
+                const middleY = frame.top + (frame.height / 2);
 
-                    if (r.width > 12 && r.height > 12) {
-                        return [i, r.left + (r.width / 2), r.top + (r.height / 2)];
+                let best = -1;
+                let bestDistance = Number.MAX_VALUE;
+                let point = [0, 0];
+
+                [...document.querySelectorAll(".wrap-diagram g.cut rect")].forEach((cut, i) => {
+                    const r = cut.getBoundingClientRect();
+
+                    if (r.width <= 12 || r.height <= 12) {
+                        return;
                     }
-                }
 
-                return [-1, 0, 0];
+                    const x = r.left + (r.width / 2);
+                    const y = r.top + (r.height / 2);
+                    const distance = Math.hypot(x - middleX, y - middleY);
+
+                    if (distance < bestDistance) {
+                        bestDistance = distance;
+                        best = i;
+                        point = [x, y];
+                    }
+                });
+
+                return [best, point[0], point[1]];
             }
             """);
 
         Context.Set(noted, CutUnderPointer);
+    }
+
+    [Then("the drawing should sit at the left of its frame")]
+    public async Task ThenTheDrawingShouldSitAtTheLeftAsync()
+    {
+        // A drawing narrower than its frame used to land on the right for Left, because a reversed
+        // row packs its content against the right edge.
+        double edge = await Ui.Page.EvaluateAsync<double>(
+            """
+            () => {
+                const scroller = document.querySelector(".diagram-scroller");
+
+                // The svg, not the paper: the drawing is inset from its box by the gutter that
+                // frames the roll, so the paper is legitimately a little in from the edge.
+                return scroller.querySelector("svg").getBoundingClientRect().left
+                    - scroller.getBoundingClientRect().left;
+            }
+            """);
+
+        await Assert.That(edge).IsGreaterThanOrEqualTo(-1.0);
+        await Assert.That(edge).IsLessThan(2.0);
     }
 
     [Then("the drawing should be scrollable across its whole width")]
@@ -298,9 +362,7 @@ public sealed class LayoutSteps : StepsBase
                 const paper = scroller.querySelector(".paper");
                 const max = scroller.scrollWidth - scroller.clientWidth;
 
-                // Driven to absurd values so the browser clamps to whichever end it counts from:
-                // a reversed scroller measures its offsets the other way round, so 0 and max are
-                // not the two extremes there.
+                // Driven to absurd values so the browser clamps to whichever end it counts from.
                 scroller.scrollLeft = -1e7;
                 const start = paper.getBoundingClientRect().left;
                 scroller.scrollLeft = 1e7;

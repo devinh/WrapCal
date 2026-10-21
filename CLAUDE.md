@@ -309,15 +309,21 @@ Read this before changing the maths. Every point here has been got wrong once al
   end annotations. Without it the drawing read as zoomed in too far, since the paper sat flush
   against the border. The number is the `Gutter` constant in `WrapPlanDiagram.razor`, tuned by
   eye rather than derived, so change it there and nowhere else.
-- **The scroller opens at the origin, with no script.** It is a flex container, and
-  `is-reversed` — set for Up and Left, whose origin is at the far end — lays it out from that
-  end (`column-reverse` / `row-reverse`), which puts the initial scroll there too. Verified
-  in the browser and mutation-checked: forcing `column`/`row` fails the Up and Left examples.
-- **The drawing fills the frame and its content hugs the top-left.** The SVG takes
-  `min-width`/`min-height: 100%` of the scroller and `preserveAspectRatio="xMinYMin meet"`, so a
-  short plan has no dead space beside it for a reversed scroller to pack it against. Without this
-  a Left or Up diagram that fits sat against the far edge — right or bottom — with a large empty
-  gap, which reads as the drawing being shoved out of place. Do not "restore" `xMidYMid`: that
+- **The scroller opens at the origin from script, not by being laid out backwards.** Up and Left
+  put the origin at the far end, and the scroller used to be `column-reverse` / `row-reverse` for
+  them so the initial scroll landed there. That reversal cost two things: a reversed row packs its
+  content against the *right* edge, so a left-running drawing sat on the wrong side of its frame,
+  and its scroll offsets run the other way, which made every scroll correction guess its direction.
+  `wrapcalDiagram.openAtOrigin` now sets the offset past the end and lets the browser clamp, once
+  per `(Plan, Direction)` — never per render, or a zoom would drag the reader back to the origin.
+  The cost is honest: this is the one place the layout no longer opens at the origin without
+  script, and the position arrives a frame after the drawing does.
+- **The drawing hugs the top-left of its frame, and is its own size along the roll.** The vertical
+  scroller's svg takes `min-height: 100%` so a short plan has no dead space above it, while the
+  horizontal one takes `min-width: 0`: a frame-wide box scrolls while the drawing inside it does
+  not, so the far end of a long sideways plan became unreachable — `the drawing should be scrollable
+  across its whole width` pins that. Left alignment then comes free from a plain row, which is what
+  the reversal used to take away. Do not "restore" `xMidYMid`: that
   re-centers the content in the filled frame. `justify-content: flex-end` and auto margins were
   both tried first and both push overflowing content toward a start the scrollbar cannot reach,
   taking the origin out of view; `safe flex-end` is the right idea but WebKit does not honor it.

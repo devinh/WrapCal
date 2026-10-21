@@ -229,6 +229,24 @@ window.wrapcalDiagram = {
         };
     },
 
+    /// Opens the scroller at the end the roll was cut from. Up and Left put the origin at the far
+    /// end; the offsets are set past the end and clamped, so one call covers both.
+    openAtOrigin: function (element, toEndX, toEndY) {
+        const scroller = element.querySelector(".diagram-scroller");
+
+        if (!scroller) {
+            return;
+        }
+
+        if (toEndX) {
+            scroller.scrollLeft = scroller.scrollWidth;
+        }
+
+        if (toEndY) {
+            scroller.scrollTop = scroller.scrollHeight;
+        }
+    },
+
     /// Puts the point a gesture started on back under the pointer. Called after the zoom has been
     /// rendered, since it has to measure the drawing at its new size.
     anchor: function (element) {

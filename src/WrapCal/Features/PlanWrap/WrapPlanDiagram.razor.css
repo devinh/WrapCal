@@ -60,14 +60,6 @@
     min-width: 0;
 }
 
-.diagram-scroller.is-vertical.is-reversed {
-    flex-direction: column-reverse;
-}
-
-.diagram-scroller.is-horizontal.is-reversed {
-    flex-direction: row-reverse;
-}
-
 /* Every color comes from MudBlazor's palette, so the drawing is drawn in the theme it is shown
    in rather than being a fixed light-mode picture dropped onto a dark page.
 
