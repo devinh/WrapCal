@@ -59,8 +59,11 @@ Feature: Layout stability
   Scenario Outline: Zooming keeps the drawing under the pointer
     # Up and Left lay the scroller out from the far end, so a scroll correction runs the other way
     # there — and Up is the default, which makes the reversed case the common one.
+    #
+    # Twelve boxes rather than three: the correction is a scroll correction, and a short sideways
+    # plan is smaller than its frame, so there would be nothing to scroll and nothing to test.
     Given a roll 30 cm wide with an overlap of 0.5
-    And 3 identical boxes measuring 8 by 6 by 4
+    And 12 identical boxes measuring 8 by 6 by 4
     When I plan the wrap
     And I set the roll orientation to <direction>
     And I note the cut under the pointer
@@ -72,6 +75,19 @@ Feature: Layout stability
       | direction |
       | Top       |
       | Bottom    |
+      | Left      |
+      | Right     |
+
+  Scenario Outline: A zoomed sideways plan scrolls end to end
+    Given a roll 30 cm wide with an overlap of 0.5
+    And 12 identical boxes measuring 8 by 6 by 4
+    When I plan the wrap
+    And I set the roll orientation to <direction>
+    And a Ctrl wheel of one notch arrives over the diagram
+    Then the drawing should be scrollable across its whole width
+
+    Examples:
+      | direction |
       | Left      |
       | Right     |
 

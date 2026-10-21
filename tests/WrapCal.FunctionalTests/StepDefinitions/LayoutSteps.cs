@@ -285,6 +285,35 @@ public sealed class LayoutSteps : StepsBase
         Context.Set(noted, CutUnderPointer);
     }
 
+    [Then("the drawing should be scrollable across its whole width")]
+    public async Task ThenTheDrawingShouldBeScrollableAsync()
+    {
+        // Scrolling from one end to the other must move the drawing by exactly the scrollable
+        // distance. It does not when the drawing is letterboxed inside a frame-wide box: then the
+        // box scrolls and the drawing inside it does not, and its far end cannot be reached at all.
+        double[] result = await Ui.Page.EvaluateAsync<double[]>(
+            """
+            () => {
+                const scroller = document.querySelector(".diagram-scroller");
+                const paper = scroller.querySelector(".paper");
+                const max = scroller.scrollWidth - scroller.clientWidth;
+
+                // Driven to absurd values so the browser clamps to whichever end it counts from:
+                // a reversed scroller measures its offsets the other way round, so 0 and max are
+                // not the two extremes there.
+                scroller.scrollLeft = -1e7;
+                const start = paper.getBoundingClientRect().left;
+                scroller.scrollLeft = 1e7;
+                const end = paper.getBoundingClientRect().left;
+
+                return [max, Math.abs(start - end)];
+            }
+            """);
+
+        await Assert.That(result[0]).IsGreaterThan(1.0);
+        await Assert.That(Math.Abs(result[0] - result[1])).IsLessThan(2.0);
+    }
+
     [Then("the cut under the pointer should not have moved")]
     public async Task ThenTheCutUnderThePointerShouldNotHaveMovedAsync()
     {

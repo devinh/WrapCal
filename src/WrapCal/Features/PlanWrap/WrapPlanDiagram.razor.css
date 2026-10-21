@@ -54,7 +54,10 @@
 .diagram-scroller.is-horizontal svg {
     width: auto;
     height: calc(clamp(220px, 45vh, 420px) * var(--diagram-zoom, 1));
-    min-width: 100%;
+    /* No min-width: the drawing is exactly as big as it is, so both ends of a long plan are
+       reachable by scrolling. Stretching it to the frame letterboxed the drawing inside a wider
+       box, and the part beyond that box could not be scrolled to. */
+    min-width: 0;
 }
 
 .diagram-scroller.is-vertical.is-reversed {

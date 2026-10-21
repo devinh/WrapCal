@@ -23,9 +23,8 @@ window.wrapcalDiagram = {
         // conversion exactly, letterboxing included.
         let anchor = null;
 
-        // Measured through the drawing group rather than the <svg>: a translate on the group is
-        // invisible to the svg's matrix, so a drift corrected that way would never look corrected
-        // and would be rolled back.
+        // Measured through the drawing group rather than the <svg>: the group is the space the
+        // drawing is laid out in, so if anything is ever applied to it the measurement follows.
         function drawing(svg) {
             return svg.querySelector("g.drawing") || svg;
         }
@@ -85,50 +84,9 @@ window.wrapcalDiagram = {
                 }
             }
 
-            // Scroll only moves content that overflows. A sideways drawing is only as wide as its
-            // own length, so a short plan sits inside the frame with nothing to scroll — there the
-            // drawing itself has to move. A transform on the drawing group rather than on the
-            // <svg>: the svg's box has to keep describing the space the scroll offsets refer to.
-            function translate(axis, pixels) {
-                const group = svg.querySelector("g.drawing");
-
-                if (!group) {
-                    return;
-                }
-
-                const matrix = drawing(svg).getScreenCTM();
-
-                if (!matrix) {
-                    return;
-                }
-
-                // Screen pixels to user units, through the scale the drawing is currently drawn at.
-                const scale = axis === "x" ? matrix.a : matrix.d;
-                const shift = pixels / scale;
-
-                const current = group.transform.baseVal.consolidate();
-                const existing = current ? current.matrix : new DOMMatrix();
-                const dx = axis === "x" ? shift : 0;
-                const dy = axis === "y" ? shift : 0;
-
-                group.setAttribute(
-                    "transform",
-                    `translate(${existing.e + dx} ${existing.f + dy})`);
-            }
-
-            function restore(scrollerLeft, scrollerTop, transform) {
+            function restore(scrollerLeft, scrollerTop) {
                 scroller.scrollLeft = scrollerLeft;
                 scroller.scrollTop = scrollerTop;
-
-                const group = svg.querySelector("g.drawing");
-
-                if (group) {
-                    if (transform === null) {
-                        group.removeAttribute("transform");
-                    } else {
-                        group.setAttribute("transform", transform);
-                    }
-                }
             }
 
             // Which way a scroll offset moves the content depends on the layout — Up and Left lay
@@ -137,31 +95,27 @@ window.wrapcalDiagram = {
             // exactly between attempts matters: at the end of the scroll range the browser clamps,
             // so a move and its "undo" are not equal and opposite.
             function correct(axis) {
-                for (const move of [scrollBy, translate]) {
-                    for (const direction of [-1, 1]) {
-                        const errorBefore = error();
-                        const magnitude = Math.abs(axis === "x" ? errorBefore.x : errorBefore.y);
+                for (const direction of [-1, 1]) {
+                    const errorBefore = error();
+                    const magnitude = Math.abs(axis === "x" ? errorBefore.x : errorBefore.y);
 
-                        if (magnitude < 0.5) {
-                            return;
-                        }
-
-                        const left = scroller.scrollLeft;
-                        const top = scroller.scrollTop;
-                        const group = svg.querySelector("g.drawing");
-                        const transform = group ? group.getAttribute("transform") : null;
-
-                        move(axis, direction * magnitude);
-
-                        const after = error();
-                        const magnitudeAfter = Math.abs(axis === "x" ? after.x : after.y);
-
-                        if (magnitudeAfter < magnitude - 0.5) {
-                            return;
-                        }
-
-                        restore(left, top, transform);
+                    if (magnitude < 0.5) {
+                        return;
                     }
+
+                    const left = scroller.scrollLeft;
+                    const top = scroller.scrollTop;
+
+                    scrollBy(axis, direction * magnitude);
+
+                    const after = error();
+                    const magnitudeAfter = Math.abs(axis === "x" ? after.x : after.y);
+
+                    if (magnitudeAfter < magnitude - 0.5) {
+                        return;
+                    }
+
+                    restore(left, top);
                 }
             }
 
