@@ -91,6 +91,37 @@ Feature: Layout stability
       | Left      |
       | Right     |
 
+  Scenario Outline: Switching orientation returns to the origin
+    Given a roll 30 cm wide with an overlap of 0.5
+    And 12 identical boxes measuring 8 by 6 by 4
+    When I plan the wrap
+    And I set the roll orientation to <from>
+    And I scroll the drawing to the middle
+    And I set the roll orientation to <to>
+    Then the origin should be in view
+
+    Examples:
+      | from | to    |
+      | Top  | Left  |
+      | Left | Top   |
+      | Top  | Right |
+      | Left | Bottom |
+
+  Scenario Outline: Switching orientation resets the zoom too
+    Given a roll 30 cm wide with an overlap of 0.5
+    And 12 identical boxes measuring 8 by 6 by 4
+    When I plan the wrap
+    And I set the roll orientation to <from>
+    And a Ctrl wheel of one notch arrives over the diagram
+    And I set the roll orientation to <to>
+    Then the zoom should read 100%
+
+    Examples:
+      | from | to    |
+      | Top  | Left  |
+      | Left | Top   |
+      | Top  | Right |
+
   Scenario Outline: The drawing hugs the left of its frame
     Given a roll 30 cm wide with an overlap of 0.5
     And 2 identical boxes measuring 8 by 6 by 4

@@ -162,6 +162,8 @@ else
     // under the pointer. Cleared once that has happened.
     private bool _zoomApplied;
 
+    private RollDirection? _directionSeen;
+
     private ElementReference _figure;
     private DotNetObjectReference<WrapPlanDiagram>? _self;
     private bool _listening;
@@ -170,6 +172,19 @@ else
         Plan.Sections.Count > 0 && Plan.RollWidth > 0 && Plan.RollLengthUsed > 0;
 
     protected override void OnInitialized() => _uid = Guid.NewGuid().ToString("N")[..8];
+
+    protected override void OnParametersSet()
+    {
+        // Facing the drawing a different way starts the view afresh: a zoom chosen for one
+        // orientation is not a zoom chosen for another, and keeping it means the drawing arrives
+        // at a size the reader never asked for in that direction.
+        if (_directionSeen is { } seen && seen != Direction)
+        {
+            _zoomPercent = 100;
+        }
+
+        _directionSeen = Direction;
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

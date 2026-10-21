@@ -328,6 +328,18 @@ public sealed class LayoutSteps : StepsBase
         Context.Set(noted, CutUnderPointer);
     }
 
+    [When("I scroll the drawing to the middle")]
+    public async Task WhenIScrollTheDrawingToTheMiddleAsync() =>
+        await Ui.Page.EvaluateAsync(
+            """
+            () => {
+                const scroller = document.querySelector(".diagram-scroller");
+
+                scroller.scrollLeft = (scroller.scrollWidth - scroller.clientWidth) / 2;
+                scroller.scrollTop = (scroller.scrollHeight - scroller.clientHeight) / 2;
+            }
+            """);
+
     [Then("the drawing should sit at the left of its frame")]
     public async Task ThenTheDrawingShouldSitAtTheLeftAsync()
     {

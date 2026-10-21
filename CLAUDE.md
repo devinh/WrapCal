@@ -318,6 +318,11 @@ Read this before changing the maths. Every point here has been got wrong once al
   per `(Plan, Direction)` — never per render, or a zoom would drag the reader back to the origin.
   The cost is honest: this is the one place the layout no longer opens at the origin without
   script, and the position arrives a frame after the drawing does.
+- **Facing the drawing a different way starts the view afresh.** The scroller is re-keyed on
+  `(Plan, Direction)` so the scroll resets by itself, and `OnParametersSet` puts the zoom back to
+  100% — a zoom chosen for one orientation is not a zoom chosen for another, and keeping it means
+  the drawing arrives at a size the reader never asked for in that direction. A new *plan* resets
+  the scroll the same way but deliberately keeps the zoom: the data changed, not the view.
 - **The drawing hugs the top-left of its frame, and is its own size along the roll.** The vertical
   scroller's svg takes `min-height: 100%` so a short plan has no dead space above it, while the
   horizontal one takes `min-width: 0`: a frame-wide box scrolls while the drawing inside it does
