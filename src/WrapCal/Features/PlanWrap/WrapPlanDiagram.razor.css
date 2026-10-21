@@ -11,6 +11,28 @@
     border: 1px solid var(--mud-palette-lines-default, #d6d5d5);
     border-radius: 4px;
     background: var(--mud-palette-surface, #fff);
+    /* One finger pans the drawing; two fingers are the zoom's, which have to be claimed before
+       the browser takes the gesture for the page. */
+    touch-action: pan-x pan-y;
+}
+
+/* The zoom slider and its readout, sitting above the drawing. */
+.diagram-zoom {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.diagram-zoom-slider {
+    flex: 1 1 auto;
+    min-width: 8rem;
+}
+
+.diagram-zoom-level {
+    flex: 0 0 auto;
+    min-width: 2.5rem;
+    text-align: right;
 }
 
 .diagram-scroller svg {
@@ -28,7 +50,9 @@
 }
 
 .diagram-scroller.is-vertical svg {
-    width: 100%;
+    /* Scaled by sizing rather than by a transform: a transform does not change the layout box, so
+       the scrollbars would still describe the unscaled drawing. */
+    width: calc(100% * var(--diagram-zoom, 1));
     height: auto;
     /* Fills the frame rather than shrinking to the drawing, so there is never dead space above a
        short plan for a reversed column to pack it against. The drawing itself stays at its own
@@ -44,7 +68,7 @@
 
 .diagram-scroller.is-horizontal svg {
     width: auto;
-    height: clamp(220px, 45vh, 420px);
+    height: calc(clamp(220px, 45vh, 420px) * var(--diagram-zoom, 1));
     min-width: 100%;
 }
 

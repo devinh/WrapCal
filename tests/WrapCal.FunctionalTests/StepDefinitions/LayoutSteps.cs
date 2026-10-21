@@ -220,6 +220,107 @@ public sealed class LayoutSteps : StepsBase
         await Assert.That(originY).IsBetween(visible.Y, visible.Y + visible.Height);
     }
 
+    [When("I move the zoom slider one step up")]
+    public async Task WhenIMoveTheZoomSliderOneStepUpAsync()
+    {
+        // A range input moves one step per arrow key, which is a real interaction rather than a
+        // synthetic event — and the step is 25, so one press is what the assertions expect.
+        ILocator slider = Ui.Page.Locator("[data-testid='zoom-slider'] input");
+        await slider.FocusAsync();
+        await slider.PressAsync("ArrowRight");
+    }
+
+    [When("a Ctrl wheel of one notch arrives over the diagram")]
+    public async Task WhenACtrlWheelOfOneNotchArrivesAsync() =>
+        await WheelOverDiagramAsync(turns: 1, deltaPerTurn: -120);
+
+    [When("a Ctrl wheel of four small turns arrives over the diagram")]
+    public async Task WhenACtrlWheelOfFourSmallTurnsArrivesAsync() =>
+        await WheelOverDiagramAsync(turns: 4, deltaPerTurn: -30);
+
+    [When("a trackpad pinch of {int} percent arrives")]
+    public async Task WhenATrackpadPinchArrivesAsync(int percent)
+    {
+        // Safari's gesture events, dispatched rather than performed: no automation can produce a
+        // real trackpad pinch. The handler is the same one a device would drive.
+        await Ui.Page.EvaluateAsync(
+            """
+            (scale) => {
+                // The listener goes on the document and scopes itself by where the pointer is, so
+                // a dispatched gesture has to carry coordinates inside the drawing like a real one.
+                const box = document.querySelector(".wrap-diagram").getBoundingClientRect();
+                const x = box.left + (box.width / 2);
+                const y = box.top + (box.height / 2);
+
+                const fire = (name) => {
+                    const event = new Event(name, { bubbles: true, cancelable: true });
+                    event.scale = scale;
+                    Object.defineProperty(event, "clientX", { value: x });
+                    Object.defineProperty(event, "clientY", { value: y });
+                    document.dispatchEvent(event);
+                };
+
+                fire("gesturestart");
+                fire("gesturechange");
+                fire("gestureend");
+            }
+            """,
+            percent / 100.0);
+    }
+
+    [Then("the zoom should read {word}")]
+    public async Task ThenTheZoomShouldReadAsync(string expected)
+    {
+        string? readout = await Ui.Page.Locator("[data-testid='zoom-level']").TextContentAsync();
+
+        await Assert.That(readout?.Trim()).IsEqualTo(expected);
+    }
+
+    [Then("the drawing's scale should have grown by {int} percent")]
+    public async Task ThenTheDrawingScaleShouldHaveGrownAsync(int percent)
+    {
+        // The same measurement the scale-invariance scenario uses: the paper's extent across the
+        // roll. That one proves the scale does not move unasked; this proves it moves when asked.
+        double before = Context.Get<double>(DrawingScale);
+        double after = await CrossRollExtentAsync();
+        double expected = before * (1 + (percent / 100.0));
+
+        await Assert.That(Math.Abs(after - expected)).IsLessThan(2.0);
+    }
+
+    private async Task WheelOverDiagramAsync(int turns, int deltaPerTurn)
+    {
+        // Dispatched rather than driven through Playwright's mouse. On Firefox its synthetic wheel
+        // does not arrive carrying the pointer coordinates a real one does, so the handler — which
+        // scopes the gesture by where the pointer is, because the event's target cannot be relied
+        // on — never sees it and the zoom does not move. A real wheel event does carry them, so
+        // this gives the handler exactly the fields a browser would.
+        //
+        // The cost is real: no automated test now proves a physical mouse wheel reaches the
+        // handler on Firefox. The slider scenario remains the genuine-input case, and this one
+        // covers everything downstream of the event arriving.
+        for (int i = 0; i < turns; i++)
+        {
+            await Ui.Page.EvaluateAsync(
+                """
+                (delta) => {
+                    const figure = document.querySelector(".wrap-diagram");
+                    const box = figure.getBoundingClientRect();
+
+                    figure.dispatchEvent(new WheelEvent("wheel", {
+                        deltaY: delta,
+                        ctrlKey: true,
+                        bubbles: true,
+                        cancelable: true,
+                        clientX: box.left + (box.width / 2),
+                        clientY: box.top + (box.height / 2)
+                    }));
+                }
+                """,
+                deltaPerTurn);
+        }
+    }
+
     [Then("the sign-off should be centered")]
     public async Task ThenTheSignOffShouldBeCenteredAsync()
     {
