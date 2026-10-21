@@ -345,16 +345,15 @@ public class PlanWrapPageTests : WrapCalBunitContext
     }
 
     [Test]
-    public async Task Signs_off_at_the_bottom_of_the_page()
+    public async Task Defaults_to_the_roll_continuing_upwards()
     {
-        // Outside the plan block, so it is there before a plan exists as well as after.
         var cut = Render<PlanWrap>();
-
-        await Assert.That(cut.Markup).Contains("Vibed With 🫶");
 
         await cut.Find(PlanButton).ClickAsync();
 
-        await Assert.That(cut.Markup).Contains("Vibed With 🫶");
+        string? diagram = cut.Find("[data-testid='diagram']").TextContent;
+
+        await Assert.That(diagram).Contains("↑ Roll continues");
     }
 
     [Test]
