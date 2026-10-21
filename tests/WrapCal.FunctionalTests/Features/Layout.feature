@@ -72,6 +72,8 @@ Feature: Layout stability
       | direction |
       | Top       |
       | Bottom    |
+      | Left      |
+      | Right     |
 
   Scenario: The sign-off sits in the middle of the page
     Given the plan page

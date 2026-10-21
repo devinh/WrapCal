@@ -13,17 +13,33 @@ window.wrapcalDiagram = {
     attach: function (element, dotNetRef) {
         const owner = element;
 
-        // Where the gesture began and what part of the drawing was under it at the time. Recorded
-        // before the zoom resizes anything, so the scroll can be corrected afterwards to put that
-        // same part back under the pointer — which is what makes zooming feel like a map.
+        // Where the gesture began, in the drawing's own coordinates. Recorded before the zoom
+        // resizes anything, so the scroll can be corrected afterwards to put that same point back
+        // under the pointer — which is what makes zooming feel like a map.
+        //
+        // Held as a point in the SVG's user space rather than as a fraction of the element: the
+        // element is as big as the frame, and a sideways drawing only fills a corner of it, so a
+        // fraction of the element is not a fraction of the drawing. The SVG's own matrices do that
+        // conversion exactly, letterboxing included.
         let anchor = null;
 
-        // The listeners live on the document, so they see every wheel on the page; this decides
-        // which ones belong to the drawing.
-        function pointerOverFigure(x, y) {
-            const box = owner.getBoundingClientRect();
+        // Measured through the drawing group rather than the <svg>: a translate on the group is
+        // invisible to the svg's matrix, so a drift corrected that way would never look corrected
+        // and would be rolled back.
+        function drawing(svg) {
+            return svg.querySelector("g.drawing") || svg;
+        }
 
-            return x >= box.left && x <= box.right && y >= box.top && y <= box.bottom;
+        function userPointFrom(clientX, clientY, svg) {
+            const matrix = drawing(svg).getScreenCTM();
+
+            return matrix ? new DOMPoint(clientX, clientY).matrixTransform(matrix.inverse()) : null;
+        }
+
+        function screenPointOf(point, svg) {
+            const matrix = drawing(svg).getScreenCTM();
+
+            return matrix ? new DOMPoint(point.x, point.y).matrixTransform(matrix) : null;
         }
 
         function rememberAnchor(clientX, clientY) {
@@ -33,14 +49,16 @@ window.wrapcalDiagram = {
                 return;
             }
 
-            const box = svg.getBoundingClientRect();
-            const fractionX = (clientX - box.left) / box.width;
-            const fractionY = (clientY - box.top) / box.height;
+            const point = userPointFrom(clientX, clientY, svg);
+            anchor = point ? { point: point, x: clientX, y: clientY } : null;
+        }
 
-            // A gesture that began off the drawing has nothing to stay anchored to.
-            anchor = fractionX < 0 || fractionX > 1 || fractionY < 0 || fractionY > 1
-                ? null
-                : { fractionX: fractionX, fractionY: fractionY, x: clientX, y: clientY };
+        // The listeners live on the document, so they see every wheel on the page; this decides
+        // which ones belong to the drawing.
+        function pointerOverFigure(x, y) {
+            const box = owner.getBoundingClientRect();
+
+            return x >= box.left && x <= box.right && y >= box.top && y <= box.bottom;
         }
 
         owner.wrapcalAnchor = function () {
@@ -51,18 +69,15 @@ window.wrapcalDiagram = {
                 return;
             }
 
-            // The drawing has been resized by now. How far is the anchored part from the pointer?
-            function errorX() {
-                const box = svg.getBoundingClientRect();
-                return (box.left + (anchor.fractionX * box.width)) - anchor.x;
+            // How far the anchored point has drifted from the pointer, in screen pixels. Positive
+            // means the drawing has to move right/down to get back under it.
+            function error() {
+                const now = screenPointOf(anchor.point, svg);
+
+                return now ? { x: anchor.x - now.x, y: anchor.y - now.y } : { x: 0, y: 0 };
             }
 
-            function errorY() {
-                const box = svg.getBoundingClientRect();
-                return (box.top + (anchor.fractionY * box.height)) - anchor.y;
-            }
-
-            function shift(axis, amount) {
+            function scrollBy(axis, amount) {
                 if (axis === "x") {
                     scroller.scrollLeft += amount;
                 } else {
@@ -70,38 +85,88 @@ window.wrapcalDiagram = {
                 }
             }
 
-            // Which way a scroll offset moves the content depends on the layout: Up and Left lay
-            // the scroller out from the far end, so the same correction runs the other way. Rather
-            // than encode four conventions, try one direction and keep it only if the error
-            // actually shrank; otherwise undo and take the other. An offset clamped at its end
-            // cannot move at all, and is left alone.
-            function correct(axis, measure) {
-                const before = measure();
+            // Scroll only moves content that overflows. A sideways drawing is only as wide as its
+            // own length, so a short plan sits inside the frame with nothing to scroll — there the
+            // drawing itself has to move. A transform on the drawing group rather than on the
+            // <svg>: the svg's box has to keep describing the space the scroll offsets refer to.
+            function translate(axis, pixels) {
+                const group = svg.querySelector("g.drawing");
 
-                if (Math.abs(before) < 0.5) {
+                if (!group) {
                     return;
                 }
 
-                for (const direction of [-1, 1]) {
-                    const left = scroller.scrollLeft;
-                    const top = scroller.scrollTop;
+                const matrix = drawing(svg).getScreenCTM();
 
-                    shift(axis, direction * before);
+                if (!matrix) {
+                    return;
+                }
 
-                    if (Math.abs(measure()) < Math.abs(before) - 0.5) {
-                        return;
+                // Screen pixels to user units, through the scale the drawing is currently drawn at.
+                const scale = axis === "x" ? matrix.a : matrix.d;
+                const shift = pixels / scale;
+
+                const current = group.transform.baseVal.consolidate();
+                const existing = current ? current.matrix : new DOMMatrix();
+                const dx = axis === "x" ? shift : 0;
+                const dy = axis === "y" ? shift : 0;
+
+                group.setAttribute(
+                    "transform",
+                    `translate(${existing.e + dx} ${existing.f + dy})`);
+            }
+
+            function restore(scrollerLeft, scrollerTop, transform) {
+                scroller.scrollLeft = scrollerLeft;
+                scroller.scrollTop = scrollerTop;
+
+                const group = svg.querySelector("g.drawing");
+
+                if (group) {
+                    if (transform === null) {
+                        group.removeAttribute("transform");
+                    } else {
+                        group.setAttribute("transform", transform);
                     }
-
-                    // Restore the exact offsets rather than subtracting the shift again: at the end
-                    // of the scroll range the browser clamps, so the shift and its "undo" are not
-                    // equal and opposite — negating moved the drawing the wrong way.
-                    scroller.scrollLeft = left;
-                    scroller.scrollTop = top;
                 }
             }
 
-            correct("x", errorX);
-            correct("y", errorY);
+            // Which way a scroll offset moves the content depends on the layout — Up and Left lay
+            // the scroller out from the far end — so rather than encode four conventions this tries
+            // one direction, measures, and takes the other if the error did not shrink. Restoring
+            // exactly between attempts matters: at the end of the scroll range the browser clamps,
+            // so a move and its "undo" are not equal and opposite.
+            function correct(axis) {
+                for (const move of [scrollBy, translate]) {
+                    for (const direction of [-1, 1]) {
+                        const errorBefore = error();
+                        const magnitude = Math.abs(axis === "x" ? errorBefore.x : errorBefore.y);
+
+                        if (magnitude < 0.5) {
+                            return;
+                        }
+
+                        const left = scroller.scrollLeft;
+                        const top = scroller.scrollTop;
+                        const group = svg.querySelector("g.drawing");
+                        const transform = group ? group.getAttribute("transform") : null;
+
+                        move(axis, direction * magnitude);
+
+                        const after = error();
+                        const magnitudeAfter = Math.abs(axis === "x" ? after.x : after.y);
+
+                        if (magnitudeAfter < magnitude - 0.5) {
+                            return;
+                        }
+
+                        restore(left, top, transform);
+                    }
+                }
+            }
+
+            correct("x");
+            correct("y");
         };
 
         function onWheel(event) {

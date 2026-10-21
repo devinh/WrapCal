@@ -359,11 +359,18 @@ Read this before changing the maths. Every point here has been got wrong once al
   takes the other if the error did not shrink. Restoring the exact offsets between attempts matters:
   at the end of the scroll range the browser clamps, so a shift and its "undo" are not equal and
   opposite, and negating moved the drawing the wrong way.
-- **Anchoring is only proven for the vertical layouts.** Up and Down are covered by tests (reversed
-  and not); with Left and Right the drawing scales, but its frame grows with it, so there is no
-  internal scroll left to correct and the point under the pointer drifts. The horizontal frame has
-  no `max-height` the way the vertical one has `max-height: 60vh`, and adding one was tried and did
-  not fix it. Worth understanding before claiming zoom works in every direction.
+- **Anchor in the drawing's own coordinates, not in fractions of the frame.** The `<svg>` is as big
+  as the frame, and a sideways drawing only fills a corner of it, so a fraction of the element is
+  not a fraction of the drawing. The point is captured in user space through the SVG's matrix and
+  mapped back through it after the zoom. Crucially that matrix must be the **drawing group's**, not
+  the `<svg>`'s: a translate on the group is invisible to the svg's matrix, so a drift corrected
+  that way never looks corrected and gets rolled back — which is what kept Left and Right failing
+  while Up and Down passed.
+- **Scrolling corrects drift only where the drawing overflows the frame.** A short sideways plan is
+  narrower than the frame, so there is nothing to scroll and the drawing group is translated
+  instead. The correction tries scrolling first and the translate second, keeping whichever reduces
+  the measured drift. The horizontal frame also needed a `max-height` so zoom stops reflowing the
+  page under the pointer.
 - **A test that can pass without doing anything is worse than no test.** The anchor scenarios first
   passed while the wheel had been broken by an edit — a drawing that never zooms also never moves.
   They now assert the readout moved to 150% as well as that the point held. Same shape of mistake

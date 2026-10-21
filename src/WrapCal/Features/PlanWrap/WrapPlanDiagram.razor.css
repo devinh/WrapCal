@@ -45,6 +45,10 @@
    side. Bounded so it stays a diagram rather than the whole screen. */
 .diagram-scroller.is-horizontal {
     flex-direction: row;
+    /* The frame holds still while the drawing changes size inside it, the way the vertical
+       scroller's max-height already makes it. Without this, zooming a sideways drawing made the
+       frame taller, which pushed the whole page down under the pointer. */
+    max-height: clamp(220px, 45vh, 420px);
 }
 
 .diagram-scroller.is-horizontal svg {
