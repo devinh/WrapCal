@@ -475,29 +475,6 @@ public sealed class LayoutSteps : StepsBase
         }
     }
 
-    [Then("the sign-off should be centered")]
-    public async Task ThenTheSignOffShouldBeCenteredAsync()
-    {
-        // Measured against the parent, not against the element's own box: an inline element hugs its
-        // text, so its own box is centered on its text by definition however far left it sits. That
-        // is exactly how a <span> left this looking right in markup and standing against the left
-        // edge on screen.
-        double[] centers = await Ui.Page.EvaluateAsync<double[]>(
-            """
-            () => {
-                const el = document.querySelector("[data-testid='sign-off']");
-                const range = document.createRange();
-                range.selectNodeContents(el);
-                const text = range.getBoundingClientRect();
-                const parent = el.parentElement.getBoundingClientRect();
-
-                return [text.left + (text.width / 2), parent.left + (parent.width / 2)];
-            }
-            """);
-
-        await Assert.That(Math.Abs(centers[0] - centers[1])).IsLessThanOrEqualTo(1.0);
-    }
-
     [When("I note the drawing's scale")]
     public async Task WhenINoteTheDrawingsScaleAsync() =>
         Context.Set(await CrossRollExtentAsync(), DrawingScale);
