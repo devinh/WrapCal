@@ -32,10 +32,10 @@ jobs:
       # One target, because the build lives in Cake and not here: `Release` builds, runs both
       # suites — including the functional one, which installs the browser it needs — and
       # publishes the site to ./output. What the artifact is, and where it lands, is
-      # cake/cake.cs's business; this file only moves it. --coverage adds the coverage report
-      # the next step uploads; it changes nothing about the site itself.
+      # cake/cake.cs's business; this file only moves it. --coverage=true adds the coverage
+      # report the next step uploads; it changes nothing about the site itself.
       - name: Build, test and publish
-        run: ./cake.sh --target=Release --coverage
+        run: ./cake.sh --target=Release --coverage=true
 
       # The same reports ci.yml uploads, kept with the deploy that produced them. They sit
       # beside output/wwwroot rather than inside it, so nothing here reaches the published site.

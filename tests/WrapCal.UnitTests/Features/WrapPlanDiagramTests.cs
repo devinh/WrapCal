@@ -67,6 +67,47 @@ public class WrapPlanDiagramTests : WrapCalBunitContext
     }
 
     [Test]
+    public async Task Refuses_to_draw_a_direction_it_does_not_know()
+    {
+        // Every direction is laid out by an arm of its own; an unhandled value has no geometry,
+        // and drawing it as though it were Up would put the origin in the wrong corner silently.
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            Render<WrapPlanDiagram>(parameters => parameters
+                .Add(p => p.Plan, OneBoxPlan())
+                .Add(p => p.Direction, (RollDirection)99)));
+    }
+
+    [Test]
+    public async Task Resets_the_zoom_when_the_direction_changes()
+    {
+        // A zoom chosen for one orientation is not a zoom chosen for another: the drawing is
+        // re-keyed and re-scrolled to the origin, so keeping the scale would land the reader at a
+        // size they never asked for in this direction.
+        var cut = Render<WrapPlanDiagram>(parameters => parameters.Add(p => p.Plan, OneBoxPlan()));
+
+        await cut.Instance.ZoomByWheelAsync(-120);
+        await Assert.That(cut.Find("[data-testid='zoom-level']").TextContent).IsEqualTo("150%");
+
+        cut.Render(parameters => parameters.Add(p => p.Direction, RollDirection.Left));
+
+        await Assert.That(cut.Find("[data-testid='zoom-level']").TextContent).IsEqualTo("100%");
+    }
+
+    [Test]
+    public async Task Keeps_the_zoom_when_only_the_plan_changes()
+    {
+        // The other half of the same rule: a new plan is new data, not a new view, so the reader's
+        // chosen scale survives it.
+        var cut = Render<WrapPlanDiagram>(parameters => parameters.Add(p => p.Plan, OneBoxPlan()));
+
+        await cut.Instance.ZoomByWheelAsync(-120);
+
+        cut.Render(parameters => parameters.Add(p => p.Plan, TwoBoxPlan()));
+
+        await Assert.That(cut.Find("[data-testid='zoom-level']").TextContent).IsEqualTo("150%");
+    }
+
+    [Test]
     public async Task Ignores_the_wheel_while_a_pinch_is_in_progress()
     {
         // A browser that reports a pinch as both gesture events and ctrl+wheel would otherwise

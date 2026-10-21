@@ -415,6 +415,41 @@ public class PlanWrapPageTests : WrapCalBunitContext
     }
 
     [Test]
+    public async Task Refuses_a_box_past_the_limit_when_the_page_is_driven_directly()
+    {
+        // Past the limit the button is disabled, so a click cannot reach the page at all — this is
+        // the path in, and the guard is what keeps the limit a rule rather than a rendering detail.
+        var cut = Render<PlanWrap>();
+
+        for (int i = 1; i < PlanWrapInput.MaxBoxCount; i++)
+        {
+            await cut.Find("[data-testid='add-box']").ClickAsync();
+        }
+
+        cut.Instance.AddBox();
+        cut.Render(_ => { });
+
+        await Assert.That(cut.FindAll("[data-testid='box-name']").Count)
+            .IsEqualTo(PlanWrapInput.MaxBoxCount);
+    }
+
+    [Test]
+    public async Task Reapplying_the_unit_already_in_force_leaves_the_plan_alone()
+    {
+        // The select only raises a change when the value actually moves, so a duplicate or
+        // replayed event lands on the no-op path instead — and must not throw away a plan that
+        // still describes the form in front of the reader.
+        var cut = Render<PlanWrap>();
+
+        await cut.Find(PlanButton).ClickAsync();
+        await Assert.That(cut.FindAll("[data-testid='diagram']").Count).IsEqualTo(1);
+
+        await cut.Instance.OnUnitChangedAsync();
+
+        await Assert.That(cut.FindAll("[data-testid='diagram']").Count).IsEqualTo(1);
+    }
+
+    [Test]
     public async Task Adding_and_removing_boxes_changes_the_row_count()
     {
         var cut = Render<PlanWrap>();

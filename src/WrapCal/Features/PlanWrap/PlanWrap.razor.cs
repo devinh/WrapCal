@@ -16,7 +16,10 @@ public partial class PlanWrap
     // Seeded from the form so the first unit switch converts from what the form is actually in.
     private LengthUnit _previousUnit = new PlanWrapInput().InputUnit;
 
-    private void AddBox()
+    // internal, not private: the button disables at the limit, so a click can never arrive and
+    // this guard is only reachable from a test. That is the point — it is the rule, the button is
+    // the affordance.
+    internal void AddBox()
     {
         if (_input.Boxes.Count >= PlanWrapInput.MaxBoxCount)
         {
@@ -50,7 +53,9 @@ public partial class PlanWrap
     /// Re-expresses every length when the unit changes, so the roll and boxes stay the same physical
     /// size; rounded to two decimals because an inch is 2.54 cm.
     /// </summary>
-    private async Task OnUnitChangedAsync()
+    // internal for the same reason: the select only raises a change when the value actually
+    // changes, so the no-op path it guards is otherwise unreachable.
+    internal async Task OnUnitChangedAsync()
     {
         LengthUnit from = _previousUnit;
         LengthUnit to = _input.InputUnit;

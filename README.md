@@ -133,8 +133,8 @@ while it is the thing running the build.
 ./cake.sh --target=Publish         # just publish the site to ./output
 ./cake.sh --target=Build --configuration=Debug
 
-# Add --coverage to any target that runs the unit suite to measure it
-./cake.sh --target=UnitTests --coverage
+# Add --coverage=true to any target that runs the unit suite to measure it
+./cake.sh --target=UnitTests --coverage=true
 ```
 
 `Tests` is both suites — it runs each as a target of its own, so running them together and
@@ -252,10 +252,10 @@ Every test run writes reports to `./output/reports`:
 | `output/reports/coverage` | ReportGenerator's HTML coverage report and `SummaryGithub.md` |
 
 Coverage is **off by default** — instrumenting costs a couple of seconds against a suite that
-runs in under one. Add `--coverage` to switch it on:
+runs in under one. Add `--coverage=true` to switch it on:
 
 ```bash
-./cake.sh --target=UnitTests --coverage
+./cake.sh --target=UnitTests --coverage=true
 ```
 
 That collects Cobertura coverage of the `WrapCal` assembly and runs
@@ -292,6 +292,11 @@ dotnet exec --runtimeconfig "$BIN/WrapCal.FunctionalTests.runtimeconfig.json" \
 |---|---|---|
 | macOS | `webkit` (Safari's engine) | Firefox cannot launch on macOS 27 — see below |
 | Linux / Windows | `firefox` | |
+
+Under Cake, the `--browser` argument does the same job — `./cake.sh --target=FunctionalTests
+--browser=chromium`. Cake installs that browser and hands it to the suite as `BROWSER`, so the one
+it downloads and the one the suite launches are always the same. Without the argument Cake sets
+nothing, and the OS default — or a `BROWSER` already in the environment — decides.
 
 Set `HEADED=1` to run with a visible browser — the fastest way to debug a failure.
 
