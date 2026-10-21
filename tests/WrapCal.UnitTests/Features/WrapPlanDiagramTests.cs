@@ -20,32 +20,22 @@ public class WrapPlanDiagramTests : WrapCalBunitContext
     }
 
     [Test]
-    public async Task Moves_the_zoom_with_the_slider()
-    {
-        var cut = Render<WrapPlanDiagram>(parameters => parameters.Add(p => p.Plan, OneBoxPlan()));
-
-        await cut.Find("[data-testid='zoom-slider'] input").InputAsync("125");
-
-        await Assert.That(cut.Find("[data-testid='zoom-level']").TextContent).IsEqualTo("125%");
-    }
-
-    [Test]
     public async Task Moves_the_zoom_with_the_wheel()
     {
         var cut = Render<WrapPlanDiagram>(parameters => parameters.Add(p => p.Plan, OneBoxPlan()));
 
-        // One notch of a mouse wheel, upwards, which zooms in.
+        // One notch of a mouse wheel, upwards, which zooms in by a ratio rather than a step.
         await cut.Instance.ZoomByWheelAsync(-120);
 
-        await Assert.That(cut.Find("[data-testid='zoom-level']").TextContent).IsEqualTo("125%");
+        await Assert.That(cut.Find("[data-testid='zoom-level']").TextContent).IsEqualTo("110%");
     }
 
     [Test]
-    public async Task Steps_once_for_a_notch_of_trackpad_deltas()
+    public async Task Zooms_as_much_in_small_turns_as_in_one()
     {
-        // A trackpad pinch arrives as a stream of small deltas rather than one of 120, so the
-        // handler accumulates. Four small ones add up to one notch and must move one step — acting
-        // on each event would have raced the zoom from 100 to 200 in the same gesture.
+        // A trackpad sends a stream of small deltas where a mouse sends one of 120. Because the
+        // wheel scales by a ratio, four quarter-turns compose to exactly one notch — which is what
+        // makes a pinch feel smooth instead of stepping.
         var cut = Render<WrapPlanDiagram>(parameters => parameters.Add(p => p.Plan, OneBoxPlan()));
 
         for (int i = 0; i < 4; i++)
@@ -53,7 +43,7 @@ public class WrapPlanDiagramTests : WrapCalBunitContext
             await cut.Instance.ZoomByWheelAsync(-30);
         }
 
-        await Assert.That(cut.Find("[data-testid='zoom-level']").TextContent).IsEqualTo("125%");
+        await Assert.That(cut.Find("[data-testid='zoom-level']").TextContent).IsEqualTo("110%");
     }
 
     [Test]
@@ -61,19 +51,19 @@ public class WrapPlanDiagramTests : WrapCalBunitContext
     {
         var cut = Render<WrapPlanDiagram>(parameters => parameters.Add(p => p.Plan, OneBoxPlan()));
 
-        for (int i = 0; i < 20; i++)
+        for (int i = 0; i < 40; i++)
         {
             await cut.Instance.ZoomByWheelAsync(-120);
         }
 
-        await Assert.That(cut.Find("[data-testid='zoom-level']").TextContent).IsEqualTo("200%");
+        await Assert.That(cut.Find("[data-testid='zoom-level']").TextContent).IsEqualTo("400%");
 
-        for (int i = 0; i < 20; i++)
+        for (int i = 0; i < 40; i++)
         {
             await cut.Instance.ZoomByWheelAsync(120);
         }
 
-        await Assert.That(cut.Find("[data-testid='zoom-level']").TextContent).IsEqualTo("50%");
+        await Assert.That(cut.Find("[data-testid='zoom-level']").TextContent).IsEqualTo("25%");
     }
 
     [Test]

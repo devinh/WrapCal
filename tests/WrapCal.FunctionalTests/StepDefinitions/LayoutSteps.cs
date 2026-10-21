@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.Playwright;
 using Reqnroll;
 
@@ -220,16 +221,6 @@ public sealed class LayoutSteps : StepsBase
         await Assert.That(originY).IsBetween(visible.Y, visible.Y + visible.Height);
     }
 
-    [When("I move the zoom slider one step up")]
-    public async Task WhenIMoveTheZoomSliderOneStepUpAsync()
-    {
-        // A range input moves one step per arrow key, which is a real interaction rather than a
-        // synthetic event — and the step is 25, so one press is what the assertions expect.
-        ILocator slider = Ui.Page.Locator("[data-testid='zoom-slider'] input");
-        await slider.FocusAsync();
-        await slider.PressAsync("ArrowRight");
-    }
-
     [When("a Ctrl wheel of one notch arrives over the diagram")]
     public async Task WhenACtrlWheelOfOneNotchArrivesAsync() =>
         await WheelOverDiagramAsync(turns: 1, deltaPerTurn: -120);
@@ -276,16 +267,19 @@ public sealed class LayoutSteps : StepsBase
         await Assert.That(readout?.Trim()).IsEqualTo(expected);
     }
 
-    [Then("the drawing's scale should have grown by {int} percent")]
-    public async Task ThenTheDrawingScaleShouldHaveGrownAsync(int percent)
+    [Then("the drawing's scale should match the zoom")]
+    public async Task ThenTheDrawingScaleShouldMatchTheZoomAsync()
     {
-        // The same measurement the scale-invariance scenario uses: the paper's extent across the
-        // roll. That one proves the scale does not move unasked; this proves it moves when asked.
+        // Compared against the page's own readout rather than an expected number, so this holds
+        // whatever value a gesture happens to land on — and it ties the figure to the picture.
+        string? readout = await Ui.Page.Locator("[data-testid='zoom-level']").TextContentAsync();
+        double percent = double.Parse(
+            (readout ?? "100%").Trim().TrimEnd('%'), CultureInfo.InvariantCulture);
+
         double before = Context.Get<double>(DrawingScale);
         double after = await CrossRollExtentAsync();
-        double expected = before * (1 + (percent / 100.0));
 
-        await Assert.That(Math.Abs(after - expected)).IsLessThan(2.0);
+        await Assert.That(Math.Abs(after - (before * percent / 100.0))).IsLessThan(2.0);
     }
 
     private async Task WheelOverDiagramAsync(int turns, int deltaPerTurn)

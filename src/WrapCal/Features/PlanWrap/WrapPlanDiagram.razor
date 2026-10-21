@@ -20,28 +20,10 @@ else
            The scroller keeps the drawing at a fixed scale along the roll — more boxes make it
            longer, never smaller — and opens on the origin. Re-keying the scroller is what puts
            it back on the origin: a new plan, or a new direction, starts scrolled afresh. *@
-        @* Zoom is explicit and 100% by default: the drawing must never scale itself, since that is
-           what used to make it shrink with every box. The slider and the gestures below both write
-           _zoom, so whichever the reader reaches for, the other follows. *@
-        <div class="diagram-zoom" data-testid="diagram-zoom">
-            <MudText Typo="Typo.caption" Class="mb-0">Zoom</MudText>
-
-            @* Wrapped for the id: MudSlider puts unmatched attributes somewhere of its own
-               choosing, so a test cannot click the range input through it. *@
-            <div data-testid="zoom-slider" class="diagram-zoom-slider">
-                <MudSlider T="int" Min="MinZoom" Max="MaxZoom" Step="ZoomStep"
-                           @bind-Value="_zoom" aria-label="Zoom" />
-            </div>
-
-            <MudText Typo="Typo.caption" Class="mb-0 diagram-zoom-level">
-                <span data-testid="zoom-level">@($"{_zoom}%")</span>
-            </MudText>
-        </div>
-
         @* Focusable because it scrolls by keyboard, and named because a focusable region with
            no accessible name is an unlabeled stop on the tab path. *@
         <div class="@ScrollerClass" tabindex="0" role="region" aria-label="Cut layout"
-             style="@($"--diagram-zoom: {_zoom / 100.0:0.##}")"
+             style="@($"--diagram-zoom: {_zoomPercent / 100.0:0.###}")"
              @key="(Plan, Direction)">
             <svg viewBox="@ViewBox"
                  preserveAspectRatio="xMinYMin meet"
@@ -122,6 +104,7 @@ else
             The dot marks the origin (0,0), where the distance across the roll and the distance
             along it are both zero. The roll continues past the @EdgeName edge — the hatched
             area is paper you still have.
+            Zoom <span data-testid="zoom-level">@ZoomLabel</span> — Ctrl+scroll or pinch to zoom.
         </figcaption>
     </figure>
 }
@@ -137,25 +120,24 @@ else
     private readonly record struct Box(double X, double Y, double W, double H);
 
     // Zoom is a percentage of the scale the roll width gives the drawing. 100 is the default and
-    // the only value at which "the drawing never shrinks to fit" is being claimed.
-    private const int MinZoom = 50;
-    private const int MaxZoom = 200;
-    private const int ZoomStep = 25;
+    // the only value at which "the drawing never shrinks to fit" is being claimed. It is continuous
+    // rather than stepped, so a trackpad's stream of small deltas glides the way a map does.
+    private const double MinZoomPercent = 25;
+    private const double MaxZoomPercent = 400;
 
-    /// <summary>One notch of a mouse wheel. A trackpad sends smaller deltas that add up to this.</summary>
+    /// <summary>One notch of a mouse wheel. A trackpad sends smaller deltas that scale by less.</summary>
     private const double WheelNotch = 120;
+
+    /// <summary>How much one notch changes the scale: a ratio, so zooming out undoes zooming in.</summary>
+    private const double ZoomPerNotch = 1.1;
 
     private string _uid = string.Empty;
 
-    private int _zoom = 100;
+    private double _zoomPercent = 100;
 
-    // Wheel deltas are accumulated rather than acted on one at a time: a mouse notch is 120 in one
-    // event, while a trackpad pinch is dozens of small ones. Stepping per event would race the
-    // zoom through its whole range on a trackpad.
-    private double _wheelRemainder;
-
-    // What a pinch started at, so the ratio it reports can be applied to the zoom it began from.
-    private int _gestureBaseZoom = 100;
+    // What a pinch started at, so the ratio it reports applies to the zoom it began from rather
+    // than compounding on every event.
+    private double _gestureBaseZoomPercent = 100;
 
     private ElementReference _figure;
     private DotNetObjectReference<WrapPlanDiagram>? _self;
@@ -198,42 +180,36 @@ else
 
     [JSInvokable]
     public Task ZoomByWheelAsync(double deltaY) => InvokeAsync(() =>
-    {
-        // Wheel up is a negative delta, and that should zoom in.
-        _wheelRemainder -= deltaY;
-
-        int notches = (int)(_wheelRemainder / WheelNotch);
-
-        if (notches != 0)
-        {
-            _wheelRemainder -= notches * WheelNotch;
-            ApplyZoom(_zoom + (notches * ZoomStep));
-        }
-    });
+        // Wheel up is a negative delta and should zoom in. A ratio per notch means a trackpad's
+        // smaller deltas scale by less, which is what makes it smooth; nothing accumulates.
+        ApplyZoom(_zoomPercent * Math.Pow(ZoomPerNotch, -deltaY / WheelNotch)));
 
     [JSInvokable]
-    public Task BeginZoomGestureAsync() => InvokeAsync(() => _gestureBaseZoom = _zoom);
+    public Task BeginZoomGestureAsync() => InvokeAsync(() => _gestureBaseZoomPercent = _zoomPercent);
 
     [JSInvokable]
     public Task ZoomByRatioAsync(double ratio) =>
-        InvokeAsync(() => ApplyZoom((int)Math.Round(_gestureBaseZoom * ratio)));
+        InvokeAsync(() => ApplyZoom(_gestureBaseZoomPercent * ratio));
 
     [JSInvokable]
     public Task EndZoomGestureAsync() => Task.CompletedTask;
 
-    private void ApplyZoom(int percent)
+    private void ApplyZoom(double percent)
     {
-        double stepped = Math.Round(percent / (double)ZoomStep, MidpointRounding.AwayFromZero) * ZoomStep;
-        int clamped = Math.Clamp((int)stepped, MinZoom, MaxZoom);
+        double clamped = Math.Clamp(percent, MinZoomPercent, MaxZoomPercent);
 
-        if (clamped == _zoom)
+        // A gesture can land on the clamp repeatedly; re-rendering for a change of nothing would
+        // redraw the whole drawing for each event of the stream.
+        if (Math.Abs(clamped - _zoomPercent) < 0.01)
         {
             return;
         }
 
-        _zoom = clamped;
+        _zoomPercent = clamped;
         StateHasChanged();
     }
+
+    private string ZoomLabel => $"{Math.Round(_zoomPercent):0}%";
 
     private bool IsHorizontal => Direction is RollDirection.Left or RollDirection.Right;
 

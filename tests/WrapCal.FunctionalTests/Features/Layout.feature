@@ -25,34 +25,25 @@ Feature: Layout stability
     When I plan the wrap
     Then every roll direction option should fit in its menu
 
-  Scenario: The zoom slider enlarges the drawing
-    Given a roll 30 cm wide with an overlap of 0.5
-    And 2 identical boxes measuring 8 by 6 by 4
-    When I plan the wrap
-    And I note the drawing's scale
-    And I move the zoom slider one step up
-    Then the zoom should read 125%
-    And the drawing's scale should have grown by 25 percent
-
   Scenario: Ctrl and the mouse wheel enlarge the drawing
     Given a roll 30 cm wide with an overlap of 0.5
     And 2 identical boxes measuring 8 by 6 by 4
     When I plan the wrap
     And I note the drawing's scale
     And a Ctrl wheel of one notch arrives over the diagram
-    Then the zoom should read 125%
-    And the drawing's scale should have grown by 25 percent
+    Then the zoom should read 110%
+    And the drawing's scale should match the zoom
 
-  Scenario: A trackpad pinch steps once, not once per event
-    # A trackpad sends a stream of small deltas where a mouse sends one notch. Four small turns add
-    # up to one notch, so the zoom must have moved one step and not four.
+  Scenario: A trackpad pinch zooms as much in small turns as in one
+    # A trackpad sends a stream of small deltas where a mouse sends one notch. Scaling by a ratio
+    # means four quarter-turns compose to exactly one notch, which is what makes it smooth.
     Given a roll 30 cm wide with an overlap of 0.5
     And 2 identical boxes measuring 8 by 6 by 4
     When I plan the wrap
     And I note the drawing's scale
     And a Ctrl wheel of four small turns arrives over the diagram
-    Then the zoom should read 125%
-    And the drawing's scale should have grown by 25 percent
+    Then the zoom should read 110%
+    And the drawing's scale should match the zoom
 
   Scenario: A Safari gesture pinch enlarges the drawing
     # Safari reports a trackpad pinch as gesture events carrying a scale, not as ctrl+wheel.
@@ -62,7 +53,7 @@ Feature: Layout stability
     And I note the drawing's scale
     And a trackpad pinch of 150 percent arrives
     Then the zoom should read 150%
-    And the drawing's scale should have grown by 50 percent
+    And the drawing's scale should match the zoom
 
   Scenario: The sign-off sits in the middle of the page
     Given the plan page
