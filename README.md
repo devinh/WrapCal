@@ -129,9 +129,12 @@ while it is the thing running the build.
 ./cake.sh                          # Clean → Build → Tests (the default)
 ./cake.sh --target=UnitTests       # just the unit + component suite
 ./cake.sh --target=FunctionalTests # just the browser suite
-./cake.sh --target=Release         # unit suite, then the site to ./output (what CI runs)
+./cake.sh --target=Release         # every suite, then the site to ./output (what CI runs)
 ./cake.sh --target=Publish         # just publish the site to ./output
 ./cake.sh --target=Build --configuration=Debug
+
+# Add --coverage to any target that runs the unit suite to measure it
+./cake.sh --target=UnitTests --coverage
 ```
 
 `Tests` is both suites — it runs each as a target of its own, so running them together and
@@ -237,6 +240,37 @@ Both run on **Microsoft.Testing.Platform**, opted into via `global.json`. Conseq
 - **`dotnet test --filter` does not work.** TUnit runs on MTP, not VSTest, so the flag is
   silently rejected and the run reports "Zero tests ran". Use `--treenode-filter`:
   `--treenode-filter "/*/*/*/*[Category=Smoke]"`.
+
+### Coverage and reports
+
+Every test run writes a report of itself to `./output/reports`, through Cake:
+
+| Path | What it is |
+|---|---|
+| `output/reports/unit` | TUnit's HTML report + TRX for the unit and component suite |
+| `output/reports/functional` | The same for the browser suite |
+| `output/reports/coverage` | ReportGenerator's HTML coverage report, and `SummaryGithub.md` |
+
+Coverage is **off by default** — instrumenting the suite costs a couple of seconds against a run
+that otherwise takes under one, and that speed is why the unit suite is worth running constantly.
+Add `--coverage` to switch it on:
+
+```bash
+./cake.sh --target=UnitTests --coverage
+```
+
+That collects Cobertura coverage of the `WrapCal` assembly as the unit suite runs, then runs
+[ReportGenerator](https://github.com/danielpalme/ReportGenerator) over it. The tool installs
+itself from `cake/cake.cs` — no separate restore step, and a fresh checkout and a runner get the
+same version.
+
+Coverage is only collected from the **unit** suite. The functional suite drives the app in a
+browser, where the code under test is WebAssembly in a separate process — the test process would
+only instrument its own steps.
+
+On a pull request, CI uploads `output/reports` as a run artifact in both workflows, and `ci.yml`
+also posts the coverage summary as a comment that each push replaces in place rather than
+appending to. The reports stay out of `output/wwwroot`, so they are never deployed to Pages.
 
 ### Functional tests
 

@@ -165,10 +165,24 @@ dotnet test --project tests/WrapCal.FunctionalTests
 ./cake.sh --target=Publish           # the site, into ./output
 ./cake.sh --target=Release           # every suite, then publish — what CI runs
 ./cake.sh --target=InstallBrowsers
+./cake.sh --target=UnitTests --coverage   # + Cobertura and the HTML coverage report
 ```
 
 The functional suite starts a browser and boots WebAssembly per scenario, so it takes seconds
 rather than milliseconds — run the unit suite while working, both before calling it done.
+
+**Reports live in `./output/reports`**, written by Cake on every test run: TUnit's HTML report and
+TRX per suite, plus `coverage/` when `--coverage` is passed. Coverage is opt-in because
+instrumenting costs a couple of seconds against a suite that runs in under one. Only the unit
+suite is instrumented — the functional suite's code under test is WebAssembly in a browser
+process, so instrumenting the test process would measure the steps and nothing else.
+ReportGenerator is installed by `InstallTool` at the top of `cake/cake.cs`, so running the build
+is the only step a fresh checkout or a runner needs — there is no tool manifest to keep in step,
+and the version is the one literal beside it. Both workflows upload `output/reports` as an
+artifact, and `ci.yml` posts the coverage summary as a pull request comment (`--edit-last
+--create-if-none`, so
+one comment per PR rather than one per push). The reports are never published to Pages —
+`deploy-pages.yml` uploads `output/wwwroot` only.
 
 Cake is the definition of what a build is: the workflows call it and nothing else, `Release`
 gates the deploy on every suite, and the `cake/` project is in the solution but marked
