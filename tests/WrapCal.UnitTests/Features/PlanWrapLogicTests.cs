@@ -24,10 +24,18 @@ public class PlanWrapLogicTests
         await Assert.That(result.Error.Code).IsEqualTo("roll.width");
     }
 
+    // One per dimension, on both sides of zero: the guard is a chain of six comparisons, and a
+    // single case leaves five of them unexercised and free to be edited away unnoticed.
     [Test]
-    public async Task Rejects_non_positive_box_dimension()
+    [Arguments(0, 15, 4)]
+    [Arguments(-1, 15, 4)]
+    [Arguments(22, 0, 4)]
+    [Arguments(22, -1, 4)]
+    [Arguments(22, 15, 0)]
+    [Arguments(22, 15, -1)]
+    public async Task Rejects_a_non_positive_box_dimension(double length, double width, double height)
     {
-        var result = PlanWrapLogic.Plan([Box(height: 0)], Options());
+        var result = PlanWrapLogic.Plan([Box(length: length, width: width, height: height)], Options());
 
         await Assert.That(result.IsSuccess).IsFalse();
         await Assert.That(result.Error.Code).IsEqualTo("box.dimensions");
