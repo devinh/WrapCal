@@ -39,7 +39,7 @@ Feature: Layout stability
     And 2 identical boxes measuring 8 by 6 by 4
     When I plan the wrap
     And I note the drawing's scale
-    And I hold Ctrl and wheel up over the diagram once
+    And a Ctrl wheel of one notch arrives over the diagram
     Then the zoom should read 125%
     And the drawing's scale should have grown by 25 percent
 
@@ -50,7 +50,7 @@ Feature: Layout stability
     And 2 identical boxes measuring 8 by 6 by 4
     When I plan the wrap
     And I note the drawing's scale
-    And I hold Ctrl and wheel up over the diagram in four small turns
+    And a Ctrl wheel of four small turns arrives over the diagram
     Then the zoom should read 125%
     And the drawing's scale should have grown by 25 percent
 
