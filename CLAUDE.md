@@ -278,8 +278,7 @@ Read this before changing the maths. Every point here has been got wrong once al
   `roll-options`, `unit-select`, `boxes`, `box-row`, `box-name`, `box-length`, `box-width`,
   `box-height`, `add-box`, `remove-box`, `plan-button`, `plan-error`, `roll-direction`,
   `diagram`, `sections`, `roll-length`, `paper-area`, `waste-area`, `efficiency`,
-  `plan-orientation`, `sign-off`, `diagram-zoom`, `zoom-slider`, `zoom-level`,
-  `theme-menu`, `theme-system`, `theme-light`, `theme-dark`. MudBlazor puts unmatched attributes
+  `plan-orientation`, `sign-off`, `zoom-level`, `theme-menu`, `theme-system`, `theme-light`, `theme-dark`. MudBlazor puts unmatched attributes
   on the element it renders — for an input that is the `<input>` itself, but for `MudSelect` it
   is a hidden input that cannot be clicked, so the two selects are wrapped in a `<div>` carrying
   the id, and `MudMenu` is wrapped for the same reason (its activator is the button *inside* the
@@ -310,15 +309,26 @@ Read this before changing the maths. Every point here has been got wrong once al
   end annotations. Without it the drawing read as zoomed in too far, since the paper sat flush
   against the border. The number is the `Gutter` constant in `WrapPlanDiagram.razor`, tuned by
   eye rather than derived, so change it there and nowhere else.
-- **The scroller opens at the origin, with no script.** It is a flex container, and
-  `is-reversed` — set for Up and Left, whose origin is at the far end — lays it out from that
-  end (`column-reverse` / `row-reverse`), which puts the initial scroll there too. Verified
-  in the browser and mutation-checked: forcing `column`/`row` fails the Up and Left examples.
-- **The drawing fills the frame and its content hugs the top-left.** The SVG takes
-  `min-width`/`min-height: 100%` of the scroller and `preserveAspectRatio="xMinYMin meet"`, so a
-  short plan has no dead space beside it for a reversed scroller to pack it against. Without this
-  a Left or Up diagram that fits sat against the far edge — right or bottom — with a large empty
-  gap, which reads as the drawing being shoved out of place. Do not "restore" `xMidYMid`: that
+- **The scroller opens at the origin from script, not by being laid out backwards.** Up and Left
+  put the origin at the far end, and the scroller used to be `column-reverse` / `row-reverse` for
+  them so the initial scroll landed there. That reversal cost two things: a reversed row packs its
+  content against the *right* edge, so a left-running drawing sat on the wrong side of its frame,
+  and its scroll offsets run the other way, which made every scroll correction guess its direction.
+  `wrapcalDiagram.openAtOrigin` now sets the offset past the end and lets the browser clamp, once
+  per `(Plan, Direction)` — never per render, or a zoom would drag the reader back to the origin.
+  The cost is honest: this is the one place the layout no longer opens at the origin without
+  script, and the position arrives a frame after the drawing does.
+- **Facing the drawing a different way starts the view afresh.** The scroller is re-keyed on
+  `(Plan, Direction)` so the scroll resets by itself, and `OnParametersSet` puts the zoom back to
+  100% — a zoom chosen for one orientation is not a zoom chosen for another, and keeping it means
+  the drawing arrives at a size the reader never asked for in that direction. A new *plan* resets
+  the scroll the same way but deliberately keeps the zoom: the data changed, not the view.
+- **The drawing hugs the top-left of its frame, and is its own size along the roll.** The vertical
+  scroller's svg takes `min-height: 100%` so a short plan has no dead space above it, while the
+  horizontal one takes `min-width: 0`: a frame-wide box scrolls while the drawing inside it does
+  not, so the far end of a long sideways plan became unreachable — `the drawing should be scrollable
+  across its whole width` pins that. Left alignment then comes free from a plain row, which is what
+  the reversal used to take away. Do not "restore" `xMidYMid`: that
   re-centers the content in the filled frame. `justify-content: flex-end` and auto margins were
   both tried first and both push overflowing content toward a start the scrollbar cannot reach,
   taking the origin out of view; `safe flex-end` is the right idea but WebKit does not honor it.
@@ -335,13 +345,65 @@ Read this before changing the maths. Every point here has been got wrong once al
   word the caption uses. Mutation checked: forcing `OriginAtBottom` true fails the diagram's
   origin test, the view's text test and the orientation outline together — if it only failed the
   text, the two would be parallel switches rather than one source.
-- **Zoom is explicit, and 100% is the only value that claims anything.** A slider (50-200 in steps
-  of 25) and gestures scale the drawing by multiplying its pinned dimension through
-  `--diagram-zoom`; sizing rather than `transform: scale()` because a transform leaves the layout
-  box alone and the scrollbars would describe the unscaled drawing. The scale-invariance scenarios
-  are *relative* — they compare before and after adding boxes — so they cannot catch a zoom that is
-  simply wrong from the start; `Starts_the_zoom_at_one_hundred_percent` and the readouts in
-  `Layout.feature` are what pin the default.
+- **Zoom is gesture-only, continuous, and 100% is the only value that claims anything.** Ctrl/Cmd
+  + wheel and pinch everywhere, two fingers on a touchscreen, no on-screen control: a slider lived
+  above the drawing briefly and was removed — it competed with the drawing for the eye and was the
+  one part of zoom that nothing else needed. The wheel scales by a **ratio** (`1.5` per 120 of
+  delta), so a mouse notch is one ratio and a trackpad's stream of small deltas glides; that is why
+  nothing accumulates any more. The ratio is a calibration, not a derivation: Safari reports a
+  pinch as the finger spread itself, Chromium and Firefox as ctrl+wheel in pixel deltas, and the two
+  only feel alike if this number is tuned. Expect to adjust it by hand on real trackpads. Scale is applied by multiplying the pinned dimension through
+  `--diagram-zoom` — sizing rather than `transform: scale()`, because a transform leaves the layout
+  box alone and the scrollbars would describe the unscaled drawing.
+- **There is no keyboard path to zoom, and that is a known gap.** Gestures are the only input, so a
+  reader without a wheel or trackpad cannot zoom at all. `+`/`−` buttons are the usual answer and
+  are not there. Worth doing if it matters.
+- **The scale-invariance scenarios cannot catch a wrong default.** They compare before and after
+  adding boxes, so they hold whatever the starting zoom is;
+  `Starts_the_zoom_at_one_hundred_percent` and the readout assertions in `Layout.feature` are what
+  pin it.
+- **Zoom is anchored at the pointer, and the correction does not assume a scroll convention.** The
+  fraction of the drawing under the pointer is recorded before the zoom resizes anything; after the
+  render, `diagram.js` moves the scroll offsets so that fraction is back under the pointer. Which
+  way an offset moves the content depends on the layout — Up and Left lay the scroller out from the
+  far end — so instead of encoding four conventions the code tries one direction, measures, and
+  takes the other if the error did not shrink. Restoring the exact offsets between attempts matters:
+  at the end of the scroll range the browser clamps, so a shift and its "undo" are not equal and
+  opposite, and negating moved the drawing the wrong way.
+- **Anchor in the drawing's own coordinates, not in fractions of the frame.** The `<svg>` is as big
+  as the frame, and a sideways drawing only fills a corner of it, so a fraction of the element is
+  not a fraction of the drawing. The point is captured in user space through the SVG's matrix and
+  mapped back through it after the zoom. Crucially that matrix must be the **drawing group's**, not
+  the `<svg>`'s: a translate on the group is invisible to the svg's matrix, so a drift corrected
+  that way never looks corrected and gets rolled back — which is what kept Left and Right failing
+  while Up and Down passed.
+- **The correction is a scroll correction, and nothing else.** Translating the drawing group looks
+  like it works — the point does land under the pointer — but an `<svg>` clips what lies outside its
+  own box, so a translated drawing loses the part pushed past the edge and no scrolling can bring it
+  back. Scroll only, therefore, and the drawing must be exactly as big as itself: `.is-horizontal svg`
+  sets `min-width: 0` for that reason. A frame-wide box letterboxed the drawing inside itself and
+  the far end could not be reached at all, which is the bug that `the drawing should be scrollable
+  across its whole width` pins.
+- **The horizontal frame needs its own `max-height`.** The vertical scroller's `max-height: 60vh`
+  keeps the frame still while the drawing changes size inside it; without the same on the horizontal
+  one, zooming made the frame taller and pushed the whole page down under the pointer.
+- **Anchoring needs a plan long enough to overflow.** A short sideways drawing fits inside its frame,
+  so there is nothing to scroll and nothing to correct — the anchor scenarios therefore plot twelve
+  boxes rather than three.
+- **A test that can pass without doing anything is worse than no test.** The anchor scenarios first
+  passed while the wheel had been broken by an edit — a drawing that never zooms also never moves.
+  They now assert the readout moved to 150% as well as that the point held. Same shape of mistake
+  as the earlier drag test aimed below the fold.
+- **A pinch in progress silences the wheel.** Safari reports a pinch as gesture events, Chromium and
+  Firefox as ctrl+wheel. If a browser ever reports both, honouring both would zoom twice there and
+  once elsewhere — which reads as "the zoom is faster on Safari". `ZoomByWheelAsync` therefore
+  returns early between `gesturestart` and `gestureend`. Cheap, and a no-op where it does not apply.
+- **Test the interaction a person uses, not a shortcut past it.** Zoom was once on a slider whose
+  tests drove it with an arrow key: they passed on Firefox while the mouse drag did nothing, which
+  is how a broken control reached a reader. Whatever replaces a control like that, drive it the way
+  it will be used. And scroll a control into view before pointing at it — an element below the fold
+  receives no mouse event at all, so the test exercises nothing and "passes" for the wrong reason,
+  as the first attempt at reproducing that report did.
 - **`diagram.js` is the second file of JS the app owns, and it exists for passive listeners.**
   Blazor registers `wheel` as passive, so `preventDefault` cannot come from C# and Ctrl+wheel would
   zoom the page along with the drawing. Its listeners sit on the **document** and scope themselves

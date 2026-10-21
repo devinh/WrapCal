@@ -13,14 +13,115 @@ window.wrapcalDiagram = {
     attach: function (element, dotNetRef) {
         const owner = element;
 
+        // Where the gesture began, in the drawing's own coordinates. Recorded before the zoom
+        // resizes anything, so the scroll can be corrected afterwards to put that same point back
+        // under the pointer — which is what makes zooming feel like a map.
+        //
+        // Held as a point in the SVG's user space rather than as a fraction of the element: the
+        // element is as big as the frame, and a sideways drawing only fills a corner of it, so a
+        // fraction of the element is not a fraction of the drawing. The SVG's own matrices do that
+        // conversion exactly, letterboxing included.
+        let anchor = null;
+
+        // Measured through the drawing group rather than the <svg>: the group is the space the
+        // drawing is laid out in, so if anything is ever applied to it the measurement follows.
+        function drawing(svg) {
+            return svg.querySelector("g.drawing") || svg;
+        }
+
+        function userPointFrom(clientX, clientY, svg) {
+            const matrix = drawing(svg).getScreenCTM();
+
+            return matrix ? new DOMPoint(clientX, clientY).matrixTransform(matrix.inverse()) : null;
+        }
+
+        function screenPointOf(point, svg) {
+            const matrix = drawing(svg).getScreenCTM();
+
+            return matrix ? new DOMPoint(point.x, point.y).matrixTransform(matrix) : null;
+        }
+
+        function rememberAnchor(clientX, clientY) {
+            const svg = owner.querySelector(".diagram-scroller svg");
+
+            if (!svg) {
+                return;
+            }
+
+            const point = userPointFrom(clientX, clientY, svg);
+            anchor = point ? { point: point, x: clientX, y: clientY } : null;
+        }
+
+        // The listeners live on the document, so they see every wheel on the page; this decides
+        // which ones belong to the drawing.
         function pointerOverFigure(x, y) {
             const box = owner.getBoundingClientRect();
+
             return x >= box.left && x <= box.right && y >= box.top && y <= box.bottom;
         }
 
-        // Spread between two fingers on a touchscreen, captured at the start of a pinch so the
-        // ratio sent to C# is relative to the gesture rather than absolute.
-        let pinchFrom = null;
+        owner.wrapcalAnchor = function () {
+            const scroller = owner.querySelector(".diagram-scroller");
+            const svg = scroller && scroller.querySelector("svg");
+
+            if (!anchor || !svg) {
+                return;
+            }
+
+            // How far the anchored point has drifted from the pointer, in screen pixels. Positive
+            // means the drawing has to move right/down to get back under it.
+            function error() {
+                const now = screenPointOf(anchor.point, svg);
+
+                return now ? { x: anchor.x - now.x, y: anchor.y - now.y } : { x: 0, y: 0 };
+            }
+
+            function scrollBy(axis, amount) {
+                if (axis === "x") {
+                    scroller.scrollLeft += amount;
+                } else {
+                    scroller.scrollTop += amount;
+                }
+            }
+
+            function restore(scrollerLeft, scrollerTop) {
+                scroller.scrollLeft = scrollerLeft;
+                scroller.scrollTop = scrollerTop;
+            }
+
+            // Which way a scroll offset moves the content depends on the layout — Up and Left lay
+            // the scroller out from the far end — so rather than encode four conventions this tries
+            // one direction, measures, and takes the other if the error did not shrink. Restoring
+            // exactly between attempts matters: at the end of the scroll range the browser clamps,
+            // so a move and its "undo" are not equal and opposite.
+            function correct(axis) {
+                for (const direction of [-1, 1]) {
+                    const errorBefore = error();
+                    const magnitude = Math.abs(axis === "x" ? errorBefore.x : errorBefore.y);
+
+                    if (magnitude < 0.5) {
+                        return;
+                    }
+
+                    const left = scroller.scrollLeft;
+                    const top = scroller.scrollTop;
+
+                    scrollBy(axis, direction * magnitude);
+
+                    const after = error();
+                    const magnitudeAfter = Math.abs(axis === "x" ? after.x : after.y);
+
+                    if (magnitudeAfter < magnitude - 0.5) {
+                        return;
+                    }
+
+                    restore(left, top);
+                }
+            }
+
+            correct("x");
+            correct("y");
+        };
 
         function onWheel(event) {
             // Ctrl (or Cmd) marks a zoom; a plain wheel has to keep scrolling the drawing, which is
@@ -37,6 +138,7 @@ window.wrapcalDiagram = {
             }
 
             event.preventDefault();
+            rememberAnchor(event.clientX, event.clientY);
             dotNetRef.invokeMethodAsync("ZoomByWheelAsync", event.deltaY);
         }
 
@@ -56,6 +158,7 @@ window.wrapcalDiagram = {
             }
 
             event.preventDefault();
+            rememberAnchor(event.clientX, event.clientY);
             dotNetRef.invokeMethodAsync("ZoomByRatioAsync", event.scale);
         }
 
@@ -79,6 +182,10 @@ window.wrapcalDiagram = {
             event.preventDefault();
 
             const current = spread(event.touches);
+
+            rememberAnchor(
+                (event.touches[0].clientX + event.touches[1].clientX) / 2,
+                (event.touches[0].clientY + event.touches[1].clientY) / 2);
 
             if (pinchFrom === null) {
                 pinchFrom = current;
@@ -120,6 +227,32 @@ window.wrapcalDiagram = {
             document.removeEventListener("touchcancel", onTouchEnd);
             delete owner.wrapcalDetach;
         };
+    },
+
+    /// Opens the scroller at the end the roll was cut from. Up and Left put the origin at the far
+    /// end; the offsets are set past the end and clamped, so one call covers both.
+    openAtOrigin: function (element, toEndX, toEndY) {
+        const scroller = element.querySelector(".diagram-scroller");
+
+        if (!scroller) {
+            return;
+        }
+
+        if (toEndX) {
+            scroller.scrollLeft = scroller.scrollWidth;
+        }
+
+        if (toEndY) {
+            scroller.scrollTop = scroller.scrollHeight;
+        }
+    },
+
+    /// Puts the point a gesture started on back under the pointer. Called after the zoom has been
+    /// rendered, since it has to measure the drawing at its new size.
+    anchor: function (element) {
+        if (element && element.wrapcalAnchor) {
+            element.wrapcalAnchor();
+        }
     },
 
     detach: function (element) {

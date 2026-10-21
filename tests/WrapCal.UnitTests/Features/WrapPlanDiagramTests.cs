@@ -20,32 +20,22 @@ public class WrapPlanDiagramTests : WrapCalBunitContext
     }
 
     [Test]
-    public async Task Moves_the_zoom_with_the_slider()
-    {
-        var cut = Render<WrapPlanDiagram>(parameters => parameters.Add(p => p.Plan, OneBoxPlan()));
-
-        await cut.Find("[data-testid='zoom-slider'] input").InputAsync("125");
-
-        await Assert.That(cut.Find("[data-testid='zoom-level']").TextContent).IsEqualTo("125%");
-    }
-
-    [Test]
     public async Task Moves_the_zoom_with_the_wheel()
     {
         var cut = Render<WrapPlanDiagram>(parameters => parameters.Add(p => p.Plan, OneBoxPlan()));
 
-        // One notch of a mouse wheel, upwards, which zooms in.
+        // One notch of a mouse wheel, upwards: a ratio of 1.5 rather than a step of 25.
         await cut.Instance.ZoomByWheelAsync(-120);
 
-        await Assert.That(cut.Find("[data-testid='zoom-level']").TextContent).IsEqualTo("125%");
+        await Assert.That(cut.Find("[data-testid='zoom-level']").TextContent).IsEqualTo("150%");
     }
 
     [Test]
-    public async Task Steps_once_for_a_notch_of_trackpad_deltas()
+    public async Task Zooms_as_much_in_small_turns_as_in_one()
     {
-        // A trackpad pinch arrives as a stream of small deltas rather than one of 120, so the
-        // handler accumulates. Four small ones add up to one notch and must move one step — acting
-        // on each event would have raced the zoom from 100 to 200 in the same gesture.
+        // A trackpad sends a stream of small deltas where a mouse sends one of 120. Because the
+        // wheel scales by a ratio, four quarter-turns compose to exactly one notch — which is what
+        // makes a pinch feel smooth instead of stepping.
         var cut = Render<WrapPlanDiagram>(parameters => parameters.Add(p => p.Plan, OneBoxPlan()));
 
         for (int i = 0; i < 4; i++)
@@ -53,7 +43,7 @@ public class WrapPlanDiagramTests : WrapCalBunitContext
             await cut.Instance.ZoomByWheelAsync(-30);
         }
 
-        await Assert.That(cut.Find("[data-testid='zoom-level']").TextContent).IsEqualTo("125%");
+        await Assert.That(cut.Find("[data-testid='zoom-level']").TextContent).IsEqualTo("150%");
     }
 
     [Test]
@@ -61,19 +51,39 @@ public class WrapPlanDiagramTests : WrapCalBunitContext
     {
         var cut = Render<WrapPlanDiagram>(parameters => parameters.Add(p => p.Plan, OneBoxPlan()));
 
-        for (int i = 0; i < 20; i++)
+        for (int i = 0; i < 40; i++)
         {
             await cut.Instance.ZoomByWheelAsync(-120);
         }
 
-        await Assert.That(cut.Find("[data-testid='zoom-level']").TextContent).IsEqualTo("200%");
+        await Assert.That(cut.Find("[data-testid='zoom-level']").TextContent).IsEqualTo("400%");
 
-        for (int i = 0; i < 20; i++)
+        for (int i = 0; i < 40; i++)
         {
             await cut.Instance.ZoomByWheelAsync(120);
         }
 
-        await Assert.That(cut.Find("[data-testid='zoom-level']").TextContent).IsEqualTo("50%");
+        await Assert.That(cut.Find("[data-testid='zoom-level']").TextContent).IsEqualTo("25%");
+    }
+
+    [Test]
+    public async Task Ignores_the_wheel_while_a_pinch_is_in_progress()
+    {
+        // A browser that reports a pinch as both gesture events and ctrl+wheel would otherwise
+        // zoom twice there and once everywhere else — which is what "faster on Safari" looks like.
+        var cut = Render<WrapPlanDiagram>(parameters => parameters.Add(p => p.Plan, OneBoxPlan()));
+
+        await cut.Instance.BeginZoomGestureAsync();
+        await cut.Instance.ZoomByRatioAsync(2.25);
+        await cut.Instance.ZoomByWheelAsync(-120);
+
+        await Assert.That(cut.Find("[data-testid='zoom-level']").TextContent).IsEqualTo("150%");
+
+        // Once the gesture ends the wheel is heard again.
+        await cut.Instance.EndZoomGestureAsync();
+        await cut.Instance.ZoomByWheelAsync(-120);
+
+        await Assert.That(cut.Find("[data-testid='zoom-level']").TextContent).IsEqualTo("225%");
     }
 
     [Test]
@@ -86,11 +96,13 @@ public class WrapPlanDiagramTests : WrapCalBunitContext
         await cut.Instance.BeginZoomGestureAsync();
         await cut.Instance.ZoomByRatioAsync(1.5);
 
-        await Assert.That(cut.Find("[data-testid='zoom-level']").TextContent).IsEqualTo("150%");
+        // Damped: a spread of 1.5 zooms 1.5^0.5, not 1.5, so Safari answers about as gently as a
+        // wheel does in the browsers that report pixel deltas.
+        await Assert.That(cut.Find("[data-testid='zoom-level']").TextContent).IsEqualTo("122%");
 
         await cut.Instance.ZoomByRatioAsync(1.5);
 
-        await Assert.That(cut.Find("[data-testid='zoom-level']").TextContent).IsEqualTo("150%");
+        await Assert.That(cut.Find("[data-testid='zoom-level']").TextContent).IsEqualTo("122%");
     }
 
     [Test]
@@ -265,13 +277,18 @@ public class WrapPlanDiagramTests : WrapCalBunitContext
     // reader's eye. Its axis follows the roll, and it is laid out from the far end exactly when the
     // origin is at that end — which is what makes it open on the origin.
     [Test]
-    [Arguments(RollDirection.Down, "is-vertical", false)]
-    [Arguments(RollDirection.Up, "is-vertical", true)]
-    [Arguments(RollDirection.Right, "is-horizontal", false)]
-    [Arguments(RollDirection.Left, "is-horizontal", true)]
-    public async Task Scrolls_along_the_roll_from_the_end_the_origin_is_on(
-        RollDirection direction, string axis, bool reversed)
+    [Arguments(RollDirection.Down, "is-vertical")]
+    [Arguments(RollDirection.Up, "is-vertical")]
+    [Arguments(RollDirection.Left, "is-horizontal")]
+    [Arguments(RollDirection.Right, "is-horizontal")]
+    public async Task Lays_the_scroller_out_along_the_roll(
+        RollDirection direction, string axis)
     {
+        // Which end the scroller opens at is no longer a layout trick: a reversed row packed its
+        // content against the right edge, which put a left-running drawing on the wrong side of
+        // its frame and made its scroll offsets run backwards. Opening at the origin is a scroll
+        // call now (wrapcalDiagram.openAtOrigin), exercised by the browser suite's
+        // "the origin should be in view" outline for all four directions.
         var cut = Render<WrapPlanDiagram>(parameters => parameters
             .Add(p => p.Plan, OneBoxPlan())
             .Add(p => p.Direction, direction));
@@ -279,7 +296,7 @@ public class WrapPlanDiagramTests : WrapCalBunitContext
         string classes = cut.Find(".diagram-scroller").GetAttribute("class") ?? string.Empty;
 
         await Assert.That(classes).Contains(axis);
-        await Assert.That(classes.Contains("is-reversed")).IsEqualTo(reversed);
+        await Assert.That(classes.Contains("is-reversed")).IsFalse();
     }
 
     private static WrapPlan TwoBoxPlan() =>

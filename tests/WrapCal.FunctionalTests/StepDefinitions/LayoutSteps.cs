@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.Playwright;
 using Reqnroll;
 
@@ -12,6 +13,7 @@ public sealed class LayoutSteps : StepsBase
 {
     private const string PlanButtonTop = "planButtonTop";
     private const string DrawingScale = "drawingScale";
+    private const string CutUnderPointer = "cutUnderPointer";
 
     public LayoutSteps(ScenarioContext scenarioContext)
         : base(scenarioContext)
@@ -208,6 +210,26 @@ public sealed class LayoutSteps : StepsBase
 
         await Assert.That(alongRoll || acrossRoll).IsTrue();
 
+        // Opening at the origin is a scroll call made after the render rather than a layout trick,
+        // so the position has to arrive before it can be read.
+        await Ui.Page.WaitForFunctionAsync(
+            """
+            () => {
+                const scroller = document.querySelector(".diagram-scroller");
+                const dot = document.querySelector(".origin-dot");
+                if (!scroller || !dot) return false;
+
+                const s = scroller.getBoundingClientRect();
+                const d = dot.getBoundingClientRect();
+                const x = d.left + (d.width / 2);
+                const y = d.top + (d.height / 2);
+
+                return x >= s.left && x <= s.right && y >= s.top && y <= s.bottom;
+            }
+            """,
+            null,
+            new PageWaitForFunctionOptions { Timeout = 10_000 });
+
         // Bounding boxes are in viewport coordinates, so this accounts for the scroll position
         // however it was arrived at.
         var origin = (await Ui.Page.Locator(".origin-dot").BoundingBoxAsync())!;
@@ -218,16 +240,6 @@ public sealed class LayoutSteps : StepsBase
 
         await Assert.That(originX).IsBetween(visible.X, visible.X + visible.Width);
         await Assert.That(originY).IsBetween(visible.Y, visible.Y + visible.Height);
-    }
-
-    [When("I move the zoom slider one step up")]
-    public async Task WhenIMoveTheZoomSliderOneStepUpAsync()
-    {
-        // A range input moves one step per arrow key, which is a real interaction rather than a
-        // synthetic event — and the step is 25, so one press is what the assertions expect.
-        ILocator slider = Ui.Page.Locator("[data-testid='zoom-slider'] input");
-        await slider.FocusAsync();
-        await slider.PressAsync("ArrowRight");
     }
 
     [When("a Ctrl wheel of one notch arrives over the diagram")]
@@ -268,6 +280,141 @@ public sealed class LayoutSteps : StepsBase
             percent / 100.0);
     }
 
+    [When("I note the cut under the pointer")]
+    public async Task WhenINoteTheCutUnderThePointerAsync()
+    {
+        // A point on a cut near the middle of the frame. Picked by proximity rather than by
+        // document order: a mirrored layout puts the first cut at the far end, so "the first big
+        // one" can sit outside the frame entirely and the pointer would never be over the drawing.
+        double[] noted = await Ui.Page.EvaluateAsync<double[]>(
+            """
+            () => {
+                // Start from the middle of the scroll range: Up and Left open at the far end, and
+                // nothing can scroll past an end.
+                const scroller = document.querySelector(".diagram-scroller");
+                scroller.scrollLeft = (scroller.scrollWidth - scroller.clientWidth) / 2;
+                scroller.scrollTop = (scroller.scrollHeight - scroller.clientHeight) / 2;
+
+                const frame = scroller.getBoundingClientRect();
+                const middleX = frame.left + (frame.width / 2);
+                const middleY = frame.top + (frame.height / 2);
+
+                let best = -1;
+                let bestDistance = Number.MAX_VALUE;
+                let point = [0, 0];
+
+                [...document.querySelectorAll(".wrap-diagram g.cut rect")].forEach((cut, i) => {
+                    const r = cut.getBoundingClientRect();
+
+                    if (r.width <= 12 || r.height <= 12) {
+                        return;
+                    }
+
+                    const x = r.left + (r.width / 2);
+                    const y = r.top + (r.height / 2);
+                    const distance = Math.hypot(x - middleX, y - middleY);
+
+                    if (distance < bestDistance) {
+                        bestDistance = distance;
+                        best = i;
+                        point = [x, y];
+                    }
+                });
+
+                return [best, point[0], point[1]];
+            }
+            """);
+
+        Context.Set(noted, CutUnderPointer);
+    }
+
+    [When("I scroll the drawing to the middle")]
+    public async Task WhenIScrollTheDrawingToTheMiddleAsync() =>
+        await Ui.Page.EvaluateAsync(
+            """
+            () => {
+                const scroller = document.querySelector(".diagram-scroller");
+
+                scroller.scrollLeft = (scroller.scrollWidth - scroller.clientWidth) / 2;
+                scroller.scrollTop = (scroller.scrollHeight - scroller.clientHeight) / 2;
+            }
+            """);
+
+    [Then("the drawing should sit at the left of its frame")]
+    public async Task ThenTheDrawingShouldSitAtTheLeftAsync()
+    {
+        // A drawing narrower than its frame used to land on the right for Left, because a reversed
+        // row packs its content against the right edge.
+        double edge = await Ui.Page.EvaluateAsync<double>(
+            """
+            () => {
+                const scroller = document.querySelector(".diagram-scroller");
+
+                // The svg, not the paper: the drawing is inset from its box by the gutter that
+                // frames the roll, so the paper is legitimately a little in from the edge.
+                return scroller.querySelector("svg").getBoundingClientRect().left
+                    - scroller.getBoundingClientRect().left;
+            }
+            """);
+
+        await Assert.That(edge).IsGreaterThanOrEqualTo(-1.0);
+        await Assert.That(edge).IsLessThan(2.0);
+    }
+
+    [Then("the drawing should be scrollable across its whole width")]
+    public async Task ThenTheDrawingShouldBeScrollableAsync()
+    {
+        // Scrolling from one end to the other must move the drawing by exactly the scrollable
+        // distance. It does not when the drawing is letterboxed inside a frame-wide box: then the
+        // box scrolls and the drawing inside it does not, and its far end cannot be reached at all.
+        double[] result = await Ui.Page.EvaluateAsync<double[]>(
+            """
+            () => {
+                const scroller = document.querySelector(".diagram-scroller");
+                const paper = scroller.querySelector(".paper");
+                const max = scroller.scrollWidth - scroller.clientWidth;
+
+                // Driven to absurd values so the browser clamps to whichever end it counts from.
+                scroller.scrollLeft = -1e7;
+                const start = paper.getBoundingClientRect().left;
+                scroller.scrollLeft = 1e7;
+                const end = paper.getBoundingClientRect().left;
+
+                return [max, Math.abs(start - end)];
+            }
+            """);
+
+        await Assert.That(result[0]).IsGreaterThan(1.0);
+        await Assert.That(Math.Abs(result[0] - result[1])).IsLessThan(2.0);
+    }
+
+    [Then("the cut under the pointer should not have moved")]
+    public async Task ThenTheCutUnderThePointerShouldNotHaveMovedAsync()
+    {
+        double[] noted = Context.Get<double[]>(CutUnderPointer);
+        int index = (int)noted[0];
+
+        await Assert.That(index).IsGreaterThanOrEqualTo(0);
+
+        double[] now = await Ui.Page.EvaluateAsync<double[]>(
+            """
+            (args) => {
+                const [index, x, y] = args;
+                const r = document.querySelectorAll(".wrap-diagram g.cut rect")[index].getBoundingClientRect();
+                const inside = x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+
+                return [inside ? 1 : 0, (x - r.left) / r.width, (y - r.top) / r.height];
+            }
+            """,
+            new[] { (double)index, noted[1], noted[2] });
+
+        // The same cut, still under the same point, at the same place within it. Without the
+        // correction the drawing slides out from under the pointer instead.
+        await Assert.That(now[0]).IsEqualTo(1.0);
+        await Assert.That(Math.Abs(now[1] - 0.5)).IsLessThan(0.05);
+        await Assert.That(Math.Abs(now[2] - 0.5)).IsLessThan(0.05);
+    }
+
     [Then("the zoom should read {word}")]
     public async Task ThenTheZoomShouldReadAsync(string expected)
     {
@@ -276,16 +423,19 @@ public sealed class LayoutSteps : StepsBase
         await Assert.That(readout?.Trim()).IsEqualTo(expected);
     }
 
-    [Then("the drawing's scale should have grown by {int} percent")]
-    public async Task ThenTheDrawingScaleShouldHaveGrownAsync(int percent)
+    [Then("the drawing's scale should match the zoom")]
+    public async Task ThenTheDrawingScaleShouldMatchTheZoomAsync()
     {
-        // The same measurement the scale-invariance scenario uses: the paper's extent across the
-        // roll. That one proves the scale does not move unasked; this proves it moves when asked.
+        // Compared against the page's own readout rather than an expected number, so this holds
+        // whatever value a gesture happens to land on — and it ties the figure to the picture.
+        string? readout = await Ui.Page.Locator("[data-testid='zoom-level']").TextContentAsync();
+        double percent = double.Parse(
+            (readout ?? "100%").Trim().TrimEnd('%'), CultureInfo.InvariantCulture);
+
         double before = Context.Get<double>(DrawingScale);
         double after = await CrossRollExtentAsync();
-        double expected = before * (1 + (percent / 100.0));
 
-        await Assert.That(Math.Abs(after - expected)).IsLessThan(2.0);
+        await Assert.That(Math.Abs(after - (before * percent / 100.0))).IsLessThan(2.0);
     }
 
     private async Task WheelOverDiagramAsync(int turns, int deltaPerTurn)
@@ -297,27 +447,38 @@ public sealed class LayoutSteps : StepsBase
         // this gives the handler exactly the fields a browser would.
         //
         // The cost is real: no automated test now proves a physical mouse wheel reaches the
-        // handler on Firefox. The slider scenario remains the genuine-input case, and this one
-        // covers everything downstream of the event arriving.
+        // handler on Firefox. This covers everything downstream of the event arriving.
+        //
+        // Delivered at the noted cut when a scenario has noted one, so a zoom can be aimed at a
+        // point the test then checks stayed put; otherwise at the middle of the drawing.
+        double[]? noted = Context.ContainsKey(CutUnderPointer)
+            ? Context.Get<double[]>(CutUnderPointer)
+            : null;
+
+        double[] point = noted is { Length: 3 } ? [noted[1], noted[2]] : [];
+
         for (int i = 0; i < turns; i++)
         {
             await Ui.Page.EvaluateAsync(
                 """
-                (delta) => {
+                (args) => {
+                    const [delta, point] = args;
                     const figure = document.querySelector(".wrap-diagram");
                     const box = figure.getBoundingClientRect();
+                    const x = point.length ? point[0] : box.left + (box.width / 2);
+                    const y = point.length ? point[1] : box.top + (box.height / 2);
 
                     figure.dispatchEvent(new WheelEvent("wheel", {
                         deltaY: delta,
                         ctrlKey: true,
                         bubbles: true,
                         cancelable: true,
-                        clientX: box.left + (box.width / 2),
-                        clientY: box.top + (box.height / 2)
+                        clientX: x,
+                        clientY: y
                     }));
                 }
                 """,
-                deltaPerTurn);
+                new object[] { deltaPerTurn, point });
         }
     }
 

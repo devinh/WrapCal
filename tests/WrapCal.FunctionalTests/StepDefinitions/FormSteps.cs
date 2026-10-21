@@ -79,7 +79,6 @@ public sealed class FormSteps : StepsBase
     public async Task WhenISetTheRollOrientationAsync(string direction)
     {
         bool horizontal = direction is "Left" or "Right";
-        bool reversed = direction is "Top" or "Left";
 
         // Selected by label: the option values are the enum names (Down, Up, ...), which read
         // badly in a feature file.
@@ -87,18 +86,17 @@ public sealed class FormSteps : StepsBase
 
         // Changing direction redraws the diagram, and the scroller is re-keyed, so the previous
         // drawing's elements are detached for a moment. Waiting for the new scroller to carry this
-        // direction's classes means the next step measures the drawing it means to — reading a
+        // direction's axis means the next step measures the drawing it means to — reading a
         // bounding box in between comes back null.
         await Ui.Page.WaitForFunctionAsync(
             """
-            ([horizontal, reversed]) => {
+            (horizontal) => {
                 const scroller = document.querySelector('.diagram-scroller');
                 return scroller !== null
-                    && scroller.classList.contains('is-horizontal') === horizontal
-                    && scroller.classList.contains('is-reversed') === reversed;
+                    && scroller.classList.contains('is-horizontal') === horizontal;
             }
             """,
-            new object[] { horizontal, reversed },
+            horizontal,
             new PageWaitForFunctionOptions { Timeout = 10_000 });
     }
 
