@@ -120,9 +120,10 @@ dotnet test --project tests/WrapCal.FunctionalTests
 
 ### Build automation
 
-`cake/` holds a [Cake](https://cakebuild.net/) build script using the Cake SDK, kept beside
-the solution rather than inside it — a plain `dotnet build` at the root builds the app and
-the tests, never the build script.
+`cake/` holds a [Cake](https://cakebuild.net/) build script using the Cake SDK. It is in the
+solution but marked `<Build Project="false" />`, so a plain `dotnet build` at the root builds
+the app and the tests but never the build script — which could not be rebuilt underneath itself
+while it is the thing running the build.
 
 ```bash
 ./cake.sh                          # Clean → Build → Tests (the default)
@@ -135,8 +136,9 @@ the tests, never the build script.
 
 `Tests` is both suites — it runs each as a target of its own, so running them together and
 running one alone share a single definition. On Windows use `.\cake.ps1` with the same
-arguments. Publishing is a placeholder for now: it drops the site in `./output` and nothing
-more.
+arguments. `Publish` then checks the published `index.html` for unresolved `#[.{fingerprint}]`
+asset placeholders — the one failure that still deploys and still serves, with a blank page as its
+only symptom — and fails the run rather than letting it reach Pages.
 
 ### Publishing and hosting
 
@@ -165,15 +167,16 @@ global.json                  # opts dotnet test into Microsoft.Testing.Platform 
 Directory.Build.props        # shared compiler + analyzer settings
 .editorconfig                # code style, enforced at build time
 CLAUDE.md                    # conventions and architecture notes
+.claude/skills/              # project skills: functional-tests, unit-tests, theme, build-and-deploy
 
-cake/                        # Cake build (Cake SDK, net10.0) — not in the solution
+cake/                        # Cake build (Cake SDK, net10.0) — in the solution, marked not to build
 cake.sh / cake.ps1           # run it: ./cake.sh --target=Tests
 
 src/
   WrapCal/                   # the app (Blazor WebAssembly, styled with MudBlazor)
     Components/
       Layout/                # MainLayout — app bar and content, no navigation
-      Pages/                 # Error, NotFound
+      Pages/                 # NotFound
       Routes.razor, _Imports.razor
     Common/
       Result.cs              # Result<T>
@@ -200,7 +203,10 @@ WrapCal uses **vertical slice architecture** — code is organized by feature, n
 technical layer. The calculator lives in `src/WrapCal/Features/PlanWrap/`, holding its page,
 logic, models, and display component together.
 
-See [CLAUDE.md](CLAUDE.md) for conventions, coding standards, and anti-patterns.
+See [CLAUDE.md](CLAUDE.md) for conventions, coding standards, and anti-patterns, and
+[`src/WrapCal/Features/PlanWrap/README.md`](src/WrapCal/Features/PlanWrap/README.md) for how the
+planner and the diagram work — why the maths is what it is, and what each of the search's knobs
+buys.
 
 ## Testing
 
@@ -234,9 +240,11 @@ Both run on **Microsoft.Testing.Platform**, opted into via `global.json`. Conseq
 
 ### Functional tests
 
-The functional suite starts the app as a real process on a free port and drives it with a
-real browser. An in-memory test server can't work here: Playwright talks TCP, and Blazor
-Server needs a real SignalR circuit. Startup costs a few seconds, hence the separate project.
+The functional suite publishes the app, serves that output from an in-process Kestrel under
+`/WrapCal`, and drives it with a real browser. It is deliberately the artifact that ships rather
+than a development host — a `dotnet build` output is not servable at all, since the app's own
+assets only land in the folder on publish. Startup costs a few seconds, hence the separate
+project.
 
 **Install browsers once.** Playwright .NET ships its installer as `playwright.ps1`, which
 needs PowerShell — not available by default here. The script just calls

@@ -53,7 +53,7 @@ public static class TestRunHooks
 
     /// <summary>
     /// macOS runs against WebKit (Safari's engine) because Firefox cannot launch on
-    /// macOS 27 at all — see CLAUDE.md for the upstream bug. Everywhere else the default
+    /// macOS 27 at all — see README.md for the upstream bug. Everywhere else the default
     /// is Firefox. Override either way with the <c>BROWSER</c> environment variable.
     /// </summary>
     private static string DefaultBrowserName => OperatingSystem.IsMacOS() ? "webkit" : "firefox";
