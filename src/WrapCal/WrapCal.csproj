@@ -16,9 +16,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.13" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.14" />
     <!-- Only so `dotnet run` and `dotnet watch` have something to serve the static files. -->
-    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="10.0.13" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="10.0.14" PrivateAssets="all" />
     <PackageReference Include="MudBlazor" Version="9.11.0" />
   </ItemGroup>
 
