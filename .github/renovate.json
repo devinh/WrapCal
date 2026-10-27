@@ -9,19 +9,20 @@
   "dependencyDashboard": true,
   "prConcurrentLimit": 5,
   "prHourlyLimit": 5,
-  "platformAutomerge": false,
+  "platformAutomerge": true,
   "baseBranchPatterns": [
     "main"
   ],
   "packageRules": [
     {
-      "description": "Merge anything that is not a major once its checks pass",
+      "description": "Merge anything that is not a major once its checks pass. One pull request a day rather than one per package: they all merge unattended anyway, and every extra pull request is another one to rebase when a sibling lands.",
       "matchUpdateTypes": [
         "minor",
         "patch",
         "pin",
         "digest"
       ],
+      "groupName": "non-major updates",
       "automerge": true,
       "automergeStrategy": "squash"
     },
