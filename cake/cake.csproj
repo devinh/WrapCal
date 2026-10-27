@@ -9,7 +9,7 @@
   <ItemGroup>
     <!-- Transitive through Cake.Sdk, which pins 10.0.12 — a version flagged by NU1902/NU1903.
          Pin it forward so the build stays warning-free. Drop this once Cake.Sdk moves. -->
-    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.14" />
   </ItemGroup>
 
 </Project>
