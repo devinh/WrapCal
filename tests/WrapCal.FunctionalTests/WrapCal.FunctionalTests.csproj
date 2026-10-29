@@ -19,7 +19,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Playwright" Version="1.64.1" />
     <PackageReference Include="Reqnroll.TUnit" Version="3.3.4" />
-    <PackageReference Include="TUnit" Version="1.76.28" />
+    <PackageReference Include="TUnit" Version="1.76.45" />
   </ItemGroup>
 
 </Project>
