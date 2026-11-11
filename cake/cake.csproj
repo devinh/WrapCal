@@ -1,4 +1,4 @@
-<Project Sdk="Cake.Sdk/6.3.0">
+<Project Sdk="Cake.Sdk/7.0.0">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
