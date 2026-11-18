@@ -6,7 +6,9 @@
   "labels": [
     "renovate"
   ],
-  "dependencyDashboard": true,
+  "dependencyDashboard": {
+    "enabled": true
+  },
   "prConcurrentLimit": 5,
   "prHourlyLimit": 5,
   "platformAutomerge": true,
