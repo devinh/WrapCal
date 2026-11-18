@@ -93,7 +93,7 @@ figure is what that costs you.
 
 ## Requirements
 
-- **.NET SDK 10.0.x** — developed against `10.0.402`
+- **.NET SDK 11.0.x** — developed against `11.0.100`
 - No database, no external services, no secrets
 - Playwright browsers for the functional suite — see [Testing](#testing)
 
@@ -172,7 +172,7 @@ Directory.Build.props        # shared compiler + analyzer settings
 CLAUDE.md                    # conventions and architecture notes
 .claude/skills/              # project skills: functional-tests, unit-tests, theme, build-and-deploy
 
-cake/                        # Cake build (Cake SDK, net10.0) — in the solution, marked not to build
+cake/                        # Cake build (Cake SDK, net11.0) — in the solution, marked not to build
 cake.sh / cake.ps1           # run it: ./cake.sh --target=Tests
 
 src/
@@ -281,7 +281,7 @@ needs PowerShell — not available by default here. The script just calls
 
 ```bash
 # Run `dotnet build` first — the DLL lives in the build output.
-BIN=tests/WrapCal.FunctionalTests/bin/Debug/net10.0
+BIN=tests/WrapCal.FunctionalTests/bin/Debug/net11.0
 dotnet exec --runtimeconfig "$BIN/WrapCal.FunctionalTests.runtimeconfig.json" \
   "$BIN/Microsoft.Playwright.dll" install webkit firefox
 ```

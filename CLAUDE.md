@@ -12,7 +12,7 @@ to be true before you know which of them you are in.
 
 ## Project Context
 
-WrapCal is a .NET 10 Blazor WebAssembly app that plans how much wrapping paper a set of gift
+WrapCal is a .NET 11 Blazor WebAssembly app that plans how much wrapping paper a set of gift
 boxes needs — given box dimensions and a paper roll's width, it produces a cut plan:
 where to cut the roll, how much length is consumed, and how much paper is wasted.
 
@@ -22,7 +22,7 @@ orthogonal features, accounts, saved plans, or a database.
 
 ## Tech Stack
 
-- **.NET 10** / C# 14 — SDK `10.0.402`
+- **.NET 11** / C# 15 — SDK `11.0.100`
 - **Standalone Blazor WebAssembly** — `Microsoft.NET.Sdk.BlazorWebAssembly`, with
   `WebAssemblyHostBuilder` in `Program.cs` mounting `Routes` on `#app` and a `HeadOutlet` on
   `head::after`. There is **no server and no prerender**: the app is a folder of static files
@@ -48,8 +48,11 @@ orthogonal features, accounts, saved plans, or a database.
 - **No persistence** — the app is stateless. No database, no EF Core, no Identity.
   Wrap planning is a pure function of user input. The only exception is those two theme
   cookies, which are display preferences rather than application state.
-- **No logging library and no configuration** — there is nowhere for a log to go in a
-  browser tab, and the app reads no settings.
+- **No logging library and no configuration** — the app reads no settings, and the browser
+  console is the only place a line can go, so `Console` is the whole of it: the runtime binds
+  `Console.Out` to `console.log` and `Console.Error` to `console.error`. It is used in exactly
+  one situation — a JS interop call that is deliberately swallowed — so that the failure is
+  still traceable. Nothing else logs.
 - **TUnit** + **bUnit** for unit and component tests; **Reqnroll** (Gherkin BDD) + **Playwright**
   for functional tests against a real browser. The runner is Microsoft.Testing.Platform — see
   the test runner note below.
@@ -71,6 +74,7 @@ src/
       _Imports.razor
     Common/
       Result.cs                 # Result<T> — cross-cutting, outside any slice
+      JsInteropLog.cs           # where a swallowed JS interop failure is reported
     Features/                   # vertical slices
       _Imports.razor            # REQUIRED — Components/_Imports.razor does NOT reach here
       PlanWrap/                 # the calculator — see its README.md for how it decides things
@@ -130,7 +134,7 @@ logic and the models are one unit, and they change together.
 
 ## Coding Standards
 
-- **C# 14** — primary constructors, collection expressions, records, pattern matching
+- **C# 15** — primary constructors, collection expressions, records, pattern matching
 - **File-scoped namespaces** — always
 - **`var`** — for obvious types only; explicit types when the type isn't apparent
 - **Naming** — PascalCase public members, `_camelCase` private fields, `Async` suffix
@@ -185,7 +189,7 @@ of that, and the hosting setup it publishes to, is in the `build-and-deploy` ski
 
 ### Test runner note
 
-`global.json` opts `dotnet test` into .NET 10's **MTP mode**
+`global.json` opts `dotnet test` into .NET 11's **MTP mode**
 (`"test": { "runner": "Microsoft.Testing.Platform" }`). Consequences:
 
 - TUnit test projects are **executables** (`<OutputType>Exe</OutputType>`).
@@ -298,7 +302,7 @@ has to be true for it to be found.
 
 Load these dotnet-claude-kit skills for general .NET context:
 
-- `modern-csharp` — C# 14 features and idioms
+- `modern-csharp` — C# 15 features and idioms
 - `architecture-advisor` — structuring the app
 - `testing` — TUnit, bUnit component testing (the kit's own copy says xUnit; this repo uses TUnit)
 - `dependency-injection` — lifetimes and registration

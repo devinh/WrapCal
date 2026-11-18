@@ -191,7 +191,7 @@ else
         if (!_listening)
         {
             _self = DotNetObjectReference.Create(this);
-            await Js.InvokeVoidAsync("wrapcalDiagram.attach", _figure, _self);
+            await TryInvokeAsync("wrapcalDiagram.attach", _figure, _self);
             _listening = true;
         }
 
@@ -204,7 +204,7 @@ else
             // After the render, so the drawing is measured at its new size: the point a gesture
             // started on goes back under the pointer.
             _zoomApplied = false;
-            await Js.InvokeVoidAsync("wrapcalDiagram.anchor", _figure);
+            await TryInvokeAsync("wrapcalDiagram.anchor", _figure);
         }
     }
 
@@ -212,7 +212,7 @@ else
     {
         if (_listening)
         {
-            await Js.InvokeVoidAsync("wrapcalDiagram.detach", _figure);
+            await TryInvokeAsync("wrapcalDiagram.detach", _figure);
             _listening = false;
         }
 
@@ -294,11 +294,32 @@ else
         _opened = (Plan, Direction);
 
         // Up and Left put the origin at the far end of the drawing; the others start at zero.
-        await Js.InvokeVoidAsync(
+        await TryInvokeAsync(
             "wrapcalDiagram.openAtOrigin",
             _figure,
             Direction is RollDirection.Left,
             Direction is RollDirection.Up);
+    }
+
+    // Every JS call here is an enhancement to a drawing that renders without it: the wheel
+    // listener, the scroll position, the zoom anchor. So a call that fails costs the zoom and
+    // nothing else, and the two ways it fails — the runtime disconnected under a navigation, or a
+    // pending call cancelled by one — are both reasons to leave the drawing alone rather than to
+    // put an error bar over a diagram that is already correct.
+    private async Task TryInvokeAsync(string identifier, params object?[]? args)
+    {
+        try
+        {
+            await Js.InvokeVoidAsync(identifier, args);
+        }
+        catch (JSException ex)
+        {
+            JsInteropLog.Failure(identifier, ex);
+        }
+        catch (OperationCanceledException ex)
+        {
+            JsInteropLog.Failure(identifier, ex);
+        }
     }
 
     // Extents of the paper as drawn, which swap when the roll runs horizontally.
