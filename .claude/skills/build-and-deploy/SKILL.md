@@ -29,7 +29,7 @@ Every build and test command lives in `CLAUDE.md`; this is what sits behind them
   running one would race itself. Verified: touching `cake/cake.csproj` and building the solution
   leaves `cake/obj` and `cake/bin` untouched — the element excludes it from restore as well as
   from compile.
-- It targets `net10.0` via `Cake.Sdk`, and its script runs with the repository root as the
+- It targets `net11.0` via `Cake.Sdk`, and its script runs with the repository root as the
   working directory (`RunWorkingDirectory`), which is why every path inside `cake.cs` is
   relative to the root.
 - **`Release` runs `Tests`, so the deploy is gated on the functional suite as well as the unit
@@ -46,9 +46,11 @@ Every build and test command lives in `CLAUDE.md`; this is what sits behind them
   placeholders in `index.html` are rewritten during publish, not during build. `AssertSiteIsBootable`
   then checks the published `index.html` for one that survived — the one failure that still
   deploys and still serves, with a blank page as its only symptom — and fails the run.
-- `cake.csproj` pins `System.Security.Cryptography.Pkcs` forward: `Cake.Sdk` pulls 10.0.12
-  transitively, which trips NU1902 and NU1903. Without the pin the Cake build reports four
-  vulnerability warnings, so keep it until `Cake.Sdk` moves to a fixed version.
+- **`cake.csproj` carries no forward pins.** It used to: `Cake.Sdk` 6.x pulled
+  `System.Security.Cryptography.Pkcs` 10.0.12 transitively, which trips NU1902 and NU1903, and a
+  `PackageReference` pinning it forward was the workaround. `Cake.NuGet` 7.x pins 11.0.0 itself,
+  so the pin was removed with the upgrade. If vulnerability warnings reappear after a future
+  `Cake.Sdk` bump, that is the same problem returning and the same shape of fix.
 
 ## Workflows
 

@@ -14,7 +14,7 @@ var unitTestsProject = "./tests/WrapCal.UnitTests/WrapCal.UnitTests.csproj";
 var functionalTestsProject = "./tests/WrapCal.FunctionalTests/WrapCal.FunctionalTests.csproj";
 var output = "./output";
 
-var functionalTestsBin = $"./tests/WrapCal.FunctionalTests/bin/{configuration}/net10.0";
+var functionalTestsBin = $"./tests/WrapCal.FunctionalTests/bin/{configuration}/net11.0";
 var playwrightDll = $"{functionalTestsBin}/Microsoft.Playwright.dll";
 var playwrightRuntimeConfig = $"{functionalTestsBin}/WrapCal.FunctionalTests.runtimeconfig.json";
 

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using MudBlazor;
+using WrapCal.Common;
 
 namespace WrapCal.Components.Layout;
 
@@ -48,7 +49,7 @@ public partial class MainLayout
         // the same script reads the cookies the boot script wrote. Read while initializing, not
         // after the first render, so the first frame is already right. Anything the browser cannot
         // answer yet — no cookie — leaves the defaults: System, drawn light.
-        ThemePreferences? preferences = await Js.InvokeAsync<ThemePreferences?>("wrapcalTheme.load");
+        ThemePreferences? preferences = await TryLoadPreferencesAsync();
 
         _choice = ParseChoice(preferences?.Choice);
         _systemIsDark = IsDark(preferences?.System);
@@ -72,7 +73,7 @@ public partial class MainLayout
     {
         // Recorded whichever mode is chosen: the next page load may well be in System mode, and
         // this is the only thing that lets it be drawn the right way round from the first frame.
-        await Js.InvokeVoidAsync("wrapcalTheme.rememberSystem", systemIsDark);
+        await TryInvokeVoidAsync("wrapcalTheme.rememberSystem", systemIsDark);
 
         if (_systemIsDark == systemIsDark)
         {
@@ -93,7 +94,49 @@ public partial class MainLayout
 
         // Written from the browser so the preference outlives this page. The theme itself already
         // changed in _choice, so the plan on screen survives.
-        await Js.InvokeVoidAsync("wrapcalTheme.set", choice.ToString().ToLowerInvariant());
+        await TryInvokeVoidAsync("wrapcalTheme.set", choice.ToString().ToLowerInvariant());
+    }
+
+    // Every JS call in this component has a fallback that is already what the page does when the
+    // browser has no answer: the defaults for the read, and for a write a preference that simply
+    // does not outlive the page — the theme on screen already changed in _choice either way. So
+    // the two ways a call fails, the runtime disconnecting under a navigation and a pending call
+    // cancelled by one, are reasons to keep the fallback rather than to raise an error bar over a
+    // page that still works.
+    private async Task<ThemePreferences?> TryLoadPreferencesAsync()
+    {
+        const string identifier = "wrapcalTheme.load";
+
+        try
+        {
+            return await Js.InvokeAsync<ThemePreferences?>(identifier);
+        }
+        catch (JSException ex)
+        {
+            JsInteropLog.Failure(identifier, ex);
+            return null;
+        }
+        catch (OperationCanceledException ex)
+        {
+            JsInteropLog.Failure(identifier, ex);
+            return null;
+        }
+    }
+
+    private async Task TryInvokeVoidAsync(string identifier, object argument)
+    {
+        try
+        {
+            await Js.InvokeVoidAsync(identifier, argument);
+        }
+        catch (JSException ex)
+        {
+            JsInteropLog.Failure(identifier, ex);
+        }
+        catch (OperationCanceledException ex)
+        {
+            JsInteropLog.Failure(identifier, ex);
+        }
     }
 
     private static ThemeChoice ParseChoice(string? value) => value switch
